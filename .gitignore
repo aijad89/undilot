@@ -57,3 +57,8 @@ Thumbs.db
 # note (asked for 2026-10-16) and the to-do list (asked for 2026-11-10).
 /last16.10.26.md
 /TODO.md
+
+# Dump sistem lama: data peribadi (nama, IC, alamat). Repo ini AWAM.
+/kraf_lama.sql
+*.sql
+!database/**/*.sql
