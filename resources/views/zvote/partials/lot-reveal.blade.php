@@ -107,11 +107,28 @@
     .lot-reveal.is-open .lr-env-seal { transform:translate(-50%,-50%) scale(0.4); opacity:0; }
     .lot-reveal.is-open .lr-env-card { opacity:1; transform:translateY(-16px); }
 
+    /* The hold before the roll. Three seconds of grey over the reveal, counting
+       down — the eye needs a moment to arrive before anything starts moving,
+       and a number says how long that moment is.
+
+       Positioned over .lot-reveal, which the rule above gives position:relative.
+       Built by script and never written into the HTML: a browser that never runs
+       the script must not be left with a grey panel nothing can dismiss. */
+    .lr-hold {
+        position:absolute; inset:0; z-index:3;
+        display:grid; place-items:center;
+        background:var(--ui-surface-2); border-radius:var(--ui-r);
+        font-size:4rem; font-weight:700; line-height:1;
+        color:var(--ui-muted); font-variant-numeric:tabular-nums;
+    }
+    .lr-hold-out { opacity:0; transition:opacity 0.35s ease; }
+
     /* Reduced motion: land on the answer, skip the performance entirely. */
     @media (prefers-reduced-motion: reduce) {
         .lr-flap, .lr-env-flap, .lr-env-seal, .lr-env-card { animation:none !important; transition:none !important; }
         .lr-env-flap, .lr-env-seal { display:none; }
         .lr-env-card { opacity:1; transform:none; }
+        .lr-hold { display:none; }
     }
 </style>
 @endpush
@@ -128,9 +145,17 @@
     const TOTAL = 4000;
     const LAND  = 340;  // lr-land in the stylesheet above
 
+    // The pause before anything moves. Pressing Confirm and seeing the lot used
+    // to happen inside a few frames on a fast machine — too quick for the eye to
+    // land on. Three seconds, counted down so the wait is legible rather than a
+    // frozen screen.
+    const HOLD = 3000;
+
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const settle  = () => root.classList.add('is-open');
 
+    // Straight to the answer: that preference asks for no performance, and three
+    // seconds of grey is performance.
     if (reduced) { settle(); return; }
 
     // The "Lot No." row of the details card prints the same code in plain text,
@@ -140,18 +165,49 @@
     // Hidden from script and not from CSS, deliberately: a browser that never
     // runs this file leaves the row visible, and that row is the whole reason
     // a failed animation costs nothing.
+    //
+    // HOLD + TOTAL, not TOTAL. The roll now starts three seconds late, so a
+    // timer still set to TOTAL would print the answer in plain text while the
+    // flaps are a second into spinning and three from landing.
     const spoiler = document.querySelector('strong[data-lot-code]');
     if (spoiler) {
         spoiler.style.opacity = '0';
         setTimeout(() => {
             spoiler.style.transition = 'opacity 0.4s ease';
             spoiler.style.opacity = '';
-        }, TOTAL);
+        }, HOLD + TOTAL);
     }
+
+    // The grey hold, built here rather than in the markup: a browser that never
+    // runs this file shows the reveal with no panel over it, which is the same
+    // harmless nothing a failed animation already costs.
+    const hold = document.createElement('div');
+    hold.className = 'lr-hold';
+    hold.setAttribute('role', 'status');
+    hold.setAttribute('aria-live', 'polite');
+    hold.textContent = String(HOLD / 1000);
+    root.appendChild(hold);
+
+    let left = HOLD / 1000;
+    const ticking = setInterval(() => {
+        left--;
+        if (left > 0) {
+            hold.textContent = String(left);
+        }
+    }, 1000);
+
+    // Everything below waits for the hold. `start` is the one place that knows
+    // the roll has begun, so neither style can drift from the other.
+    const start = (run) => setTimeout(() => {
+        clearInterval(ticking);
+        hold.classList.add('lr-hold-out');
+        setTimeout(() => hold.remove(), 400);
+        run();
+    }, HOLD);
 
     if (root.classList.contains('lot-reveal--envelope')) {
         // Sealed for the first half, opening through the second.
-        setTimeout(settle, TOTAL / 2);
+        start(() => setTimeout(settle, TOTAL / 2));
         return;
     }
 
@@ -167,7 +223,7 @@
     const last  = TOTAL - LAND;
     const landsAt = i => flaps.length < 2 ? last : first + (last - first) * i / (flaps.length - 1);
 
-    flaps.forEach((flap, i) => {
+    start(() => flaps.forEach((flap, i) => {
         const final = flap.dataset.final;
         if (final === '-') return;
 
@@ -182,7 +238,7 @@
             flap.textContent = final;
             flap.classList.add('is-set');
         }, landsAt(i));
-    });
+    }));
 })();
 </script>
 @endpush

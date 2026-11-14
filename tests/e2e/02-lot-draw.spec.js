@@ -121,6 +121,13 @@ test('two participants confirm, and each sees a lot of their own code revealed',
         await Promise.all([page.waitForNavigation(), page.getByRole('button', { name: /Confirm Lot/ }).click()]);
 
         await expect(page.locator('[data-lot-reveal]')).toBeVisible();
+
+        // The reveal holds grey for three seconds before anything rolls, so the
+        // eye has time to arrive. Asserted here because the hold is built by
+        // script: if it ever stopped being built, the lot would simply appear
+        // and every other assertion below would still pass.
+        await expect(page.locator('.lr-hold')).toBeVisible();
+        await expect(page.locator('.lr-hold')).toBeHidden({ timeout: 6000 });
         await expect(page.locator('strong[data-lot-code]')).toContainText(`-${code}`);
 
         const slip = await page.request.get(await page.locator('a', { hasText: 'Print Slip' }).getAttribute('href'));
