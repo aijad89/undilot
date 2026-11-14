@@ -107,6 +107,27 @@ class DemoScenarioSeeder extends Seeder
         $this->co['formula'] = $this->company('user.formula@demo.test', '=SUM(1+1) Kraf', 'Johor', 'TBPS');
     }
 
+    /**
+     * A distinct, realistic-looking IC per scenario row, derived from the email
+     * so it is the same on every reseed.
+     *
+     * Derived rather than random because a scenario row is referenced by test
+     * case number in a manual sheet, and an IC that changes each reseed makes
+     * every such reference stale. Derived rather than spelled out because these
+     * rows are added one at a time as test cases need them, and a parallel table
+     * of ICs would drift out of step with the calls below.
+     */
+    private function ic(string $email): string
+    {
+        // crc32 of the email: stable across PHP versions and machines, unlike
+        // a hash seeded per process.
+        $seed = crc32($email);
+
+        $born = \Carbon\CarbonImmutable::create(1960, 1, 1)->addDays($seed % 12000);
+
+        return $born->format('ymd').'-01-'.str_pad((string) ($seed % 10000), 4, '0', STR_PAD_LEFT);
+    }
+
     private function demoCompany(string $email): Company
     {
         return Company::whereHas('user', fn ($q) => $q->where('email', $email))->firstOrFail();
@@ -114,14 +135,22 @@ class DemoScenarioSeeder extends Seeder
 
     private function company(string $email, string $name, string $zone, ?string $code): Company
     {
+        $ic = $this->ic($email);
+
         $user = \App\Models\User::firstOrCreate(['email' => $email], [
             'name' => "Owner {$name}",
             'password' => \Illuminate\Support\Str::random(40),
             'phone' => '01'.random_int(10000000, 99999999),
-            'ic_number' => null,
+            'ic_number' => $ic,
             'community_id' => null,
             'is_active' => true,
         ]);
+
+        // Fills the blank on a re-run over rows seeded before the IC existed.
+        if (blank($user->ic_number)) {
+            $user->ic_number = $ic;
+            $user->save();
+        }
 
         $company = Company::firstOrCreate(['user_id' => $user->id], [
             'name' => $name,
