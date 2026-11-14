@@ -220,9 +220,25 @@ class Event extends Model
         };
     }
 
+    /**
+     * NAMES THE `public` DISK, because that is the one storeBanner() writes to.
+     *
+     * `Storage::url()` without a disk asks the DEFAULT one, which `.env` sets to
+     * `local` — a different directory (storage/app/private) that holds no
+     * banners. It got away with it because both disks answer at `/storage`, so
+     * the path came out right by coincidence rather than by being asked
+     * correctly.
+     *
+     * And the two answers are not the same string. The local disk has no `url`
+     * key, so it returns a ROOT-RELATIVE `/storage/banners/x.jpg`; the public
+     * disk builds on APP_URL and returns the whole thing. Served under a subpath
+     * like /undilotnew, the first points at the domain root and 404s — the exact
+     * failure the subpath rule exists to prevent, arriving through an `<img src>`
+     * rather than through a link.
+     */
     public function getBannerUrlAttribute(): ?string
     {
-        return $this->banner ? Storage::url($this->banner) : null;
+        return $this->banner ? Storage::disk('public')->url($this->banner) : null;
     }
 
     public function getStatusLabelAttribute(): string

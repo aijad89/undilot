@@ -30,10 +30,26 @@ return [
 
     'disks' => [
 
+        /*
+         * `serve` IS OFF, and Laravel ships it on.
+         *
+         * With it on, Laravel registers TWO routes at `/storage/{path}` for this
+         * disk — a GET that reads from storage/app/private and a PUT that WRITES
+         * there (`storage.local` and `storage.local.upload`). Both demand a URL
+         * signed with APP_KEY, so neither was a way in; but this application
+         * never touches the `local` disk at all — grep finds no `disk('local')`,
+         * no `temporaryUploadUrl` — so they were two doors onto a room nobody
+         * uses, one of which accepts writes.
+         *
+         * The GET also shadowed the banners. Banners live on the `public` disk
+         * and are served from public/storage, which is the SAME `/storage` URI;
+         * with no symlink present the request fell through to this route, which
+         * reads a different directory and answers 403 to anything unsigned.
+         */
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
