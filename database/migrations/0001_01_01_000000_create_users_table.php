@@ -37,6 +37,26 @@ return new class extends Migration
             $table->timestamp('last_seen_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
+
+            /*
+             * The two columns the office's own imports look rows up by.
+             *
+             * `import:participants` and `legacy:emails` both MATCH ON IC, and both
+             * load every participant to do it — the match is on IC normalised to
+             * digits, which no index can serve, but the reads around it are plain
+             * lookups that this does serve. `community_id` is the office's other
+             * handle on a person and is read the same way.
+             *
+             * INDEX, NOT UNIQUE, on `ic_number`, and that is a decision rather
+             * than caution. A unique index compares STRINGS, and the office writes
+             * the same IC two ways — `890508-12-0000` and `890508120000` — so it
+             * would admit exactly the duplicates it appears to forbid while
+             * rejecting nothing. The real uniqueness rule is "unique once reduced
+             * to digits", which the importers enforce in PHP, where they can also
+             * drop BOTH rows of a clash rather than pick one.
+             */
+            $table->index('ic_number');
+            $table->index('community_id');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

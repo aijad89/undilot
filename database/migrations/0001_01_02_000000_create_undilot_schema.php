@@ -361,6 +361,20 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['event_id', 'is_allocated']);
+
+            /*
+             * The lot code as it is printed on the booth and on the slip, so it is
+             * also what anybody looks a plot up by.
+             *
+             * NOT unique, and the reason is in the data: `legacy:transform-aacb`
+             * keeps the office's own `boothid` as `plot_code`, and those are
+             * unique within one event (`TBP01`, `KH01`) but repeat across events —
+             * every fair has a `TBP01`. Unique here would refuse the second event
+             * imported. A unique on (event_id, plot_code) would be true today and
+             * is still not added: nothing reads a plot by that pair, so it would
+             * be a constraint carried for its own sake.
+             */
+            $table->index('plot_code');
         });
 
         /* ── Who is in the draw ──────────────────────────────────────────── */
@@ -432,8 +446,25 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // One entry per company per event: one draw per event, and a company
-            // cannot be in the same draw twice.
+            /*
+             * One entry per company per event: one draw per event, and a company
+             * cannot be in the same draw twice.
+             *
+             * THIS ALSO SERVES EVERY BY-EVENT READ, which is why there is no
+             * separate index on `code` beside it. `PollingGuard` and
+             * `LotAllocator` both scan one event's rows grouped by code and booth
+             * size, and an `(event_id, code)` index was added for them and then
+             * MEASURED at 17,200 rows across twenty events: the planner chose this
+             * unique both times and the query took 1.56 ms without the extra index
+             * and 1.50 ms with it.
+             *
+             * The reason it cannot help is structural rather than a matter of
+             * size: `event_id` alone already narrows to one event, and the group
+             * is by `plot_size` too — which is in neither index — so the rows get
+             * read either way. Only a covering index over every column the query
+             * touches could change that, for a query that runs once when an admin
+             * asks whether a draw may open.
+             */
             $table->unique(['event_id', 'company_id']);
         });
 
