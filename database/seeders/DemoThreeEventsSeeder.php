@@ -147,7 +147,12 @@ class DemoThreeEventsSeeder extends Seeder
                 'plot_id' => null,
                 'confirmed_participation' => false,
                 'confirmed_at' => null,
-                'reminded_at' => null,
+                // `reminded_at` is NOT named here, and must not be: the model keeps
+                // it out of $fillable because the command that queues the close
+                // reminder is the only thing that stamps it. Seeders run inside
+                // Model::unguarded(), so naming it would have been written rather
+                // than refused — the guard that would catch this anywhere else in
+                // the app does not apply in here.
                 // HQ has done its check: PollingGuard holds a draw while any row
                 // waits, and first_verified_at is what stops the participant
                 // being told twice.

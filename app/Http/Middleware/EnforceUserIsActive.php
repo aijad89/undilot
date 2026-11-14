@@ -29,7 +29,18 @@ class EnforceUserIsActive
 {
     public function handle(Request $request, Closure $next)
     {
-        $user = $request->user();
+        // `user('web')`, not `user()`. The unnamed form resolves the DEFAULT
+        // guard, and this class enforces a column only `users` has — so once
+        // the default is `admin`, it reads `is_active` off an Admin. Outside
+        // production that is a 500 (preventAccessingMissingAttributes); in
+        // production the attribute is simply absent, which is falsy, so the
+        // branch below fires: it invalidates the session — ending the ADMIN's
+        // session, since there is only one — and redirects to the participant
+        // login saying their account has been deactivated.
+        //
+        // `TrackAdminLastSeen`, the twin on the other guard, already names
+        // `user('admin')`. This is that same line.
+        $user = $request->user('web');
 
         if ($user) {
             if (! $user->is_active || ($user->company && ! $user->company->is_active)) {

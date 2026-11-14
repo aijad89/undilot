@@ -199,7 +199,12 @@ it('runs a whole draw through the screens, from an empty event to everyone seate
         ->assertSessionHas('success');
 
     // One participant confirms for themselves.
-    $this->actingAs($companies[2]->user)
+    //
+    // THE GUARD IS NAMED, and has to be. actingAs() without one uses the DEFAULT
+    // guard, which the admin calls above switched to `admin` — so unnamed, this
+    // signs the participant in on the ADMIN guard and the confirm below runs
+    // with the wrong guard behind it, passing all the while.
+    $this->actingAs($companies[2]->user, 'web')
         ->post(route('zvote.submit', $event), ['agreement' => '1'])
         ->assertSessionHas('just_drawn');
 
@@ -220,7 +225,7 @@ it('runs a whole draw through the screens, from an empty event to everyone seate
 
     // And each participant sees their own lot.
     $lot = EventRegistration::where('company_id', $companies[0]->id)->sole()->plot->plot_code;
-    $this->actingAs($companies[0]->user)->get(route('dashboard'))->assertSee($lot);
+    $this->actingAs($companies[0]->user, 'web')->get(route('dashboard'))->assertSee($lot);
 });
 
 it('shows the lot page the same stages as the dashboard, Open to Completed', function () {

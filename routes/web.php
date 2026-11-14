@@ -43,7 +43,12 @@ Route::get('/events/{event}', [HomeController::class, 'show'])->name('events.sho
 
 /* ── Participant portal ──────────────────────────────────────────────────── */
 
-Route::middleware(['auth', 'user.active'])->group(function () {
+// `auth:web`, not `auth`. The unnamed form means "the default guard", which is
+// `web` — until something switches it, and then this whole group silently admits
+// the admin guard to the participant portal. The admin group below has always
+// said `auth:admin`; this is the same sentence on this side. An admin is a guest
+// here, which is the decision, and redirectGuestsTo sends them to the right form.
+Route::middleware(['auth:web', 'user.active'])->group(function () {
     Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
     Route::get('/past-events', [HomeController::class, 'pastEvents'])->name('past-events');
     Route::get('/past-events/{event}', [HomeController::class, 'pastEvent'])->name('past-events.show');
