@@ -136,8 +136,12 @@
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const settle  = () => root.classList.add('is-open');
 
-    // Straight to the answer: that preference asks for no performance, and three
-    // seconds of grey is performance.
+    // Straight to the answer: that preference asks for no performance, and the
+    // hold plus the roll is six seconds of it.
+    //
+    // Returning here also leaves the "Lot No." row below visible, because the
+    // line that hides it is further down — which is the right order: a reader
+    // who skips the animation keeps the plain text that carries the same code.
     if (reduced) { settle(); return; }
 
     // The "Lot No." row of the details card prints the same code in plain text,
