@@ -122,12 +122,12 @@ test('two participants confirm, and each sees a lot of their own code revealed',
 
         await expect(page.locator('[data-lot-reveal]')).toBeVisible();
 
-        // The reveal holds grey for three seconds before anything rolls, so the
-        // eye has time to arrive. Asserted here because the hold is built by
-        // script: if it ever stopped being built, the lot would simply appear
-        // and every other assertion below would still pass.
-        await expect(page.locator('.lr-hold')).toBeVisible();
-        await expect(page.locator('.lr-hold')).toBeHidden({ timeout: 6000 });
+        // The reveal sits still for three seconds before anything rolls, so the
+        // eye has time to arrive. Asserted because the hold leaves no mark of
+        // its own: drop it and the lot simply appears, with every assertion
+        // below still passing.
+        await expect(page.locator('.lr-flap.is-rolling').first()).toBeHidden({ timeout: 1000 });
+        await expect(page.locator('.lr-flap.is-rolling').first()).toBeVisible({ timeout: 6000 });
         await expect(page.locator('strong[data-lot-code]')).toContainText(`-${code}`);
 
         const slip = await page.request.get(await page.locator('a', { hasText: 'Print Slip' }).getAttribute('href'));
