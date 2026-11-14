@@ -130,8 +130,8 @@
 
     // The pause before anything moves. Pressing Confirm and seeing the lot used
     // to happen inside a few frames on a fast machine — too quick for the eye to
-    // land on. The reveal now arrives and sits still for three seconds first.
-    const HOLD = 3000;
+    // land on. The reveal now arrives and sits still for two seconds first.
+    const HOLD = 2000;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const settle  = () => root.classList.add('is-open');
@@ -148,7 +148,7 @@
     // runs this file leaves the row visible, and that row is the whole reason
     // a failed animation costs nothing.
     //
-    // HOLD + TOTAL, not TOTAL. The roll now starts three seconds late, so a
+    // HOLD + TOTAL, not TOTAL. The roll now starts HOLD late, so a
     // timer still set to TOTAL would print the answer in plain text while the
     // flaps are a second into spinning and three from landing.
     const spoiler = document.querySelector('strong[data-lot-code]');

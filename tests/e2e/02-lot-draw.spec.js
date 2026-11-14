@@ -122,7 +122,7 @@ test('two participants confirm, and each sees a lot of their own code revealed',
 
         await expect(page.locator('[data-lot-reveal]')).toBeVisible();
 
-        // The reveal sits still for three seconds before anything rolls, so the
+        // The reveal sits still for two seconds before anything rolls, so the
         // eye has time to arrive. Asserted because the hold leaves no mark of
         // its own: drop it and the lot simply appears, with every assertion
         // below still passing.
