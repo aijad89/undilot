@@ -453,13 +453,18 @@ Pada port tetap suite ini **berhenti bermula langsung** pada Windows, dan
 ralatnya menyalahkan benda yang salah: `Timed out waiting 180000ms from
 config.webServer`, sedangkan pelayan di atasnya sudah mencetak *Server running*.
 
-Diukur: **1,442 soket TIME_WAIT pada 8124 sahaja, 12,924 merentas mesin**,
-berbanding julat ephemeral **16,384**. Setiap poll kesediaan membuka sambungan
-baharu, Windows menahan setiap satu beberapa minit, dan larian menimbun. Sebaik
-4-tuple satu poll berlanggar dengan yang berlegar, SYN itu **digugurkan** dan
-bukan ditolak — jadi permintaan tergantung dan bukan gagal, dan semakan
-kesediaan Playwright tiada tamat masa per-permintaan, jadi satu poll tergantung
-memakan kesemua 180 saat.
+Diukur: **1,442 soket TIME_WAIT pada port 8124 sahaja**. Setiap poll kesediaan
+membuka sambungan baharu, Windows menahan setiap satu beberapa minit, dan
+larian menimbun pada port yang sama. Sebaik 4-tuple satu poll berlanggar dengan
+yang berlegar, SYN itu **digugurkan** dan bukan ditolak — jadi permintaan
+tergantung dan bukan gagal, dan semakan kesediaan Playwright tiada tamat masa
+per-permintaan, jadi satu poll tergantung memakan kesemua 180 saat.
+
+**Apa yang TIDAK terbukti:** kiraan TIME_WAIT seluruh mesin pernah mencecah
+16,735 berbanding julat ephemeral 16,384, dan pada ketika itu sambungan keluar
+masih berjaya (3/3 HTTP 200 di bawah 150ms). Jadi ini perlanggaran
+**per-port**, bukan kolam yang habis. Jangan tulis cerita kehabisan kolam di
+sini tanpa mengukurnya semula.
 
 Tandanya ada dalam `DEBUG=pw:webserver`: poll awal menjawab `ECONNREFUSED`
 dalam milisaat, kemudian satu baris `HTTP GET` duduk sendirian selama tiga
@@ -472,11 +477,52 @@ sendiri — menerbitkan port daripada pid sahaja memberi pekerja port **berbeza*
 daripada pelayan, dan setiap spek gagal dengan `net::ERR_ABORTED` terhadap port
 yang tiada sesiapa mendengar. `PLAYWRIGHT_PORT` masih menang bila ditetapkan.
 
-Baki kegoyahan: **tiga daripada lima larian penuh hijau sepenuhnya**; dua
-tersandung pada `01-smoke:29` (*every admin screen opens for a super admin*),
-ujian terpanjang. Pelayan `artisan serve` satu-benang, jadi itu kemungkinan
-tamat masa 30s dan bukan kecacatan produk — tetapi ia belum dibuktikan, jadi
-**baca kiraan `flaky`** dan jalankan lebih sekali.
+### Yatim daripada larian terganggu ialah enjin sebenar
+
+`serve.js` **menyapu yatim sebelum ia bermula**, dan itu bukan kebersihan — ia
+pembetulan. Bila larian terganggu keras (tamat masa pembungkus, Playwright
+terhempas, terminal ditutup) tiada isyarat tiba, dan pada Windows membunuh node
+tidak pernah mencapai cucu yang `shell: true` cipta. `artisan serve` dan
+`queue:work` terus hidup.
+
+Pekerja yang dilupakan **bukan melahu**: `--sleep=1` bermakna ia menyoal MySQL
+sekali **sesaat**, setiap satu sambungan baharu. Diukur: 4,328 TIME_WAIT ke
+`127.0.0.1:3306` daripada yatim, selain 1,442 pada port tetap itu sendiri.
+
+Dua perkara yang menggigit semasa membinanya:
+
+- **`child.pid` ialah pid SHELL, bukan PHP.** Merekod pid ke fail tidak
+  berguna: shell mati, PHP hidup dengan pid yang tiada siapa catat. Sapuan
+  memadan **baris arahan**, bukan pid.
+- **Laluan Windows tidak peka huruf besar; padanan string peka.** Node
+  menyelesaikan `F:\herd\undilot2026` sedangkan senarai proses mengeja
+  `F:\Herd\undilot2026`, jadi `includes()` memadan tiada apa dan sapuan
+  mengambil satu proses daripada tiga. Dibandingkan huruf kecil sekarang.
+- **`artisan serve` ialah penyelia.** Bunuh hanya router di bawahnya dan ia
+  memulakan yang baharu. Induk dicapai melalui anak, bukan dipadan terus —
+  argumen penyelia tidak menamakan projek, dan pembangun mungkin menjalankan
+  satu sendiri.
+
+### `--no-reload` + `PHP_CLI_SERVER_WORKERS`, bersama atau tiada langsung
+
+Tanpa `--no-reload`, artisan mengabaikan `PHP_CLI_SERVER_WORKERS` dan melayan
+**satu permintaan pada satu masa** — ia mencetak amaran dan teruskan. Satu
+permintaan pada satu masa salah untuk suite ini: spec mengklik sambil pekerja
+queue bercakap dengan MySQL, dan permintaan beratur di belakang satu sama lain
+sehingga `page.check` dan `page.selectOption` mencecah had 30s Playwright tanpa
+apa-apa sebenarnya rosak.
+
+Diukur sebelum dan selepas, lima larian penuh setiap satu:
+
+| | sebelum | selepas |
+|---|---|---|
+| larian hijau penuh | 3 / 5 | **4 / 5** |
+| masa larian berturut | merosot 40s → 1.8m | **tetap ~38s** |
+
+Memuat semula tiada nilai di sini: pelayan dihidupkan segar setiap larian dan
+kod tidak boleh berubah di bawahnya.
+
+**Tetap baca kiraan `flaky`.** Satu larian hijau masih bukan bukti.
 
 Log masuk dalam spec melalui `/auto` (berdaftar dalam `local`, `testing`, `e2e`
 sahaja) — tiada kata laluan ditaip. `@playwright/test` dipin pada versi yang
