@@ -35,6 +35,26 @@ class LotAllocator
             throw LotUnavailable::noAccount();
         }
 
+        // ONE LOT PER COMPANY PER EVENT, asked here rather than on one branch of
+        // the two below.
+        //
+        // This check used to live in takePreset() alone, so the drawn path had
+        // none: a registration whose `plot_id` had been cleared while its Poll
+        // survived was handed a SECOND lot, leaving two plots allocated to one
+        // company against a single Poll — silently, because firstOrCreate finds
+        // the existing row and writes nothing. Measured; the probe is now the
+        // first test in TheAllocatorHandsOutOneLotPerCompanyTest.
+        //
+        // No caller can reach that state today — removing a row that holds a lot
+        // is refused, unassignPlot deletes the Poll in the same transaction, the
+        // plan freezes once a lot is held, and `plot_id` has no ON DELETE so the
+        // database restricts. But that is four guards in three other files
+        // holding up a rule this class is supposed to own, and `polls` already
+        // carries a UNIQUE on (user_id, event_id) saying the same thing.
+        if ($this->alreadyDrawn($registration)) {
+            throw LotUnavailable::alreadyDrawn();
+        }
+
         $plot = $registration->plot_id
             ? $this->takePreset($registration)
             : $this->draw($registration);
@@ -86,22 +106,24 @@ class LotAllocator
             throw LotUnavailable::presetMissing();
         }
 
-        // is_allocated cannot say "already drawn": a preset reservation sets
-        // is_allocated and allocated_to at the moment it reserves, which is
-        // exactly the state an untouched reservation is in. Reading them that way
-        // refused every preset holder their own lot.
-        //
-        // Poll is the record that means it — written only in assign(), at the
-        // moment a lot changes hands, and never by a reservation.
-        $alreadyDrawn = Poll::where('user_id', $registration->user_id)
+        // "Already drawn" is asked in assign(), for both paths at once.
+        return $plot;
+    }
+
+    /**
+     * Has this account already drawn in this event?
+     *
+     * POLL, NOT `is_allocated`. A preset reservation sets `is_allocated` and
+     * `allocated_to` at the moment it reserves, which is exactly the state an
+     * untouched reservation is in — reading them that way refused every preset
+     * holder their own lot. Poll is written only in assign(), at the moment a lot
+     * changes hands, and never by a reservation.
+     */
+    private function alreadyDrawn(EventRegistration $registration): bool
+    {
+        return Poll::where('user_id', $registration->user_id)
             ->where('event_id', $registration->event_id)
             ->exists();
-
-        if ($alreadyDrawn) {
-            throw LotUnavailable::alreadyDrawn();
-        }
-
-        return $plot;
     }
 
     private function draw(EventRegistration $registration): Plot
