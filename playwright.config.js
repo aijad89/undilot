@@ -58,6 +58,27 @@ module.exports = defineConfig({
     retries: 1,
     reporter: 'list',
 
+    /*
+     * SIXTY SECONDS, UP FROM PLAYWRIGHT'S THIRTY, AND IT BUYS ONE THING ONLY:
+     * room for a slow server. It does not make a stuck test pass — a spec that
+     * is genuinely broken still fails, it just takes longer to say so.
+     *
+     * What was happening at thirty: `page.check` and `page.selectOption` hitting
+     * the limit with nothing actually wrong, and a DIFFERENT spec each run. That
+     * is the signature of a request queueing behind another, not of a defect —
+     * `artisan serve` is a development server sharing a machine with a queue
+     * worker, MySQL and Chromium, and a click that normally lands in under a
+     * second does not always get to.
+     *
+     * The measured runtime of a whole green run is about 38 seconds for
+     * twenty-one specs, so no healthy test is anywhere near either number. If a
+     * spec ever needs more than this, the spec is the problem.
+     *
+     * RAISING THIS IS NOT A FIX AND MUST NOT BE REPEATED. If flakiness returns,
+     * find what is slow — do not reach for ninety.
+     */
+    timeout: 60 * 1000,
+
     use: {
         baseURL: `http://127.0.0.1:${PORT}`,
         trace: 'on-first-retry',
