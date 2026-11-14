@@ -447,6 +447,37 @@ Jangan jalankan suite terhadap pelayan yang dihidupkan dengan tangan.
 `APP_ENV` lepas, `DB_DATABASE` tidak — larian pertama menghidang pangkalan data
 **dev**. `fixtures/run.php` menolak sebarang pangkalan data yang bukan `*_e2e`.
 
+### Port berputar setiap larian, dan itu pembetulan bukan hiasan
+
+Pada port tetap suite ini **berhenti bermula langsung** pada Windows, dan
+ralatnya menyalahkan benda yang salah: `Timed out waiting 180000ms from
+config.webServer`, sedangkan pelayan di atasnya sudah mencetak *Server running*.
+
+Diukur: **1,442 soket TIME_WAIT pada 8124 sahaja, 12,924 merentas mesin**,
+berbanding julat ephemeral **16,384**. Setiap poll kesediaan membuka sambungan
+baharu, Windows menahan setiap satu beberapa minit, dan larian menimbun. Sebaik
+4-tuple satu poll berlanggar dengan yang berlegar, SYN itu **digugurkan** dan
+bukan ditolak — jadi permintaan tergantung dan bukan gagal, dan semakan
+kesediaan Playwright tiada tamat masa per-permintaan, jadi satu poll tergantung
+memakan kesemua 180 saat.
+
+Tandanya ada dalam `DEBUG=pw:webserver`: poll awal menjawab `ECONNREFUSED`
+dalam milisaat, kemudian satu baris `HTTP GET` duduk sendirian selama tiga
+minit. Itu SYN digugurkan, bukan pelayan perlahan.
+
+`playwright.config.js` kini memilih port dalam julat 8200–8799 dan
+**menulisnya semula ke `process.env`**. Itu bahagian yang menggigit: config
+dinilai semula dalam setiap proses pekerja, dan pekerja ialah anak dengan pid
+sendiri — menerbitkan port daripada pid sahaja memberi pekerja port **berbeza**
+daripada pelayan, dan setiap spek gagal dengan `net::ERR_ABORTED` terhadap port
+yang tiada sesiapa mendengar. `PLAYWRIGHT_PORT` masih menang bila ditetapkan.
+
+Baki kegoyahan: **tiga daripada lima larian penuh hijau sepenuhnya**; dua
+tersandung pada `01-smoke:29` (*every admin screen opens for a super admin*),
+ujian terpanjang. Pelayan `artisan serve` satu-benang, jadi itu kemungkinan
+tamat masa 30s dan bukan kecacatan produk — tetapi ia belum dibuktikan, jadi
+**baca kiraan `flaky`** dan jalankan lebih sekali.
+
 Log masuk dalam spec melalui `/auto` (berdaftar dalam `local`, `testing`, `e2e`
 sahaja) — tiada kata laluan ditaip. `@playwright/test` dipin pada versi yang
 sepadan dengan Chromium dalam cache; menaikkannya bermakna memuat turun pelayar.
