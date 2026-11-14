@@ -263,7 +263,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         /*
-         * ┌─ THE VIEWS THAT READ $unreadNotificationCount. ADD A FOURTH HERE. ─┐
+         * ┌─ THE VIEWS THAT READ $unreadNotificationCount. ADD A THIRD HERE. ─┐
          *
          * Any view that starts reading `$unreadNotificationCount` MUST be named in
          * this list. A view that reads it without being listed gets an undefined
@@ -275,8 +275,14 @@ class AppServiceProvider extends ServiceProvider
          * that measured 53 queries on a twelve-row admin screen, for a value no
          * admin view displays at all. Scoping the list is what takes an admin page
          * to zero; memoising alone only takes it to one.
+         *
+         * The list cuts BOTH ways, which is why it is this short: `partials.portal-bar`
+         * sat here after its bell was removed, and the bar is included by both
+         * layouts/frontend and layouts/public — so every participant page and every
+         * public page ran the COUNT for a number nothing rendered. A name left on
+         * this list is a query per request; a name missing from it is a 500.
          */
-        View::composer(['dashboard', 'partials.portal-bar', 'notifications.index'], function ($view) {
+        View::composer(['dashboard', 'notifications.index'], function ($view) {
             $view->with('unreadNotificationCount', app('notifications.unread-count'));
         });
     }
