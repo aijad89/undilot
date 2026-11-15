@@ -141,6 +141,12 @@ class SettingController extends Controller
             return back()->with('error', 'That zone is still in use. Rename it or move its rows first.');
         }
 
+        // ManagedList::set() silently keeps a list it would empty, and this
+        // used to report "Zone removed." over a zone that was still there.
+        if (count(AdminZones::all()) === 1) {
+            return back()->with('error', 'The list needs at least one zone, so the last one stays.');
+        }
+
         AdminZones::set(array_values(array_diff(AdminZones::all(), [$data['zone']])));
 
         return back()->with('success', 'Zone removed.');
