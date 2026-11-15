@@ -859,7 +859,12 @@ class PollingController extends Controller
             }
 
             foreach ($batches as [$bidangId, $token, $count]) {
-                $key = $location.'|'.$token;
+                // Keyed on the label as PRINTED, not the raw location: codeFor()
+                // upper-cases and drops punctuation, so "Dewan A" and "DEWAN A."
+                // are two plan rows and one label. Keyed raw, each counted from
+                // 1 and two stalls carried DEWAN A-RKP1. The trailing number is
+                // cut so the audit row reads "DEWAN A-RKP" => 12.
+                $key = substr(Plot::codeFor($location, $token, 0), 0, -1);
                 $counters[$key] ??= 1;
 
                 for ($i = 0; $i < $count; $i++) {
@@ -889,7 +894,7 @@ class PollingController extends Controller
 
         AuditTrail::record('plots_generated', $event, null, [
             'plots' => count($rows),
-            // "DEWAN A|RKP" => 12 — the counter holds the NEXT number.
+            // "DEWAN A-RKP" => 12 — the counter holds the NEXT number.
             'per_code' => collect($counters)->map(fn ($next) => $next - 1)->all(),
         ]);
     }
