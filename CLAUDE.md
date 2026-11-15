@@ -323,6 +323,12 @@ string-lawan-FK, dan ia **sengaja dibiarkan**: itulah yang pengalokasi
 bandingkan, dan mengubahnya bermakna menulis semula pengalokasi dan bukan
 membawanya masuk utuh.
 
+Pengesahannya juga **sengaja longgar** (`'string', 'max:50'`, bukan
+`Rule::in` helaian pengekodan): kod berubah dari semasa ke semasa, dan baris
+yang membawa kod yang sudah ditarik balik atau dinamakan semula mesti masih
+boleh disimpan. Dropdown hanya menawarkan kod aktif; pelayan tidak menolak yang
+lain. Keputusan pemilik (2026-11-15) — jangan ketatkan.
+
 ### `event_registrations.plot_id` tiada klausa `ON DELETE`
 
 Jadi pangkalan data menyekat. Plot tidak boleh dipadam selagi satu entri cabutan
