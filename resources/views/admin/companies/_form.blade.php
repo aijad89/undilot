@@ -86,43 +86,56 @@
                    value="{{ $owner('email', 'email') }}" required maxlength="255">
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label class="mac-label" for="phone">Phone</label>
             <input type="text" id="phone" name="phone" class="mac-form-control"
                    value="{{ $owner('phone', 'phone') }}" maxlength="30">
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label class="mac-label" for="ic_number">IC number</label>
             <input type="text" id="ic_number" name="ic_number" class="mac-form-control"
                    value="{{ $owner('ic_number', 'ic_number') }}" placeholder="990101-01-1234">
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label class="mac-label" for="community_id">Community ID</label>
             <input type="text" id="community_id" name="community_id" class="mac-form-control"
                    value="{{ $owner('community_id', 'community_id') }}" maxlength="50">
         </div>
 
+        <div class="col-12">
+            <label class="mac-label" for="address">Address</label>
+            <textarea id="address" name="address" class="mac-form-control" rows="3" maxlength="500"
+                      autocomplete="street-address">{{ $owner('address', 'address') }}</textarea>
+        </div>
+    </div>
+
+    {{-- The password in a block of its own, its note under BOTH fields: under
+         one of them it was taller than its neighbour and pushed the grid out
+         of line. --}}
+    <h4 class="mac-card-title mt-4 pt-3 mb-3" style="border-top:1px solid var(--ui-sep);font-size:0.9375rem;">{{ $editing ? 'Reset password' : 'Password' }}</h4>
+    <div class="row g-3">
         <div class="col-md-6">
-            <label class="mac-label" for="password">
-                {{ $editing ? 'Reset password' : 'Password' }}
-            </label>
+            <label class="mac-label" for="password">{{ $editing ? 'New password' : 'Password' }}</label>
             <input type="password" id="password" name="password" class="mac-form-control" autocomplete="new-password">
-            <small class="mac-muted">
-                @if($editing)
-                    Leave empty to keep the current password.
-                @else
-                    Leave empty and the owner sets their own through "forgot password".
-                @endif
-                At least 8 characters, with a letter and a number.
-            </small>
         </div>
 
         <div class="col-md-6">
             <label class="mac-label" for="password_confirmation">Confirm password</label>
             <input type="password" id="password_confirmation" name="password_confirmation"
                    class="mac-form-control" autocomplete="new-password">
+        </div>
+
+        <div class="col-12 mt-1">
+            <small class="mac-muted">
+                @if($editing)
+                    Leave both empty to keep the current password.
+                @else
+                    Leave both empty and the owner sets their own through "forgot password".
+                @endif
+                At least 8 characters, with a letter and a number.
+            </small>
         </div>
 
         <div class="col-12">

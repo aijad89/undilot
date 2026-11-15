@@ -35,6 +35,7 @@ class UserFactory extends Factory
             // Dashed, as the Companies screen stores it.
             'ic_number' => fake()->unique()->numerify('######-##-####'),
             'community_id' => null,
+            'address' => null,
             'is_active' => true,
             'last_seen_at' => null,
             'remember_token' => Str::random(10),

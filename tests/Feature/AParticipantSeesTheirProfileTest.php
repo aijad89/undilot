@@ -18,15 +18,14 @@ function profileOwner(): Company
     return Company::factory()->create(['user_id' => $user->id, 'name' => 'Seramik Klang Studio', 'state' => 'Selangor', 'plot_size' => '3x6', 'kraf_code' => 'TTK']);
 }
 
-it('shows the account and company as the office keeps them, the IC number hidden but its last four', function () {
+it('shows the account and company as the office keeps them, the IC number in full', function () {
     $company = profileOwner();
 
     $this->actingAs($company->user, 'web')->get(route('profile'))
         ->assertOk()
-        ->assertSeeInOrder(['Your account', 'Siti Aminah', 'siti@kraf.test', '012-345 6789', '••••••-••-5678'])
+        ->assertSeeInOrder(['Your account', 'Siti Aminah', 'siti@kraf.test', '012-345 6789', '800101-14-5678'])
         ->assertSeeInOrder(['Your company', 'Seramik Klang Studio', 'Selangor', '3x6'])
         ->assertDontSee('Your company on record')
-        ->assertDontSee('800101')
         // The craft code is the office's, never shown to the participant.
         ->assertDontSee('TTK');
 });
@@ -72,4 +71,34 @@ it('stops guessing at the current password after six tries a minute', function (
     }
     $this->put(route('profile.password'), ['current_password' => 'lama1234', 'password' => 'baharu123', 'password_confirmation' => 'baharu123'])
         ->assertStatus(429);
+});
+
+it('stacks its three cards down one column: account, company, password', function () {
+    $this->actingAs(profileOwner()->user, 'web')->get(route('profile'))->assertOk()
+        ->assertSeeInOrder(['class="ap-profile-stack"', 'Your account', 'Your company', 'Change password'], false)
+        // The two side-by-side columns are gone, not just restyled.
+        ->assertDontSee('class="ap-dash-side"', false)
+        ->assertDontSee('ap-dash-grid ap-profile-grid', false);
+});
+
+it('shows the address the office keeps, its line breaks kept, or a dash when there is none', function () {
+    $company = profileOwner();
+    $company->user->update(['address' => "No. 3, Jalan Seramik,\n41000 Klang"]);
+
+    $this->actingAs($company->user, 'web')->get(route('profile'))->assertOk()
+        ->assertSeeInOrder(['Your account', 'IC number', 'Address', "No. 3, Jalan Seramik,\n41000 Klang", 'Your company'], false);
+
+    $company->user->update(['address' => null]);
+
+    $this->get(route('profile'))
+        ->assertSeeInOrder(['<dt>Address</dt>', '—', 'Your company'], false);
+});
+
+it('is as wide as every other portal page: the column sets no width of its own', function () {
+    $html = $this->actingAs(profileOwner()->user, 'web')->get(route('profile'))->getContent();
+
+    preg_match('/\.ap-profile-stack\s*\{([^}]*)\}/', $html, $rule);
+
+    expect($rule)->not->toBeEmpty()
+        ->and(preg_match('/\b(max-)?width\s*:/', $rule[1]))->toBe(0);
 });

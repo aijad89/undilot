@@ -28,6 +28,10 @@ return new class extends Migration
             // unique: the office has not said whether IDs are ever shared.
             $table->string('community_id', 50)->nullable();
 
+            // The owner's postal address, typed by the office. Free text: nothing
+            // reads it but a person, so there is nothing to split it into.
+            $table->text('address')->nullable();
+
             // Accounts are created by an admin, never self-registered, so there is
             // no verification step and no `email_verified_at`. Switching an account
             // off is what `is_active` is for, and EnforceUserIsActive turns that

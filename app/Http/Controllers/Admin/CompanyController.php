@@ -107,6 +107,7 @@ class CompanyController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'ic_number' => ['nullable', 'string', 'regex:/^\d{6}-\d{2}-\d{4}$/', 'unique:users,ic_number'],
             'community_id' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string', 'max:500'],
             // Optional. Blank means the office is not handing a password over in
             // person and the owner will set one through the reset flow.
             'password' => ['nullable', 'confirmed', Password::defaults()],
@@ -122,6 +123,7 @@ class CompanyController extends Controller
                 'phone' => $data['phone'] ?? null,
                 'ic_number' => $data['ic_number'] ?? null,
                 'community_id' => $data['community_id'] ?? null,
+                'address' => $data['address'] ?? null,
                 'is_active' => $request->boolean('account_active', true),
                 // A random password when none was typed, NOT a default one: a
                 // fallback password in tracked code is a password in git history
@@ -178,6 +180,7 @@ class CompanyController extends Controller
                 Rule::unique('users', 'ic_number')->ignore($user->id),
             ],
             'community_id' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string', 'max:500'],
             // Left blank on every ordinary save. Filled only when the office is
             // resetting the password for someone who cannot do it themselves.
             'password' => ['nullable', 'confirmed', Password::defaults()],
@@ -190,6 +193,7 @@ class CompanyController extends Controller
                 'phone' => $data['phone'] ?? null,
                 'ic_number' => $data['ic_number'] ?? null,
                 'community_id' => $data['community_id'] ?? null,
+                'address' => $data['address'] ?? null,
                 // Two switches, two facts. A company switched off is off the
                 // books; an account switched off cannot sign in, and
                 // EnforceUserIsActive ends the session of anyone already in.

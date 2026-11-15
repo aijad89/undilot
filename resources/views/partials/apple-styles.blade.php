@@ -290,8 +290,9 @@ a.ap-todo-info:hover { color: var(--ui-blue-text); }
 .ap-photo-name { display: block; padding: 10px 14px; font-size: 0.875rem; font-weight: 600; }
 @media (max-width: 576px) { .ap-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 
-/* The profile: facts and the password form beside the record, half and half. */
-.ap-profile-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 0; }
+/* The profile: three cards down one column, as wide as every other portal
+   page — no narrower column of its own. */
+.ap-profile-stack { display: grid; gap: 16px; }
 .ap-field { margin-bottom: 16px; }
 .ap-field-hint { margin: 6px 0 0; font-size: 0.875rem; color: var(--ui-muted); }
 .ap-field-error { margin: 6px 0 0; font-size: 0.875rem; font-weight: 600; color: var(--ui-bad-text); }
