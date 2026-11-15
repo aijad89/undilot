@@ -163,8 +163,8 @@
 
         <select name="code" class="mac-select" aria-label="Filter by craft code">
             <option value="">All codes</option>
-            @foreach($codes as $code)
-                <option value="{{ $code->code }}" @selected(request('code') === $code->code)>{{ $code->code }}</option>
+            @foreach($filterCodes as $filterCode)
+                <option value="{{ $filterCode }}" @selected(request('code') === $filterCode)>{{ $filterCode }}</option>
             @endforeach
         </select>
 
@@ -179,6 +179,13 @@
 
         @if(request()->hasAny(['search', 'code', 'status']))
             <a href="{{ route('admin.events.registrations.index', $event) }}" class="mac-clear-btn">Clear</a>
+        @endif
+
+        @if($filtered)
+            <span class="mac-badge mac-badge-gray align-self-center" id="filter-count"
+                  title="Rows matching the filter, of the rows on this list">
+                {{ $registrations->total() }} / {{ $listTotal }}
+            </span>
         @endif
     </form>
 
@@ -323,7 +330,7 @@
 
                                 <td class="text-end">
                                     @if($isHq && ! $codeFrozen)
-                                        <details class="d-inline-block text-start mb-1">
+                                        <details class="mac-pop d-inline-block text-start mb-1">
                                             <summary class="mac-text-sm">Return</summary>
                                             <form method="POST" action="{{ route('admin.events.registrations.return', [$event, $registration]) }}" class="d-flex gap-1 mt-1">
                                                 @csrf
@@ -336,7 +343,7 @@
                                     @endif
                                     {{-- Told it is in: only HQ takes it out, and says why. --}}
                                     @if($registration->first_verified_at && $isHq)
-                                        <details class="d-inline-block text-start">
+                                        <details class="mac-pop d-inline-block text-start">
                                             <summary class="mac-text-sm">Remove</summary>
                                             <form method="POST" action="{{ route('admin.events.registrations.destroy', [$event, $registration]) }}" class="d-flex gap-1 mt-1">
                                                 @csrf
@@ -388,6 +395,9 @@
                         <select id="bulk-action" name="action" class="mac-select" required>
                             @if($isHq)
                             <option value="verify">Verify</option>
+                            @unless($codeFrozen)
+                            <option value="return">Return to the zone</option>
+                            @endunless
                             @endif
                             @unless($codeFrozen)
                             <option value="set_code">Set craft code</option>
@@ -424,12 +434,21 @@
                     </div>
                 </div>
 
+            {{-- Each shown only for its own action (the script below); both are
+                 in the markup, so the form still works with no script at all. --}}
             @if($isHq)
-            <div class="mt-3">
+            <div class="mt-3" data-bulk-for="remove">
                 <label class="mac-label" for="bulk-reason">Reason for removing</label>
                 <input type="text" id="bulk-reason" name="removal_reason" class="mac-form-control" maxlength="1000"
                        placeholder="Needed for companies already told they are in; sent to them">
             </div>
+            @unless($codeFrozen)
+            <div class="mt-3" data-bulk-for="return">
+                <label class="mac-label" for="bulk-note">Note to the zone</label>
+                <input type="text" id="bulk-note" name="hq_note" class="mac-form-control" maxlength="1000"
+                       placeholder="What the zone should fix">
+            </div>
+            @endunless
             @endif
             <p class="mac-muted mac-text-sm mt-2 mb-0">
                 A row holding a lot is kept, whatever is ticked. Withdraw the lot first.
@@ -449,6 +468,24 @@ document.addEventListener('DOMContentLoaded', function () {
         all.addEventListener('change', function () {
             document.querySelectorAll('.tick-row').forEach(box => { box.checked = all.checked; });
         });
+    }
+
+    // The reason and the note belong to Remove and Return alone. Hidden for
+    // any other action, and required while shown for Return, whose note the
+    // server insists on.
+    const action = document.getElementById('bulk-action');
+
+    if (action) {
+        const sync = function () {
+            document.querySelectorAll('[data-bulk-for]').forEach(field => {
+                const shown = field.dataset.bulkFor === action.value;
+                field.hidden = ! shown;
+                field.querySelector('input').required = shown && action.value === 'return';
+            });
+        };
+
+        action.addEventListener('change', sync);
+        sync();
     }
 });
 </script>

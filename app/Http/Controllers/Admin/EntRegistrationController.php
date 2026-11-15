@@ -113,6 +113,24 @@ class EntRegistrationController extends Controller
             'isHq' => $admin->can('verify-draw-list'),
             'codeFrozen' => $this->codeFrozen($event),
             'zoneLocked' => $this->zoneLocked($request, $event),
+            // "12 / 200" beside the filter: rows matching it, of the rows this
+            // admin's list holds. filled(), not has(): the form posts every
+            // field, blank ones included, and blank is no filter.
+            'filtered' => collect(['search', 'code', 'status'])->contains(fn ($field) => $request->filled($field)),
+            'listTotal' => $scoped($event->registrations())->count(),
+            // The filter offers only codes some row in view carries — a code
+            // nobody on this list holds can only filter to an empty table. The
+            // one being filtered on stays, so the dropdown shows what is applied.
+            'filterCodes' => $scoped($event->registrations())
+                ->whereNotNull('event_registrations.code')
+                ->where('event_registrations.code', '!=', '')
+                ->distinct()
+                ->pluck('event_registrations.code')
+                ->push($request->input('code'))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values(),
             'waitingCount' => $scoped($event->registrations()->whereNull('verified_at')->whereNull('hq_note'))->count(),
             'codes' => KrafPicker::codes(),
             'plotSizes' => PlotSizes::all(),
@@ -455,14 +473,26 @@ class EntRegistrationController extends Controller
         EventVisibility::authorize($event);
 
         if ($this->codeFrozen($event)) {
-            return back()->with('error', 'The draw has started: a row can no longer go back to its zone.');
+            return back()->with('error', self::RETURN_FROZEN);
         }
 
         $data = $request->validate(['hq_note' => ['required', 'string', 'max:1000']]);
 
-        $registration->update($data + ['verified_at' => null]);
+        $this->returnRow($registration, $data['hq_note']);
 
         return back()->with('success', "{$registration->company->name} returned to its zone.");
+    }
+
+    private const RETURN_FROZEN = 'The draw has started: a row can no longer go back to its zone.';
+
+    /**
+     * Send one row back to its zone with what to fix: unverified, so the draw
+     * cannot open on it. Through the model, so `Auditable` records it — the
+     * single return and the bulk one both come here.
+     */
+    private function returnRow(EventRegistration $registration, string $note): void
+    {
+        $registration->update(['hq_note' => $note, 'verified_at' => null]);
     }
 
     /**
@@ -510,16 +540,23 @@ class EntRegistrationController extends Controller
         EventVisibility::authorize($event);
 
         $data = $request->validate([
-            'action' => ['required', Rule::in(['remove', 'set_code', 'set_size', 'verify'])],
+            'action' => ['required', Rule::in(['remove', 'set_code', 'set_size', 'verify', 'return'])],
             'registration_id' => ['required', 'array', 'min:1'],
             'registration_id.*' => ['integer'],
             'code' => ['required_if:action,set_code', 'nullable', 'string', 'max:50'],
             'plot_size' => ['required_if:action,set_size', 'nullable', Rule::in(PlotSizes::all())],
             'removal_reason' => ['nullable', 'string', 'max:1000'],
+            'hq_note' => ['required_if:action,return', 'nullable', 'string', 'max:1000'],
         ]);
 
         $admin = $request->user('admin');
         abort_if($data['action'] === 'verify' && ! $admin->can('verify-draw-list'), 403, 'Only HQ verifies the draw list.');
+        // The single Return is gated on its route; the bulk one asks here.
+        abort_if($data['action'] === 'return' && ! $admin->can('verify-draw-list'), 403, 'Only HQ returns rows to a zone.');
+
+        if ($data['action'] === 'return' && $this->codeFrozen($event)) {
+            return back()->with('error', self::RETURN_FROZEN);
+        }
 
         $rows = $event->registrations()
             ->whereIn('id', $data['registration_id'])
@@ -562,6 +599,14 @@ class EntRegistrationController extends Controller
             DB::transaction(fn () => $rows->each(fn ($r) => $this->verify($r)));
 
             return back()->with('success', "{$rows->count()} verified.");
+        }
+
+        if ($data['action'] === 'return') {
+            DB::transaction(fn () => $rows->each(fn ($r) => $this->returnRow($r, $data['hq_note'])));
+
+            return back()->with('success', $rows->count() === 1
+                ? '1 returned to its zone.'
+                : "{$rows->count()} returned to their zones.");
         }
 
         if ($this->codeFrozen($event)) {

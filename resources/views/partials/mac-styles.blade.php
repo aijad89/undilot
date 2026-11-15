@@ -281,6 +281,25 @@
     .draw-band-facts { flex: 0 1 auto; display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0; padding-left: 32px; border-left: 1px solid var(--ui-sep); }
     .draw-band-facts dt { font-size: 0.8125rem; font-weight: 500; color: var(--ui-muted); }
     .mac-cell { display: contents; }
+
+    /* ── Row action that opens a small form ──────── */
+    /* Return, Remove, Edit: a <details class="mac-pop"> in a table row. Opened,
+       its form FLOATS over the rows below instead of sitting in the Actions
+       cell. In the cell it widened the column: the table outgrew its card, the
+       button was pushed against the card's edge half out of sight, and every
+       other column squeezed until company names broke letter by letter. The
+       last rows open upward — the table's scroller would clip a form hanging
+       past its bottom. */
+    .mac-pop { position: relative; }
+    .mac-pop > summary { cursor: pointer; white-space: nowrap; }
+    .mac-pop > form {
+        position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+        width: max-content; max-width: min(22rem, 80vw); padding: 8px;
+        background: var(--ui-surface); border: 1px solid var(--ui-border);
+        border-radius: var(--ui-r-lg); box-shadow: var(--ui-shadow-2);
+    }
+    .mac-table tbody tr:nth-last-child(-n+2):not(:first-child) .mac-pop > form { top: auto; bottom: calc(100% + 4px); }
+    .mac-pop > form > input[type="text"] { min-width: 14rem !important; }
     .draw-band-facts dd { font-variant-numeric: tabular-nums; margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--ui-text); letter-spacing: -0.01em; }
     @media (max-width: 767.98px) {
         .draw-band { padding: 18px; }
@@ -293,6 +312,12 @@
        each cell a label/value line; the labels come from the header (the
        script below), so no view has to annotate its cells. */
     @media (max-width: 767.98px) {
+        /* A phone row is already a card with room to spare: the form stays in
+           it, the field takes a line and its worded button the next. */
+        .mac-pop { display: block !important; margin-bottom: 6px; }
+        .mac-pop > form { position: static; width: auto; max-width: none; padding: 0; margin-top: 6px; border: 0; box-shadow: none; background: none; flex-wrap: wrap; }
+        .mac-pop > form > :is(input, select) { flex: 1 1 100%; min-width: 0 !important; }
+        .mac-pop > form > .mac-action-btn { flex: 1 1 100%; justify-content: center; }
         .mac-table thead { display: none; }
         .mac-table, .mac-table tbody { display: block; width: 100%; }
         .mac-table tbody tr { display: block; margin: 0 0 10px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-r-lg); }

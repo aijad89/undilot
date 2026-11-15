@@ -161,7 +161,7 @@
                                     @endif
                                 @else
                                     @unless($codeFrozen)
-                                        <details class="d-inline-block text-start mb-1">
+                                        <details class="mac-pop d-inline-block text-start mb-1">
                                             <summary class="mac-text-sm">Edit</summary>
                                             <form method="POST" action="{{ route('admin.events.registrations.update', [$event, $registration]) }}" class="d-flex gap-1 mt-1">
                                                 @csrf
@@ -193,7 +193,7 @@
 
                                     {{-- Told it is in: only HQ takes it out, and says why. --}}
                                     @if($registration->first_verified_at && $isHq)
-                                        <details class="d-inline-block text-start">
+                                        <details class="mac-pop d-inline-block text-start">
                                             <summary class="mac-text-sm">Remove</summary>
                                             <form method="POST" action="{{ route('admin.events.registrations.destroy', [$event, $registration]) }}" class="d-flex gap-1 mt-1">
                                                 @csrf

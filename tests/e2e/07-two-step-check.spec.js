@@ -105,6 +105,62 @@ test('HQ verifies it', async ({ page }) => {
     await expect(row(page)).toContainText('Verified');
 });
 
+test('HQ opens Remove and its form floats over the rows, the table still inside its card', async ({ page }) => {
+    // Opened in the Actions cell, this form used to widen the column: the table
+    // outgrew its card and the button sat half past the card's edge. It floats
+    // now (`.mac-pop`); on a phone it stacks inside the row's card.
+    await signInAs(page, HQ);
+
+    for (const size of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
+        await page.setViewportSize(size);
+        await page.goto(drawList());
+
+        await row(page).locator('summary', { hasText: 'Remove' }).click();
+        const button = row(page).locator('button[title="Remove from the draw list"]');
+        await expect(button).toBeVisible();
+        await button.scrollIntoViewIfNeeded();
+
+        const fits = await page.locator('.table-responsive:has(th:text-is("HQ check"))')
+            .evaluate((box) => box.scrollWidth <= box.clientWidth);
+        expect(fits, `at ${size.width}px the open Remove form widened the table`).toBe(true);
+
+        // Inside the card, and nothing over it: the middle of the button is the button.
+        const reachable = await button.evaluate((btn) => {
+            const r = btn.getBoundingClientRect();
+            const card = btn.closest('.table-responsive').getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return r.left >= card.left && r.right <= card.right + 0.5 && !!hit && btn.contains(hit);
+        });
+        expect(reachable, `at ${size.width}px the Remove button is clipped or covered`).toBe(true);
+    }
+});
+
+test('the ticked-rows card shows the reason for Remove and the note for Return, and neither otherwise', async ({ page }) => {
+    await signInAs(page, HQ);
+    await page.goto(drawList());
+
+    const reason = page.locator('#bulk-reason');
+    const note = page.locator('#bulk-note');
+
+    for (const [action, reasonShown, noteShown] of [
+        ['verify', false, false],
+        ['set_code', false, false],
+        ['remove', true, false],
+        ['return', false, true],
+        ['set_size', false, false],
+    ]) {
+        await page.selectOption('#bulk-action', action);
+        await expect(reason, `reason with ${action}`).toBeVisible({ visible: reasonShown });
+        await expect(note, `note with ${action}`).toBeVisible({ visible: noteShown });
+    }
+
+    // Required while it is shown for Return, which the server insists on; not otherwise.
+    await page.selectOption('#bulk-action', 'return');
+    expect(await note.evaluate((input) => input.required)).toBe(true);
+    await page.selectOption('#bulk-action', 'remove');
+    expect(await note.evaluate((input) => input.required)).toBe(false);
+});
+
 test('the zone can no longer take it off the list, and the participant sees the draw', async ({ page }) => {
     await signInAs(page, ZONE);
     await page.goto(drawList());

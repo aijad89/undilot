@@ -134,6 +134,63 @@ it('unverifies a row HQ returns to its zone, so the draw cannot open on it', fun
         ->hq_note->toBe('Semak resit.');
 });
 
+it('returns ticked rows to their zones in one step, each unverified with HQ\'s note', function () {
+    $event = draftDraw();
+    $rows = [listRow($event, 'Johor'), listRow($event, 'Kedah')];
+    $kept = listRow($event, 'Johor');
+
+    $this->actingAs(hqAdmin(), 'admin')
+        ->post(route('admin.events.registrations.bulk', $event), [
+            'action' => 'return', 'registration_id' => array_map(fn ($r) => $r->id, $rows), 'hq_note' => 'Semak resit.',
+        ])
+        ->assertSessionHas('success', '2 returned to their zones.');
+
+    foreach ($rows as $row) {
+        expect($row->fresh())->verified_at->toBeNull()->hq_note->toBe('Semak resit.');
+    }
+
+    expect($kept->fresh())->verified_at->not->toBeNull()->hq_note->toBeNull();
+});
+
+it('refuses a bulk return without a note, from a zone, or once the draw has started', function () {
+    $event = draftDraw();
+    $row = listRow($event);
+    $return = fn (array $extra = []) => $this->post(route('admin.events.registrations.bulk', $event),
+        $extra + ['action' => 'return', 'registration_id' => [$row->id], 'hq_note' => 'Semak resit.']);
+
+    $this->actingAs(hqAdmin(), 'admin');
+    $return(['hq_note' => ''])->assertSessionHasErrors('hq_note');
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Johor'), 'admin');
+    $return()->assertForbidden();
+
+    auth()->forgetGuards();
+    $event->update(['polling_status' => 'polling']);
+    $this->actingAs(hqAdmin(), 'admin');
+    $return()->assertSessionHas('error');
+
+    expect($row->fresh())->verified_at->not->toBeNull()->hq_note->toBeNull();
+});
+
+it('offers the bulk Return to HQ alone, and only while the draw is a draft', function () {
+    $draft = draftDraw();
+    listRow($draft);
+    $running = Event::factory()->create(['status' => 'open', 'polling_status' => 'polling']);
+    listRow($running);
+    $option = '<option value="return">Return to the zone</option>';
+
+    $this->actingAs(hqAdmin(), 'admin');
+    $this->get(route('admin.events.registrations.index', $draft))
+        ->assertSee($option, false)->assertSee('name="hq_note"', false);
+    $this->get(route('admin.events.registrations.index', $running))->assertDontSee($option, false);
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Johor'), 'admin')
+        ->get(route('admin.events.registrations.index', $draft))
+        ->assertDontSee($option, false);
+});
+
 it('clears HQ\'s note when HQ verifies the row', function () {
     $event = draftDraw();
     $row = listRow($event, 'Johor', ['verified_at' => null, 'hq_note' => 'Semak resit.']);
