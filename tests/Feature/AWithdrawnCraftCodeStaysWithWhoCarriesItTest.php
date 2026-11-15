@@ -180,6 +180,31 @@ it('keeps a withdrawn code on a draw-list row through a save that changes only i
         ->plot_size->toBe('3x6');
 });
 
+it('keeps a booth size no longer on the list through a save that changes only the code', function () {
+    // The same card, the other select: a size dropped from the list before
+    // the Dropdown Lists screen refused that (ADropdownListKeepsValuesStillInUseTest).
+    KrafBidang::factory()->code('RKP')->create();
+    App\Support\PlotSizes::set(['3x3', '3x6']);
+
+    $company = companyCarrying(null);
+    $company->plot_size = '3x9';
+    $company->save();
+
+    $page = $this->actingAs(superAdmin(), 'admin')
+        ->get(route('admin.companies.edit', $company))
+        ->getContent();
+
+    $size = browserPosts($page, '<select id="plot_size" name="plot_size"');
+
+    $this->put(route('admin.companies.kraf-code.update', $company),
+        array_filter(['kraf_code' => 'RKP', 'plot_size' => $size], fn ($v) => $v !== null))
+        ->assertSessionHasNoErrors();
+
+    expect($company->fresh())
+        ->kraf_code->toBe('RKP')
+        ->plot_size->toBe('3x9');
+});
+
 it('keeps a withdrawn code on a company through a save that changes only its booth', function () {
     withdrawn('TBPS');
     $company = companyCarrying('TBPS');

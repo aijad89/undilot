@@ -339,10 +339,11 @@ class CompanyController extends Controller
         $this->authorizeScope($request, $company);
 
         $allowed = KrafPicker::codes()->pluck('code')->push($company->kraf_code)->filter()->all();
+        $sizes = array_filter([...PlotSizes::all(), $company->plot_size]);
 
         $data = $request->validate([
             'kraf_code' => ['nullable', Rule::in($allowed)],
-            'plot_size' => ['nullable', Rule::in(PlotSizes::all())],
+            'plot_size' => ['nullable', Rule::in($sizes)],
         ]);
 
         // Neither is fillable: both are admin-only. The booth size also moves the

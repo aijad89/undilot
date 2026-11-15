@@ -83,6 +83,28 @@ class SettingController extends Controller
      * and refuses an empty result, so a cleared box cannot empty a dropdown the
      * forms depend on.
      */
+    /**
+     * Every column holding a value from each textarea list, as table => column.
+     * A value still held by any of them cannot be dropped from its list.
+     */
+    private const LIST_COLUMNS = [
+        'plot_sizes' => [
+            'event_registrations' => 'plot_size',
+            'companies' => 'plot_size',
+            'plot_sizes' => 'size',
+        ],
+        'entrepreneur_categories' => [
+            'companies' => 'entrepreneur_category',
+        ],
+    ];
+
+    /**
+     * Save a textarea list — refused whole if it would drop a value rows still
+     * hold. Every dropdown is built from the list, so a dropped value stops
+     * being offered while rows carry it: a company form then opens on "None"
+     * and the next save blanks the category. Zones refuse the same thing in
+     * destroyZone(); this was the door without the guard.
+     */
     public function updateList(Request $request, string $list)
     {
         abort_unless(isset(self::LISTS[$list]), 404);
@@ -90,7 +112,34 @@ class SettingController extends Controller
         $data = $request->validate(['values' => ['required', 'string']]);
 
         $class = self::LISTS[$list];
-        $class::set(preg_split('/\R/', $data['values']) ?: []);
+        $values = preg_split('/\R/', $data['values']) ?: [];
+
+        // Case-insensitive, as ManagedList and MySQL both are: re-casing a
+        // value is not dropping it.
+        $kept = array_map(fn ($v) => mb_strtolower(trim($v)), $values);
+        $inUse = [];
+
+        foreach ($class::all() as $current) {
+            if (in_array(mb_strtolower(trim($current)), $kept, true)) {
+                continue;
+            }
+
+            $rows = 0;
+            foreach (self::LIST_COLUMNS[$list] as $table => $column) {
+                $rows += DB::table($table)->where($column, $current)->count();
+            }
+
+            if ($rows > 0) {
+                $inUse[] = "{$current} ({$rows} ".($rows === 1 ? 'row' : 'rows').')';
+            }
+        }
+
+        if ($inUse) {
+            return back()->with('error', 'Not saved: still in use — '.implode(', ', $inUse)
+                .'. Move those rows to another value first.');
+        }
+
+        $class::set($values);
 
         return back()->with('success', 'List saved.');
     }

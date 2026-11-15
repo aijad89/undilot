@@ -54,9 +54,11 @@
                 @foreach($plotSizes as $size)
                     <option value="{{ $size }}" @selected($company->plot_size === $size)>{{ $size }}</option>
                 @endforeach
-                {{-- A size since removed from the list stays visible rather than reading as "None". --}}
+                {{-- A size since removed from the list stays visible AND submittable,
+                     for the reason the code option above is: a disabled option is not
+                     posted, and saving the code would have blanked the size. --}}
                 @if($company->plot_size && ! in_array($company->plot_size, $plotSizes, true))
-                    <option value="{{ $company->plot_size }}" selected disabled>{{ $company->plot_size }} (no longer on the list)</option>
+                    <option value="{{ $company->plot_size }}" selected>{{ $company->plot_size }} (no longer on the list)</option>
                 @endif
             </select>
         </div>
