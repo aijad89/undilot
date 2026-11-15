@@ -329,6 +329,15 @@
                                 </td>
 
                                 <td class="text-end">
+                                    @php($missing = $registration->missingDetails())
+                                    @if($missing)
+                                        <div class="mb-1">
+                                            <span class="mac-badge mac-badge-orange text-nowrap missing-count"
+                                                  title="Missing: {{ implode(', ', $missing) }}">
+                                                {{ count($missing) }} missing
+                                            </span>
+                                        </div>
+                                    @endif
                                     @if($isHq && ! $codeFrozen)
                                         <details class="mac-pop d-inline-block text-start mb-1">
                                             <summary class="mac-text-sm">Return</summary>

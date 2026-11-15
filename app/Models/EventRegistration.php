@@ -117,6 +117,29 @@ class EventRegistration extends Model
         });
     }
 
+    /** What the office still has to fill in on this row, in the order the list shows it. */
+    private const DETAILS = [
+        'payment_note' => 'payment note',
+        'code' => 'craft code',
+        'plot_size' => 'booth size',
+    ];
+
+    /**
+     * The details this row is still missing, as labels — empty when complete.
+     * The draw list counts them in the Actions column ("2 missing"), so a zone
+     * sees at a glance which rows are not ready for HQ.
+     *
+     * @return array<int, string>
+     */
+    public function missingDetails(): array
+    {
+        return array_values(array_filter(
+            self::DETAILS,
+            fn (string $column) => blank($this->getAttribute($column)),
+            ARRAY_FILTER_USE_KEY,
+        ));
+    }
+
     /**
      * The participant has been told it is in: HQ verified it once. Stays so
      * while a zone edit waits for HQ again — a company already told it is in
