@@ -37,9 +37,13 @@
                         {{ $code->code }} — {{ $code->name }}
                     </option>
                 @endforeach
-                {{-- A code since retired stays visible rather than silently reading as "None". --}}
+                {{-- A code since retired stays visible AND submittable. NOT `disabled`:
+                     a browser does not post a disabled option even when it is
+                     selected, so the field went missing and saving the booth size
+                     blanked the code — the opposite of "rows already carrying it
+                     keep it". updateKrafCode() accepts the company's own code. --}}
                 @if($company->kraf_code && ! $codes->contains('code', $company->kraf_code))
-                    <option value="{{ $company->kraf_code }}" selected disabled>{{ $company->kraf_code }} (no longer on the coding sheet)</option>
+                    <option value="{{ $company->kraf_code }}" selected>{{ $company->kraf_code }} (no longer on the coding sheet)</option>
                 @endif
             </select>
         </div>

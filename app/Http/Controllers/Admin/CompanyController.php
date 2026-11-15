@@ -329,14 +329,19 @@ class CompanyController extends Controller
     /**
      * The company's usual craft code — admin only, never shown to the participant.
      * Not in Company::$fillable, so nothing the participant posts can reach it.
-     * Only an active code on the coding sheet, or blank to clear.
+     * Only an active code on the coding sheet, or blank to clear — or the code
+     * the company ALREADY carries, even if withdrawn since. Withdrawing promises
+     * that rows carrying a code keep it; refusing it here would turn every save
+     * of this card (a booth-size change, say) into a forced re-coding.
      */
     public function updateKrafCode(Request $request, Company $company)
     {
         $this->authorizeScope($request, $company);
 
+        $allowed = KrafPicker::codes()->pluck('code')->push($company->kraf_code)->filter()->all();
+
         $data = $request->validate([
-            'kraf_code' => ['nullable', Rule::in(KrafPicker::codes()->pluck('code')->all())],
+            'kraf_code' => ['nullable', Rule::in($allowed)],
             'plot_size' => ['nullable', Rule::in(PlotSizes::all())],
         ]);
 

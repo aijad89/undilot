@@ -132,6 +132,14 @@ hala melalui `route()` / `url()` — **tiada** `redirect('/')` atau `href="/…"
 `/` ialah senarai acara awam, jadi destinasi selepas log masuk mesti dinamakan
 (`dashboard`, `admin.dashboard`).
 
+Diukur: `redirect('/laluan')` **sebenarnya selamat-subpath** — Laravel
+menyelesaikannya terhadap akar permintaan (`/undilotnew/laluan`). Bahaya
+`redirect('/')` ialah **destinasinya** (senarai awam), bukan ia terlepas. Yang
+benar-benar terlepas ialah `href="/…"`, string laluan dalam skrip sebaris, dan
+URL relatif-akar daripada cakera. `EveryLinkSurvivesASubpathInstallTest`
+melekapkan aplikasi di `/undilotnew` dan menyapu setiap skrin untuk keempat-empat
+peranan.
+
 ### Setiap peraturan baharu dibuktikan menggigit
 
 Selepas ujian lulus, buang peraturan itu sementara dan pastikan ujian **gagal**,
