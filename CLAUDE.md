@@ -466,6 +466,16 @@ masih berjaya (3/3 HTTP 200 di bawah 150ms). Jadi ini perlanggaran
 **per-port**, bukan kolam yang habis. Jangan tulis cerita kehabisan kolam di
 sini tanpa mengukurnya semula.
 
+Diukur semula 2026-11-15 dengan `tests/e2e/probe.ps1`, pada komit yang pernah
+gagal 8–9 spek berturut-turut: enam larian (tiga berjarak, tiga berturut),
+**kesemuanya 21/21, sifar flaky**. Satu larian menambah ~350 TIME_WAIT; puncak
+terburuk memegang **560 port ephemeral daripada 16,384**. Suite ini tidak boleh
+menghasilkan 18,643 TIME_WAIT yang pernah dilihat — sumbernya **tidak
+diketahui**, kerana tiada siapa merekod pecahannya ketika itu. Jadi
+`netsh int ipv4 set dynamicport` tiada asas. Bila kegoyahan kembali, jalankan
+suite **melalui** `probe.ps1`, supaya bukti diambil semasa kegagalan, bukan
+selepasnya.
+
 Tandanya ada dalam `DEBUG=pw:webserver`: poll awal menjawab `ECONNREFUSED`
 dalam milisaat, kemudian satu baris `HTTP GET` duduk sendirian selama tiga
 minit. Itu SYN digugurkan, bukan pelayan perlahan.
