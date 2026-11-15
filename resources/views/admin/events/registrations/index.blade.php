@@ -175,9 +175,16 @@
             <option value="verified" @selected(request('status') === 'verified')>Verified</option>
         </select>
 
+        <select name="missing" class="mac-select" aria-label="Filter by missing details">
+            <option value="">Any details</option>
+            @foreach($missingFilters as $value => $label)
+                <option value="{{ $value }}" @selected(request('missing') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+
         <button type="submit" class="mac-filter-btn">Filter</button>
 
-        @if(request()->hasAny(['search', 'code', 'status']))
+        @if(request()->hasAny(['search', 'code', 'status', 'missing']))
             <a href="{{ route('admin.events.registrations.index', $event) }}" class="mac-clear-btn">Clear</a>
         @endif
 

@@ -12,7 +12,13 @@
     Expects: $lotCode, $style ('splitflap' | 'envelope')
 --}}
 @php
-    $chars = str_split($lotCode);
+    // The board breaks between WORDS, never inside one, the way a station
+    // board does. A generated code carries its location ("DEWAN UTAMA-TBPS185",
+    // 19 characters), and one row of flaps that long is ~740px: on a phone it
+    // stretched the card past the screen and half the code was never seen.
+    // Split at spaces (dropped — the gap between words shows them) and after a
+    // hyphen (kept, ending its word): DEWAN · UTAMA- · TBPS185.
+    $words = array_map('str_split', preg_split('/\s+|(?<=-)/', trim($lotCode), -1, PREG_SPLIT_NO_EMPTY));
 @endphp
 
 <div class="lot-reveal lot-reveal--{{ $style }}" data-lot-reveal data-lot-code="{{ $lotCode }}">
@@ -27,8 +33,12 @@
         </div>
     @else
         <div class="lr-board" aria-hidden="true">
-            @foreach($chars as $char)
-                <span class="lr-flap" data-final="{{ $char }}">{{ $char === '-' ? '-' : '0' }}</span>
+            @foreach($words as $word)
+                <span class="lr-word">
+                    @foreach($word as $char)
+                        <span class="lr-flap" data-final="{{ $char }}">{{ $char === '-' ? '-' : '0' }}</span>
+                    @endforeach
+                </span>
             @endforeach
         </div>
     @endif
@@ -41,15 +51,19 @@
 @once
 @push('styles')
 <style>
-    .lot-reveal { text-align:center; padding:18px 0 22px; }
+    .lot-reveal { text-align:center; padding:18px 0 22px; max-width:100%; }
 
     /* ── Split-flap ─────────────────────────────────────── */
-    .lr-board { display:inline-flex; gap:5px; }
+    /* Words wrap as whole words; a word wider than the card (none of today's
+       codes) may still break, rather than push the page sideways. The flaps
+       shrink on a narrow screen so a code's last word fits a phone. */
+    .lr-board { display:flex; flex-wrap:wrap; justify-content:center; gap:8px 14px; max-width:100%; }
+    .lr-word { display:inline-flex; flex-wrap:wrap; justify-content:center; gap:5px; }
     .lr-flap {
         display:inline-flex; align-items:center; justify-content:center;
-        min-width:34px; height:46px; padding:0 6px;
+        min-width:clamp(24px, 7.4vw, 34px); height:clamp(34px, 10.5vw, 46px); padding:0 clamp(3px, 1vw, 6px);
         background:var(--ui-navy-900); color:#fff; border-radius:6px;
-        font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums;
+        font-size:clamp(1.05rem, 4.8vw, 1.5rem); font-weight:700; font-variant-numeric:tabular-nums;
         box-shadow:var(--ui-shadow-1);
         /* The hairline is the split in the flap, not decoration. */
         background-image:linear-gradient(to bottom, transparent calc(50% - 1px), rgba(255,255,255,0.14) 50%, transparent calc(50% + 1px));

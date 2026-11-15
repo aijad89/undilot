@@ -8,15 +8,10 @@
 
 <style>
     /* The lot page: one decision, made once, then its record. */
-    /* Same column as the rest of the portal. With room, the record sits left
-       and what to do with it (code, slip) sits right; on a phone, one column. */
-    .lot-grid { display: grid; gap: 16px; align-items: start; }
-    .lot-grid > * > .ap-card { margin-bottom: 16px; }
-    .lot-side .text-center { text-align: center; }
+    /* One column: the record, then what to do with it (the slip, the way back)
+       in a row beneath. */
     .lot-split { display: grid; gap: 8px 40px; }
     @media (min-width: 992px) {
-        .lot-grid { grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 24px; }
-        .lot-side { position: sticky; top: calc(var(--topbar-h) + 24px); }
         .lot-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
         .lot-split .lot-rules { margin-bottom: 0; }
     }
@@ -42,11 +37,7 @@
     .lot-code { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: var(--ui-r); background: var(--ui-gold-tint); color: var(--ui-gold-text); font-size: 1.125rem; font-weight: 700; }
     .lot-code i { color: var(--ui-gold); }
     .lot-where { display: block; margin-top: 4px; font-size: 0.875rem; font-weight: 500; color: var(--ui-muted); text-align: right; }
-    .lot-qr { text-align: center; }
-    .lot-qr img { width: 168px; height: 168px; image-rendering: pixelated; }
-    .lot-qr-code { margin-top: 8px; font-family: var(--ui-font-mono); font-size: 1rem; letter-spacing: 3px; color: var(--ui-text); }
-    .lot-qr-empty { width: 168px; height: 168px; margin: 0 auto; display: grid; place-items: center; border: 2px dashed var(--ui-border-strong); border-radius: var(--ui-r-lg); color: var(--ui-border-strong); font-size: 2.25rem; }
-    .lot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0; }
+    .lot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 4px 0 18px; }
     @media (max-width: 576px) { .lot-actions .ap-btn { flex: 1 1 100%; } }
 </style>
 
@@ -86,8 +77,6 @@
 
     @if($hasVoted ?? false)
         {{-- Already voted --}}
-        <div class="lot-grid">
-        <div class="lot-main">
         <div class="ap-card ap-card-body-lg mb-3">
             <div class="lot-done-head">
                 <div class="lot-done-icon" aria-hidden="true"><i class="bi bi-check-lg"></i></div>
@@ -147,33 +136,13 @@
                 </div>
             @endif
         </div>
-        </div>
 
-        <aside class="lot-side">
-        @if(isset($assignedPlot) && $assignedPlot)
-            {{-- The check-in code, so a participant can be checked in from their
-                 phone without printing anything — see User::icHash(). --}}
-            @php
-                $icQr = auth()->user()->icQrDataUri(200);
-                $icHash = auth()->user()->icHash();
-            @endphp
-            <div class="ap-card ap-card-body-lg lot-qr mb-3">
-                @if($icQr)
-                    <img src="{{ $icQr }}" alt="Your check-in code" loading="lazy">
-                    <div class="lot-qr-code">{{ strtoupper(substr($icHash, 0, 8)) }}</div>
-                    <p class="ap-muted mt-1 mb-0">Show this at the counter to check in.</p>
-                @else
-                    {{-- Without an IC there is nothing to encode. Say what is missing
-                         and who can fix it. --}}
-                    <div class="lot-qr-empty" aria-hidden="true"><i class="bi bi-qr-code"></i></div>
-                    <p class="mt-3 mb-1 fw-semibold">No check-in code yet</p>
-                    <p class="ap-muted mb-0">Your IC number is not on file. Ask the office to add it, and the code appears here.</p>
-                @endif
-            </div>
-
-            {{-- Print opens the slip in the browser's own viewer; share hands the
-                 file itself to the OS share sheet. --}}
-            <div class="lot-actions">
+        {{-- Below the record, in one row. No check-in QR on this page: it is on
+             the slip, which is what is shown at the counter. Print opens the slip
+             in the browser's own viewer; share hands the file itself to the OS
+             share sheet. --}}
+        <div class="lot-actions">
+            @if(isset($assignedPlot) && $assignedPlot)
                 <a href="{{ route('zvote.slip', $event) }}" target="_blank" rel="noopener" class="ap-btn ap-btn-secondary">
                     <i class="bi bi-printer" aria-hidden="true"></i>Print Slip
                 </a>
@@ -182,15 +151,10 @@
                         data-slip-name="lot-{{ $assignedPlot->plot_code }}.pdf">
                     <i class="bi bi-share" aria-hidden="true"></i>Share Slip
                 </button>
-            </div>
-        @endif
-
-        <div class="text-center">
+            @endif
             <a href="{{ route('dashboard') }}" class="ap-btn ap-btn-secondary">
                 <i class="bi bi-arrow-left" aria-hidden="true"></i>Back to Dashboard
             </a>
-        </div>
-        </aside>
         </div>
 
     @else

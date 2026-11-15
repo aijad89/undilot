@@ -70,6 +70,9 @@ class EntRegistrationController extends Controller
                 'verified' => $q->whereNotNull('verified_at'),
                 default => $q,
             })
+            ->when($request->input('missing'), fn ($q, $missing) => array_key_exists($missing, EventRegistration::missingFilters())
+                ? $q->missing($missing === 'any' ? null : $missing)
+                : $q)
             ->when($request->input('search'), fn ($q, $search) => $q->whereHas(
                 'company', fn ($c) => $c->where('name', 'like', "%{$search}%")
             ))
@@ -116,7 +119,8 @@ class EntRegistrationController extends Controller
             // "12 / 200" beside the filter: rows matching it, of the rows this
             // admin's list holds. filled(), not has(): the form posts every
             // field, blank ones included, and blank is no filter.
-            'filtered' => collect(['search', 'code', 'status'])->contains(fn ($field) => $request->filled($field)),
+            'filtered' => collect(['search', 'code', 'status', 'missing'])->contains(fn ($field) => $request->filled($field)),
+            'missingFilters' => EventRegistration::missingFilters(),
             'listTotal' => $scoped($event->registrations())->count(),
             // The filter offers only codes some row in view carries — a code
             // nobody on this list holds can only filter to an empty table. The

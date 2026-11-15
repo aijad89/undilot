@@ -141,6 +141,31 @@ class EventRegistration extends Model
     }
 
     /**
+     * Rows still missing a detail: any of them, or the one named (a key of
+     * DETAILS). The same rule missingDetails() counts by, as a query — the
+     * draw list's "Any details" filter. Qualified columns: the draw list
+     * joins `companies`, which has a `plot_size` of its own.
+     */
+    public function scopeMissing($query, ?string $detail = null)
+    {
+        $columns = $detail !== null && isset(self::DETAILS[$detail]) ? [$detail] : array_keys(self::DETAILS);
+
+        return $query->where(function ($q) use ($columns) {
+            foreach ($columns as $column) {
+                $qualified = $this->qualifyColumn($column);
+                $q->orWhereNull($qualified)->orWhere($qualified, '');
+            }
+        });
+    }
+
+    /** The detail filters the draw list offers: value => label. */
+    public static function missingFilters(): array
+    {
+        return ['any' => 'Missing a detail']
+            + collect(self::DETAILS)->mapWithKeys(fn ($label, $column) => [$column => 'No '.$label])->all();
+    }
+
+    /**
      * The participant has been told it is in: HQ verified it once. Stays so
      * while a zone edit waits for HQ again — a company already told it is in
      * does not drop out of its own portal because the office is re-checking.
