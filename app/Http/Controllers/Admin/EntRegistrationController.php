@@ -554,10 +554,21 @@ class EntRegistrationController extends Controller
      * gone and nothing pointed at them, because a row holding a lot is never
      * removed in the first place. One step deep: the session holds the last
      * removal only, which is the one an admin is still looking at.
+     *
+     * Not once the draw has started, for anyone. Undo is a way of ADDING rows,
+     * and it puts them back as they were — a zone's row still waiting for HQ,
+     * in a draw where no waiting row may exist (zoneLocked() refuses the same
+     * through store()). And it puts them back silently: a company already sent
+     * RemovedFromDraw would be in again with nothing saying so. HQ adds the
+     * company again instead, verified at once and announced.
      */
     public function undo(Request $request, Event $event)
     {
         EventVisibility::authorize($event);
+
+        if ($this->codeFrozen($event)) {
+            return back()->with('error', 'The draw has started: nothing can be put back. HQ can add the company again.');
+        }
 
         $rows = collect(session('draw_list_undo', []))
             ->where('event_id', $event->id);

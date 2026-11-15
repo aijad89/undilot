@@ -282,7 +282,11 @@ lubang; jangan "betulkan".
   `event_join_requests.removed_reason` (baris pendaftaran sudah tiada).
 - Sebaik cabutan bermula, admin negeri **tidak menambah atau meluluskan**
   sesiapa (`zoneLocked()`); hanya HQ, dan baris HQ disahkan serta-merta. Tiada
-  baris menunggu HQ boleh wujud semasa cabutan berjalan.
+  baris menunggu HQ boleh wujud semasa cabutan berjalan. **Undo juga menambah
+  baris**, jadi ia ditolak untuk semua orang sebaik cabutan bermula — ia
+  memulihkan baris seperti asal (mungkin masih menunggu HQ) dan tanpa
+  pemberitahuan kepada syarikat yang sudah menerima `RemovedFromDraw`. Ditemui
+  oleh ujian 2026-11-15; sebelum itu undo tiada pengawal ini.
 - **Unpublished (`closed`) bukan "dibatalkan".** `Event::isCalledOff()` hanya
   cabutan `cancelled` atau acara kembali ke `draft`. auto_close menyahterbit
   acara sendiri bila pendaftaran tutup, sementara permintaan yang dihantar
