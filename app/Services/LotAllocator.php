@@ -130,8 +130,9 @@ class LotAllocator
     {
         // The registration's code is a STRING matched against the code on the
         // `kraf_bidangs` row the plot is categorised by. Renaming a code in
-        // Settings therefore strands everyone still holding the old spelling —
-        // known, and accepted: the string is what the office types and reads.
+        // Settings would strand everyone still holding the old spelling, so
+        // SettingController::updateKrafCode() carries every text copy of the
+        // code across in the same transaction.
         //
         // A blank code is not "match anything". It can win nothing of its own
         // and goes to the open pool below.
