@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Cache;
  * The last-seen write stays here as a documented side effect rather than moving to its own
  * middleware: it is two cache reads and one throttled `saveQuietly()` on a request that has
  * already loaded the user, and splitting it would put a second class on every user route.
- * `TrackAdminLastSeen` is the admin-guard twin and does only the tracking half — the
- * `admins` table has no `is_active` column, so there is nothing there to enforce.
+ * On the admin guard the two halves are two classes: `EnforceAdminIsActive` ends the
+ * session of a switched-off admin, and `TrackAdminLastSeen` does only the tracking.
  */
 class EnforceUserIsActive
 {

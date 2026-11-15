@@ -73,6 +73,12 @@ return new class extends Migration
             // everything. NOTE this is an administrative zone, not geography.
             $table->string('state')->nullable();
 
+            // Switched off by whoever manages this account (super for hq and
+            // super, super or hq for a state admin): the login refuses it and
+            // EnforceAdminIsActive ends a session already open. Kept, not
+            // deleted, so its audit trail and verified_by rows stay named.
+            $table->boolean('is_active')->default(true);
+
             $table->timestamp('last_seen_at')->nullable();
             $table->rememberToken();
             $table->timestamps();

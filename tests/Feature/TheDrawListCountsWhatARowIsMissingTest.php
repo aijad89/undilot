@@ -119,7 +119,8 @@ it('combines with the HQ-check filter, and is counted in "x / y"', function () {
         ->get(route('admin.events.registrations.index', [$event, 'status' => 'waiting', 'missing' => 'payment_note']))
         ->getContent();
 
-    expect($html)->toContain($waitingNoNote->company->name)
+    // e(): a faker name can carry an apostrophe ("O'Kon Ltd"), which the page escapes.
+    expect($html)->toContain(e($waitingNoNote->company->name))
         ->and(preg_match('/id="filter-count"[^>]*>\s*1 \/ 3\s*</', $html))->toBe(1);
 });
 

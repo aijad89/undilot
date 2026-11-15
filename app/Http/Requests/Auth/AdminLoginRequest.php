@@ -49,6 +49,17 @@ class AdminLoginRequest extends FormRequest
             ]);
         }
 
+        // Checked AFTER the password, as on the participant login: the right
+        // password is what earns the true reason. Before it, "switched off"
+        // would tell a stranger which emails are admin accounts.
+        if (! Auth::guard('admin')->user()->is_active) {
+            Auth::guard('admin')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This admin account has been switched off. Contact HQ to have it switched back on.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

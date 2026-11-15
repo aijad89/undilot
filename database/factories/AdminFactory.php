@@ -30,6 +30,7 @@ class AdminFactory extends Factory
             'password' => static::$password ??= bcrypt('password'),
             'role' => 'admin',
             'state' => 'Johor',
+            'is_active' => true,
             'last_seen_at' => null,
             'remember_token' => Str::random(10),
         ];
@@ -43,5 +44,11 @@ class AdminFactory extends Factory
     public function hq(): static
     {
         return $this->state(fn () => ['role' => 'hq', 'state' => null]);
+    }
+
+    /** Switched off: the login refuses it and EnforceAdminIsActive ends its session. */
+    public function inactive(): static
+    {
+        return $this->state(fn () => ['is_active' => false]);
     }
 }

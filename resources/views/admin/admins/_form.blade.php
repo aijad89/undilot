@@ -42,6 +42,24 @@
             </select>
             <small class="mac-muted">A state admin sees only this zone's companies and draw lists.</small>
         </div>
+
+        <div class="col-12">
+            @if($editing && $admin->is(auth('admin')->user()))
+                {{-- Not offered on your own account: switching it off would end
+                     the session you are using to do it. --}}
+                <p class="mac-muted mac-text-sm mb-0"><i class="bi bi-check-circle me-1"></i>Your own account stays switched on.</p>
+            @else
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1"
+                           {{-- old() alone cannot tell "unticked" from "never posted": an unticked box is not sent. --}}
+                           @checked(session()->hasOldInput() ? old('is_active') : ($editing ? $admin->is_active : true))>
+                    <label class="form-check-label mac-text-sm" for="is_active">
+                        Active — may sign in
+                        <span class="mac-muted d-block">Switch off and this admin cannot sign in; if they are signed in now, their next click signs them out.</span>
+                    </label>
+                </div>
+            @endif
+        </div>
     </div>
 </div>
 

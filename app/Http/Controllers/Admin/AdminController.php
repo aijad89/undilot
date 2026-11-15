@@ -81,10 +81,10 @@ class AdminController extends Controller
         // CALLER may not hand out — a 403, because the form never offered it.
         $this->authorizeRole($request, $data['role']);
 
-        $admin = Admin::create($this->attributes($data));
+        $admin = Admin::create($this->attributes($data) + ['is_active' => $request->boolean('is_active')]);
 
         return redirect()->route($this->listRoute($admin))
-            ->with('success', "{$admin->name} can now sign in.");
+            ->with('success', $admin->is_active ? "{$admin->name} can now sign in." : "{$admin->name} created, switched off.");
     }
 
     public function edit(Request $request, Admin $admin)
@@ -108,10 +108,34 @@ class AdminController extends Controller
         $data = $request->validate($this->rules($request, $admin));
         $this->authorizeRole($request, $data['role']);
 
-        $admin->update($this->attributes($data));
+        // Your own account keeps its switch: the form does not offer it, and
+        // a hand-posted is_active=0 would lock you out mid-request.
+        $switch = $admin->is($request->user('admin')) ? [] : ['is_active' => $request->boolean('is_active')];
+
+        $admin->update($this->attributes($data) + $switch);
 
         return redirect()->route($this->listRoute($admin))
             ->with('success', "{$admin->name} saved.");
+    }
+
+    /**
+     * The one-click switch on the list. Same two answers as update(): whose
+     * account (authorizeTarget), and never your own. The last active super is
+     * refused by the model, as everywhere else.
+     */
+    public function toggleActive(Request $request, Admin $admin)
+    {
+        $this->authorizeTarget($request, $admin);
+
+        if ($admin->is($request->user('admin'))) {
+            return back()->withErrors('You cannot switch off your own account.');
+        }
+
+        $admin->update(['is_active' => ! $admin->is_active]);
+
+        return back()->with('success', $admin->is_active
+            ? "{$admin->name} is switched on and can sign in."
+            : "{$admin->name} is switched off and can no longer sign in.");
     }
 
     public function destroy(Request $request, Admin $admin)
@@ -165,6 +189,7 @@ class AdminController extends Controller
             // Blank on edit keeps the current password; the floor applies where a
             // password is SET, never where one is only checked. No default exists.
             'password' => [$admin ? 'nullable' : 'required', 'confirmed', Password::defaults()],
+            'is_active' => ['nullable', 'boolean'],
         ];
     }
 

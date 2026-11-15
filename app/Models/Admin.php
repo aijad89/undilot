@@ -22,6 +22,7 @@ class Admin extends Authenticatable
         'password',
         'role',
         'state',
+        'is_active',
     ];
 
     protected $hidden = [
@@ -30,6 +31,7 @@ class Admin extends Authenticatable
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'last_seen_at' => 'datetime',
         'password' => 'hashed',
     ];
@@ -90,13 +92,27 @@ class Admin extends Authenticatable
                     'role' => 'This is the last super admin account. Its role cannot be changed while it is the only one.',
                 ]);
             }
+
+            // The third way down. A super switched off is a super nobody can
+            // sign in as — the same empty bench as a deleted one.
+            if ($admin->isSuperAdmin() && ! $admin->is_active && $admin->getOriginal('is_active')
+                && ! static::anotherSuperExists($admin)) {
+                throw ValidationException::withMessages([
+                    'is_active' => 'This is the last active super admin account. It cannot be switched off while it is the only one.',
+                ]);
+            }
         });
     }
 
+    /**
+     * Another super who can still SIGN IN. One that is switched off counts for
+     * nothing: it cannot reach the screen that would switch it back on.
+     */
     private static function anotherSuperExists(self $except): bool
     {
         return static::query()
             ->where('role', self::SUPER_ROLE)
+            ->where('is_active', true)
             ->when($except->exists, fn ($q) => $q->whereKeyNot($except->getKey()))
             ->exists();
     }

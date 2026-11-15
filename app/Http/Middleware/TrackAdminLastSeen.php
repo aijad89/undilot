@@ -34,6 +34,8 @@ use Illuminate\Support\Facades\Cache;
  * @see \App\Http\Middleware\EnforceUserIsActive  the web-guard twin, which DOES
  *      enforce something — it logs out a deactivated user. The two are named
  *      for what they do, which is why only one of them reads like a guard.
+ * @see \App\Http\Middleware\EnforceAdminIsActive  the admin guard's enforcing
+ *      half, kept out of this class for the same reason.
  */
 class TrackAdminLastSeen
 {

@@ -113,7 +113,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('login', [AdminLoginController::class, 'login']);
     });
 
-    Route::middleware(['auth:admin', 'track.admin-last-seen'])->group(function () {
+    Route::middleware(['auth:admin', 'admin.active', 'track.admin-last-seen'])->group(function () {
         Route::post('logout', [AdminLoginController::class, 'logout'])->name('logout');
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -216,6 +216,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('admins', [AdminController::class, 'store'])->name('admins.store');
             Route::get('admins/{admin}/edit', [AdminController::class, 'edit'])->name('admins.edit');
             Route::put('admins/{admin}', [AdminController::class, 'update'])->name('admins.update');
+            Route::patch('admins/{admin}/active', [AdminController::class, 'toggleActive'])->name('admins.active');
             Route::delete('admins/{admin}', [AdminController::class, 'destroy'])->name('admins.destroy');
         });
 

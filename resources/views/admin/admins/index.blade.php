@@ -54,6 +54,7 @@
                     <tr>
                         <th>Admin</th>
                         <th>{{ $isHq ? 'Role' : 'Zone' }}</th>
+                        <th>Status</th>
                         <th>Last seen</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -77,11 +78,35 @@
                                     {{ $admin->state ?? '—' }}
                                 @endif
                             </td>
+                            <td>
+                                @if($admin->is_active)
+                                    <span class="mac-badge mac-badge-green">Active</span>
+                                @else
+                                    <span class="mac-badge mac-badge-gray">Inactive</span>
+                                @endif
+                            </td>
                             <td class="mac-text-sm mac-muted">{{ $admin->last_seen_at?->diffForHumans() ?? 'Never' }}</td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
                                 <a href="{{ route('admin.admins.edit', $admin) }}" class="mac-action-btn" title="Edit" aria-label="Edit {{ $admin->name }}">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                @unless($admin->is($actor))
+                                    {{-- Switching off asks first; switching back on does not. --}}
+                                    <form method="POST" action="{{ route('admin.admins.active', $admin) }}" class="d-inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        @if($admin->is_active)
+                                            <button type="submit" class="mac-action-btn" title="Switch off" aria-label="Switch off {{ $admin->name }}"
+                                                    data-confirm="Switch off &quot;{{ $admin->name }}&quot;? They will be signed out and cannot sign in until switched back on.">
+                                                <i class="bi bi-toggle-on" style="color:var(--ui-ok, #198754);"></i>
+                                            </button>
+                                        @else
+                                            <button type="submit" class="mac-action-btn" title="Switch on" aria-label="Switch on {{ $admin->name }}">
+                                                <i class="bi bi-toggle-off"></i>
+                                            </button>
+                                        @endif
+                                    </form>
+                                @endunless
                                 @unless($admin->is($actor))
                                     <form method="POST" action="{{ route('admin.admins.destroy', $admin) }}" class="d-inline">
                                         @csrf
@@ -96,7 +121,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4">
+                            <td colspan="5">
                                 <div class="mac-empty">
                                     <div class="mac-empty-icon"><i class="bi bi-person-badge"></i></div>
                                     <p class="mac-empty-text">
