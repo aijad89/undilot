@@ -329,6 +329,17 @@ yang membawa kod yang sudah ditarik balik atau dinamakan semula mesti masih
 boleh disimpan. Dropdown hanya menawarkan kod aktif; pelayan tidak menolak yang
 lain. Keputusan pemilik (2026-11-15) — jangan ketatkan.
 
+**Menamakan semula kod membawa barisnya**, seperti `AdminZones::rename()`.
+Kod dipegang dua cara: plot dan preset melalui `bidang_id` (ikut sendiri), dan
+`event_registrations.code`, `companies.kraf_code`, `polls.code`,
+`preset_allocations.code` sebagai teks. Sebelum ini rename hanya menggerakkan
+separuh kunci — diukur: TBPS → TBPX meninggalkan setiap syarikat TBPS tanpa plot
+yang boleh dimenangi, tanpa ralat. `SettingController::updateKrafCode()` kini
+mengemas kini keempat-empat lajur teks dalam satu transaksi, menulis baris audit
+`kraf_code_renamed`, dan menolak rename selagi cabutan yang menggunakannya
+sedang dibuka. `plots.plot_code` (label gerai bercetak) tidak disentuh. Lajur
+teks kod baharu **mesti** ditambah ke senarai itu.
+
 ### `event_registrations.plot_id` tiada klausa `ON DELETE`
 
 Jadi pangkalan data menyekat. Plot tidak boleh dipadam selagi satu entri cabutan

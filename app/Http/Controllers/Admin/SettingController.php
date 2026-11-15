@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditTrail;
 use App\Models\Event;
 use App\Models\KrafBidang;
 use App\Models\KrafPengelasan;
@@ -167,13 +168,78 @@ class SettingController extends Controller
         return back()->with('success', "Code {$data['code']} added.");
     }
 
+    /**
+     * Save a code row — and when the code TEXT changes, carry every row holding
+     * the old text across in the same transaction.
+     *
+     * A code is held two ways. Plots and preset allocations point at this row by
+     * `bidang_id`, so they follow a rename by themselves. Registrations,
+     * companies, polls and presets also hold the text, and LotAllocator matches
+     * a registration's text against its plots' code — so a rename that moved
+     * only the key half left every company carrying the old text unable to win
+     * any lot, with nothing on screen saying so.
+     *
+     * A relabel, not a re-coding: `verified_at` stays (HQ verified the same
+     * craft), so nobody drops off their own dashboard. That holds on its own —
+     * EventRegistration::booted() unverifies only for a state admin, and this
+     * screen is behind `manage-settings`. Mass updates are for reach, one
+     * statement per table however many rows; they fire no model events, so the
+     * audit row is written here by hand.
+     *
+     * `plots.plot_code` is the printed booth label (TBP01), not a key, and stays.
+     */
     public function updateKrafCode(Request $request, KrafBidang $code)
     {
         $this->abortUnlessCode($code);
 
-        $code->update($this->validatedCode($request, $code));
+        $data = $this->validatedCode($request, $code);
+        $from = $code->code;
+        $to = $data['code'];
 
-        return back()->with('success', 'Code saved.');
+        if ($from === $to) {
+            $code->update($data);
+
+            return back()->with('success', 'Code saved.');
+        }
+
+        if ($live = $this->liveDrawsUsing($code)) {
+            return back()->with('error', "Cannot rename {$from} while a draw using it is open ({$live}). "
+                .'Rename it once the draw has closed.');
+        }
+
+        $carried = DB::transaction(function () use ($code, $data, $from, $to) {
+            $code->update($data);
+
+            $carried = [
+                'event_registrations' => DB::table('event_registrations')->where('code', $from)->update(['code' => $to]),
+                'companies' => DB::table('companies')->where('kraf_code', $from)->update(['kraf_code' => $to]),
+                'polls' => DB::table('polls')->where('code', $from)->update(['code' => $to]),
+                'preset_allocations' => DB::table('preset_allocations')->where('code', $from)->update(['code' => $to]),
+            ];
+
+            AuditTrail::record('kraf_code_renamed', $code, ['code' => $from], [
+                'code' => $to,
+                'carried' => $carried,
+            ]);
+
+            return $carried;
+        });
+
+        return back()->with('success', "Code renamed {$from} → {$to}. ".array_sum($carried).' rows carried across.');
+    }
+
+    /**
+     * Titles of draws that are open right now and use this code — by plot (the
+     * key) or by registration (the text). Empty string when there are none.
+     */
+    private function liveDrawsUsing(KrafBidang $code): string
+    {
+        return Event::where('polling_status', 'polling')
+            ->where(fn ($q) => $q
+                ->whereHas('plots', fn ($p) => $p->where('bidang_id', $code->id))
+                ->orWhereHas('registrations', fn ($r) => $r->where('code', $code->code)))
+            ->pluck('title')
+            ->implode(', ');
     }
 
     /**
