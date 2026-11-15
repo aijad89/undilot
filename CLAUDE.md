@@ -458,8 +458,30 @@ Empat perkara menggigit setiap kali:
 
 ```
 vendor/pestphp/pest/bin/pest              # SQLite dalam-memori
-npx playwright test                        # MySQL undilotlook_e2e, melalui tests/e2e/serve.js
+DB_CONNECTION=mysql DB_DATABASE=undilot2026_test vendor/pestphp/pest/bin/pest   # MySQL, pangkalan data sendiri
+npx playwright test                        # MySQL undilot2026_e2e, melalui tests/e2e/serve.js
 ```
+
+### Suite Pest pada MySQL, dan apa yang ia jumpa
+
+Pemboleh ubah persekitaran menang atas `phpunit.xml`, jadi baris kedua di atas
+menghalakan suite yang sama ke `undilot2026_test` (cipta sekali,
+`utf8mb4_unicode_ci`). **Jangan** halakan ia ke `undilot2026`:
+`RefreshDatabase` mengosongkan apa sahaja yang ditunjuk.
+
+Larian pertama (2026-11-15) gagal empat ujian yang lulus pada SQLite, dan tiada
+satu pun pepijat aplikasi:
+
+- **Lajur `json` MySQL menyusun semula kunci** (ikut panjang, kemudian abjad).
+  `toBe` pada tatasusunan bersekutu yang dibaca dari `audit_trails.old_values`
+  / `new_values` gagal atas susunan sahaja. Guna **`toEqual`** untuk nilai dari
+  lajur `json`.
+- Ujian "refuses to delete a plot" hanya membaca `pragma foreign_keys` — tidak
+  pernah cuba memadam, dan ralat sintaks pada MySQL. Kini ia benar-benar cuba,
+  pada kedua-dua pemacu, dan disahkan gagal bila `plot_id` diberi
+  `nullOnDelete()`.
+
+Satu ujian dilangkau pada MySQL dengan sengaja (membaca `sqlite_master`).
 
 ### Suite pelayar memiliki persekitarannya sendiri
 

@@ -43,7 +43,10 @@ it('records every reached table on the deleted row, zeros included', function ()
         ->where('action', 'deleted')
         ->value('new_values');
 
-    expect($summary['cascade_deleted'])->toBe([
+    // toEqual, not toBe: the audit columns are `json`, and MySQL's JSON type
+    // stores keys in its own order (by length, then alphabet). Same keys, same
+    // counts — toBe failed on MySQL over order alone.
+    expect($summary['cascade_deleted'])->toEqual([
         'event_registrations' => 2,
         'plot_sizes' => 1,
         'polls' => 1,

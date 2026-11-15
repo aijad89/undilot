@@ -186,7 +186,8 @@ it('writes one audit row naming both codes and what was carried', function () {
 
     expect($row->old_values)->toBe(['code' => 'TBPS'])
         ->and($row->new_values['code'])->toBe('TBPX')
-        ->and($row->new_values['carried'])->toBe([
+        // toEqual: MySQL's JSON type reorders keys.
+        ->and($row->new_values['carried'])->toEqual([
             'event_registrations' => 1,
             'companies' => 1,
             'polls' => 1,

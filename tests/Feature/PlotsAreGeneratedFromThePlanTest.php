@@ -115,7 +115,8 @@ it('writes one audit row for the whole batch, since the inserts fire no model ev
 
     expect($row->auditable_id)->toBe($event->id)
         ->and($row->new_values['plots'])->toBe(3)
-        ->and($row->new_values['per_code'])->toBe(['DEWAN A-TBPS' => 2, 'DEWAN A-3X3' => 1]);
+        // toEqual: MySQL's JSON type reorders keys.
+        ->and($row->new_values['per_code'])->toEqual(['DEWAN A-TBPS' => 2, 'DEWAN A-3X3' => 1]);
 });
 
 it('refuses when the event already has plots, and builds nothing twice', function () {

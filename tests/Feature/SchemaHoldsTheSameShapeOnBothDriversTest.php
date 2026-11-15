@@ -63,11 +63,38 @@ it('refuses to delete a plot that a draw entry still points at', function () {
     // `event_registrations.plot_id` has no ON DELETE clause on purpose, so the
     // database restricts. A drawn result must not evaporate because somebody
     // edited a plan; the plan rewrite has to clear the link and be seen doing it.
-    expect(Schema::hasColumn('event_registrations', 'plot_id'))->toBeTrue();
+    //
+    // It TRIES the delete, on whichever driver runs it. An earlier version only
+    // read `pragma foreign_keys` — which proved SQLite was enforcing something,
+    // never that this delete is refused, and is a syntax error on MySQL.
+    $eventId = DB::table('events')->insertGetId(baseEventRow());
+    $sizeId = DB::table('plot_sizes')->insertGetId([
+        'event_id' => $eventId, 'size' => '3x3', 'quantity' => 1, 'location' => 'Dewan',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $plotId = DB::table('plots')->insertGetId([
+        'event_id' => $eventId, 'plot_size_id' => $sizeId, 'plot_code' => 'DEWAN-1',
+        'is_allocated' => true, 'allocation_type' => 'algorithm', 'is_locked' => false,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $userId = DB::table('users')->insertGetId([
+        'name' => 'A', 'email' => 'a@example.test', 'password' => 'x',
+        'is_active' => 1, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $companyId = DB::table('companies')->insertGetId([
+        'user_id' => $userId, 'name' => 'Kraf', 'is_active' => 1,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('event_registrations')->insert([
+        'event_id' => $eventId, 'company_id' => $companyId, 'user_id' => $userId,
+        'plot_size' => '3x3', 'plot_id' => $plotId,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
 
-    // SQLite enforces foreign keys only when asked, and Laravel's testing
-    // connection does ask — so this is a real constraint check, not a no-op.
-    expect(DB::select('pragma foreign_keys')[0]->foreign_keys)->toBe(1);
+    expect(fn () => DB::table('plots')->where('id', $plotId)->delete())
+        ->toThrow(Illuminate\Database\QueryException::class);
+
+    expect(DB::table('plots')->where('id', $plotId)->exists())->toBeTrue();
 });
 
 it('holds one company per user at the schema level, not just in a validation rule', function () {
