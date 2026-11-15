@@ -32,12 +32,18 @@ test('the zone adds the company with its booth and how it paid; it waits for HQ'
     await signInAs(page, ZONE);
     await page.goto(drawList());
 
-    const value = await page.locator('#company_id option', { hasText: company }).getAttribute('value');
-    await page.selectOption('#company_id', value);
-    await page.selectOption('#plot_size', '3x6');
-    await submitting(page, page.locator('button:text-is("Add")').click());
-    await expect(page.getByText('HQ will verify before the company is told.')).toBeVisible();
+    // Through the draw list's own button, to the Add Companies page.
+    await submitting(page, page.getByRole('link', { name: 'Add companies' }).click());
 
+    const candidate = page.locator('table tbody tr', { hasText: company });
+    await expect(candidate).toContainText('Not in the draw');
+    await candidate.locator('input.tick-row').check();
+    await page.selectOption('#plot_size', '3x6');
+    await submitting(page, page.locator('button:text-is("Add selected")').click());
+    await expect(page.getByText('HQ will verify before the company is told.')).toBeVisible();
+    await expect(candidate).toContainText('Waiting for HQ');
+
+    await page.goto(drawList());
     await row(page).locator('input[name=payment_note]').fill('Receipt 00123, transfer 3 Nov');
     await submitting(page, row(page).locator('input[name=payment_note]').press('Enter'));
 

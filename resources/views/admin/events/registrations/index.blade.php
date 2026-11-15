@@ -27,15 +27,23 @@
             @endif
         </div>
 
-        @if($undoCount)
-            <form method="POST" action="{{ route('admin.events.registrations.undo', $event) }}">
-                @csrf
-                <button type="submit" class="mac-btn-secondary">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>
-                    Undo last removal ({{ $undoCount }})
-                </button>
-            </form>
-        @endif
+        <div class="d-flex gap-2 flex-wrap">
+            @if($undoCount)
+                <form method="POST" action="{{ route('admin.events.registrations.undo', $event) }}">
+                    @csrf
+                    <button type="submit" class="mac-btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                        Undo last removal ({{ $undoCount }})
+                    </button>
+                </form>
+            @endif
+
+            {{-- Shown even when the zone is locked: the page says why it cannot
+                 add, and Edit / Remove there are still asked of the server. --}}
+            <a href="{{ route('admin.events.registrations.companies', $event) }}" class="mac-btn-primary">
+                <i class="bi bi-plus-lg me-1"></i> Add companies
+            </a>
+        </div>
     </div>
 
     @if($joinRequests->isNotEmpty())
@@ -148,59 +156,6 @@
             </div>
         </details>
     @endif
-
-    <div class="mac-card mac-card-padded mb-3">
-        <h3 class="mac-card-title">Add companies</h3>
-
-        @if($zoneLocked)
-            <p class="mac-muted mb-0">The draw has started: only HQ can add companies now.</p>
-        @elseif($candidates->isEmpty())
-            <p class="mac-muted mb-0">Every company in your zone is already in this draw.</p>
-        @else
-            <form method="POST" action="{{ route('admin.events.registrations.store', $event) }}">
-                @csrf
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-6">
-                        <label class="mac-label" for="company_id">Companies</label>
-                        <select id="company_id" name="company_id[]" class="mac-select" multiple size="6" required>
-                            @foreach($candidates as $candidate)
-                                <option value="{{ $candidate->id }}">
-                                    {{ $candidate->name }}@if($candidate->state) — {{ $candidate->state }}@endif @if($candidate->kraf_code || $candidate->plot_size) [{{ collect([$candidate->kraf_code, $candidate->plot_size])->filter()->join(' · ') }}]@endif
-                                </option>
-                            @endforeach
-                        </select>
-                        <small class="mac-muted">Ctrl or Shift to pick several.</small>
-                    </div>
-
-                    <div class="col-md-3">
-                        <label class="mac-label" for="code">Craft code</label>
-                        <select id="code" name="code" class="mac-select">
-                            {{-- Blank: each company gets the code on its own page, shown in [ ] above. --}}
-                            <option value="">— Each company's own code —</option>
-                            @foreach($codes as $code)
-                                <option value="{{ $code->code }}">{{ $code->code }} — {{ $code->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="col-md-2">
-                        <label class="mac-label" for="plot_size">Booth size</label>
-                        <select id="plot_size" name="plot_size" class="mac-select">
-                            {{-- Blank: each company gets the size on its own page, else 3x3. --}}
-                            <option value="">— Each company's own size —</option>
-                            @foreach($plotSizes as $size)
-                                <option value="{{ $size }}">{{ $size }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="col-md-1">
-                        <button type="submit" class="mac-btn-primary w-100">Add</button>
-                    </div>
-                </div>
-            </form>
-        @endif
-    </div>
 
     <form method="GET" class="mac-filter-bar mb-3">
         <input type="search" name="search" value="{{ request('search') }}"

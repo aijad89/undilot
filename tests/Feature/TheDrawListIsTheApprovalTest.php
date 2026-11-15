@@ -440,8 +440,9 @@ it('lets only HQ add a company once the draw has started, verified at once', fun
     $zone = stateAdmin('Johor');
 
     $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.index', $event))
-        ->assertSee('The draw has started: only HQ can add companies now.')
         ->assertSee('The draw has started: only HQ can approve now.');
+    $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.companies', $event))
+        ->assertSee('The draw has started: only HQ can add companies now.');
     $this->post(route('admin.events.registrations.store', $event), ['company_id' => [$a->id]])
         ->assertSessionHas('error', 'The draw has started: only HQ can add companies now.');
     $this->post(route('admin.events.registrations.approve', [$event, $request]), ['plot_size' => '3x3'])

@@ -9,6 +9,7 @@ use App\Models\EventJoinRequest;
 use App\Models\EventRegistration;
 use App\Notifications\JoinRequestAnswered;
 use App\Notifications\RemovedFromDraw;
+use App\Support\AdminZones;
 use App\Support\EventVisibility;
 use App\Support\KrafPicker;
 use App\Support\PlotSizes;
@@ -92,15 +93,6 @@ class EntRegistrationController extends Controller
             ->get()
             ->keyBy('company_id');
 
-        // Companies that could still be added: in this admin's zone, on the
-        // books, and not already in this draw.
-        $candidates = Company::query()
-            ->active()
-            ->unless($admin->hasGlobalAccess(), fn ($q) => $q->where('state', $admin->state))
-            ->whereDoesntHave('eventRegistrations', fn ($q) => $q->where('event_id', $event->id))
-            ->orderBy('name')
-            ->get(['id', 'name', 'state', 'kraf_code', 'plot_size']);
-
         // Join requests waiting on the zone, in this admin's zone. One the zone
         // has approved is on the list below, waiting for HQ, and not repeated.
         $joinRequests = $scoped($event->joinRequests()->with('company')->where('status', 'pending'))
@@ -122,10 +114,57 @@ class EntRegistrationController extends Controller
             'codeFrozen' => $this->codeFrozen($event),
             'zoneLocked' => $this->zoneLocked($request, $event),
             'waitingCount' => $scoped($event->registrations()->whereNull('verified_at')->whereNull('hq_note'))->count(),
-            'candidates' => $candidates,
             'codes' => KrafPicker::codes(),
             'plotSizes' => PlotSizes::all(),
             'undoCount' => count(session('draw_list_undo', [])),
+        ]);
+    }
+
+    /**
+     * Every company in this admin's zone, each marked in or out of this draw,
+     * with the action its state allows: add it, or edit or remove its row.
+     *
+     * A READ screen. Every button posts to the draw list's existing doors —
+     * store(), update(), destroy() — so the zone lock, the freeze, the reason a
+     * told company is owed and the zone scope are each still asked in one
+     * place. Nothing here decides; it only offers what those doors accept.
+     *
+     * Active companies, plus any inactive one already in this draw: a company
+     * switched off cannot be added, but one already in must stay reachable to
+     * be taken out.
+     */
+    public function companies(Request $request, Event $event)
+    {
+        EventVisibility::authorize($event);
+
+        $admin = $request->user('admin');
+        $inThisDraw = fn ($q) => $q->where('event_id', $event->id);
+
+        $companies = Company::query()
+            ->unless($admin->hasGlobalAccess(), fn ($q) => $q->where('state', $admin->state))
+            ->where(fn ($q) => $q->where('is_active', true)->orWhereHas('eventRegistrations', $inThisDraw))
+            ->with(['user:id,name', 'eventRegistrations' => $inThisDraw])
+            ->when($request->input('search'), fn ($q, $search) => $q->where('name', 'like', "%{$search}%"))
+            ->when($request->input('status'), fn ($q, $status) => match ($status) {
+                'in' => $q->whereHas('eventRegistrations', $inThisDraw),
+                'out' => $q->whereDoesntHave('eventRegistrations', $inThisDraw),
+                default => $q,
+            })
+            ->when($admin->hasGlobalAccess() && $request->input('zone'), fn ($q) => $q->where('state', $request->input('zone')))
+            ->orderBy('name')
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.events.registrations.companies', [
+            'event' => $event,
+            'companies' => $companies,
+            'isHq' => $admin->can('verify-draw-list'),
+            'isGlobal' => $admin->hasGlobalAccess(),
+            'codeFrozen' => $this->codeFrozen($event),
+            'zoneLocked' => $this->zoneLocked($request, $event),
+            'codes' => KrafPicker::codes(),
+            'plotSizes' => PlotSizes::all(),
+            'zones' => AdminZones::all(),
         ]);
     }
 

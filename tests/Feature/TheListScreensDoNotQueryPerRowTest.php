@@ -117,6 +117,28 @@ it('renders the draw list at the same cost for 3 rows and 30', function () {
         "The draw list ran {$few} queries for 3 rows and {$many} for 30 — that is a query per row.");
 })->group('performance');
 
+it('renders the Add Companies page at the same cost for 3 companies and 30', function () {
+    // Half in the draw, half out: both kinds of row, each with its own actions.
+    $admin = superAdmin();
+    [$small] = drawWorld(3);
+    [$big] = drawWorld(30);
+
+    for ($i = 0; $i < 30; $i++) {
+        Company::factory()->create(['user_id' => User::factory()->create()->id, 'state' => 'Johor']);
+    }
+
+    $this->actingAs($admin, 'admin');
+
+    $few = queriesFor($this, route('admin.events.registrations.companies', [$small, 'status' => 'in']));
+    $many = queriesFor($this, route('admin.events.registrations.companies', [$big, 'status' => 'in']));
+    $mixed = queriesFor($this, route('admin.events.registrations.companies', $big));
+
+    expect($many - $few)->toBeLessThan(10,
+        "Add Companies ran {$few} queries for 3 rows and {$many} for 30 — that is a query per row.")
+        ->and($mixed - $few)->toBeLessThan(10,
+            "Add Companies ran {$mixed} queries for a full page of rows in and out of the draw.");
+})->group('performance');
+
 it('renders the companies list at the same cost for 3 companies and 30', function () {
     $admin = superAdmin();
 

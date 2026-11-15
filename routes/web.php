@@ -145,6 +145,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->scopeBindings()
             ->group(function () {
                 Route::get('/', [EntRegistrationController::class, 'index'])->name('index');
+                Route::get('companies', [EntRegistrationController::class, 'companies'])->name('companies');
                 Route::post('/', [EntRegistrationController::class, 'store'])->name('store');
                 Route::post('bulk', [EntRegistrationController::class, 'bulk'])->name('bulk');
                 Route::post('undo', [EntRegistrationController::class, 'undo'])->name('undo');

@@ -60,8 +60,10 @@ it('fills each company\'s own code in on the draw list, unless one is picked the
     $none = Company::factory()->create(['state' => 'Johor']);
     $admin = stateAdmin('Johor');
 
-    $this->actingAs($admin, 'admin')->get(route('admin.events.registrations.index', $event))
-        ->assertOk()->assertSee('[TBP]');
+    // The Add Companies page shows each company's own code beside it, before
+    // it is added — the code a blank "craft code" will give it.
+    $this->actingAs($admin, 'admin')->get(route('admin.events.registrations.companies', $event))
+        ->assertOk()->assertSeeInOrder([$batik->name, 'TBP', 'Not in the draw']);
 
     $this->actingAs($admin, 'admin')->post(route('admin.events.registrations.store', $event), [
         'company_id' => [$batik->id, $kayu->id, $none->id],

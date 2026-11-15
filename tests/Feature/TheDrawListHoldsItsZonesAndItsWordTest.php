@@ -69,7 +69,7 @@ it('offers a zone only its own companies to add', function () {
     Company::factory()->create(['name' => 'Kraf Kedah Sdn Bhd', 'state' => 'Kedah']);
 
     $this->actingAs(stateAdmin('Johor'), 'admin')
-        ->get(route('admin.events.registrations.index', $event))
+        ->get(route('admin.events.registrations.companies', $event))
         ->assertSee('Kraf Johor Sdn Bhd')
         ->assertDontSee('Kraf Kedah Sdn Bhd');
 });
