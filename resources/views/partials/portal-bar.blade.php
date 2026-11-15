@@ -214,6 +214,10 @@
                             <i class="bi bi-arrow-right-square" aria-hidden="true"></i> Sign Out
                         </button>
                     </form>
+                @elseif(auth('admin')->check())
+                    <a href="{{ route('admin.dashboard') }}" class="ap-nav-item">
+                        <i class="bi bi-speedometer2" aria-hidden="true"></i> Dashboard
+                    </a>
                 @else
                     <a href="{{ route('login') }}" class="ap-nav-item">
                         <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign In
@@ -286,6 +290,10 @@
                     </li>
                 </ul>
             </div>
+        @elseif(auth('admin')->check())
+            {{-- An admin is a guest on `web`, so this bar would offer them the
+                 participant Sign In. Their own way back instead. --}}
+            <a href="{{ route('admin.dashboard') }}" class="ap-signin">Dashboard</a>
         @else
             {{-- Only where /auto is registered (local, testing, e2e) — never on a server. --}}
             @if(Route::has('dev.auto'))
