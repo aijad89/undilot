@@ -296,7 +296,7 @@ function renderedSlip(Event $event, EventRegistration $entry): string
     ])->render();
 }
 
-it('leaves the IC number off the slip unless SLIP_SHOWS_IC is on', function () {
+it('prints the IC number on the slip by default, and leaves it off when SLIP_SHOWS_IC is false', function () {
     $event = openDraw();
     Plot::factory()->create(['event_id' => $event->id, 'plot_code' => 'A-RKP1']);
     $entry = inDraw($event);
@@ -305,16 +305,32 @@ it('leaves the IC number off the slip unless SLIP_SHOWS_IC is on', function () {
 
     $this->actingAs($user)->post(route('zvote.submit', $event), ['agreement' => '1']);
 
-    $html = renderedSlip($event, $entry);
+    // On by default — the owner's decision. Asked of config/app.php with the
+    // variable UNSET: .env may set it either way, and reading config() would
+    // test that file instead of the default a fresh server gets.
+    $env = Illuminate\Support\Env::getRepository();
+    $was = $env->get('SLIP_SHOWS_IC');
+    $env->clear('SLIP_SHOWS_IC');
 
-    // Off by default: no row, and the number appears nowhere on the slip.
-    expect(config('app.slip_shows_ic'))->toBeFalse()
-        ->and(str_contains($html, 'IC Number'))->toBeFalse()
-        ->and(str_contains($html, '750407-01-9575'))->toBeFalse()
-        // The QR still identifies the holder at the counter.
-        ->and($html)->toContain('Scan to verify holder');
+    try {
+        expect($env->get('SLIP_SHOWS_IC'))->toBeNull()
+            ->and((require config_path('app.php'))['slip_shows_ic'])->toBeTrue();
+    } finally {
+        if ($was !== null) {
+            $env->set('SLIP_SHOWS_IC', $was);
+        }
+    }
 
     config(['app.slip_shows_ic' => true]);
 
     expect(renderedSlip($event, $entry))->toContain('IC Number', '750407-01-9575');
+
+    config(['app.slip_shows_ic' => false]);
+
+    // Off: no row, and the number appears nowhere; the QR still identifies the holder.
+    $html = renderedSlip($event, $entry);
+
+    expect(str_contains($html, 'IC Number'))->toBeFalse()
+        ->and(str_contains($html, '750407-01-9575'))->toBeFalse()
+        ->and($html)->toContain('Scan to verify holder');
 });

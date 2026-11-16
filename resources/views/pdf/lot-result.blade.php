@@ -190,8 +190,8 @@
      slip to a person in one beep. The short code beneath is the head of the same
      hash, for when no scanner is to hand.
 
-     The IC itself is printed only when SLIP_SHOWS_IC is on (off by default,
-     2026-11-16). When it is on, the hash is a lookup key, not a mask: the
+     The IC itself is printed unless SLIP_SHOWS_IC is false (on by default).
+     When it is printed, the hash is a lookup key, not a mask: the
      Participant Information table prints the number a few centimetres down. --}}
 <div class="qr-box no-break">
     @if($qrDataUri)
@@ -214,7 +214,7 @@
             <td>Full Name</td>
             <td>{{ $user->name }}</td>
         </tr>
-        {{-- Hidden by default: SLIP_SHOWS_IC in .env (config app.slip_shows_ic). --}}
+        {{-- Shown by default; SLIP_SHOWS_IC=false in .env hides it (config app.slip_shows_ic). --}}
         @if(config('app.slip_shows_ic'))
         <tr>
             <td>IC Number</td>

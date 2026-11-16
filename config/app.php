@@ -72,11 +72,12 @@ return [
 
     /*
     | Whether the printed lot slip shows the participant's IC number in full.
-    | Off by default (2026-11-16): a slip is shared from phones, and the QR
-    | code already identifies the holder at the counter. Kept as a switch, not
-    | deleted, because the office may need it printed again.
+    | ON by default — the owner's decision (2026-11-16): the counter reads it.
+    | Kept as a switch because hiding it was considered the same day: a slip is
+    | shared from phones, and the QR code alone identifies the holder. Set
+    | SLIP_SHOWS_IC=false to leave it off.
     */
-    'slip_shows_ic' => (bool) env('SLIP_SHOWS_IC', false),
+    'slip_shows_ic' => (bool) env('SLIP_SHOWS_IC', true),
 
     /*
     |--------------------------------------------------------------------------

@@ -445,9 +445,10 @@ jika `auto_close` hidup — acara itu kini hilang dari laman awam pada saat itu.
 
 ### IC pada slip ialah suis, `SLIP_SHOWS_IC`
 
-Lalai **off** (2026-11-16): slip dikongsi dari telefon, dan QR sudah mengenal
-pasti pemegang. Disimpan sebagai suis (`config('app.slip_shows_ic')`), bukan
-dibuang, kerana pejabat mungkin perlukannya semula.
+Lalai **on** — IC dicetak (keputusan pemilik 2026-11-16). Suis
+(`config('app.slip_shows_ic')`) dikekalkan kerana menyorokkannya pernah
+dipertimbangkan pada hari yang sama: slip dikongsi dari telefon, dan QR sahaja
+sudah mengenal pasti pemegang. `SLIP_SHOWS_IC=false` menyorokkannya.
 
 ### `$unreadNotificationCount` disediakan oleh senarai view, bukan `*`
 
