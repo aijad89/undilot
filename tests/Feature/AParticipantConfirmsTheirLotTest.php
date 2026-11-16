@@ -250,16 +250,7 @@ it('leaves the official-use box for the counter to fill, with only the state bra
 
     $this->actingAs($user)->post(route('zvote.submit', $event), ['agreement' => '1']);
 
-    $entry->refresh();
-    $html = view('pdf.lot-result', [
-        'event' => $event,
-        'registration' => $entry->load('company'),
-        'assignedPlot' => $entry->plot()->with(['plotSize', 'bidang'])->first(),
-        'user' => $user,
-        'poll' => Poll::where('event_id', $event->id)->where('user_id', $user->id)->sole(),
-        'icHash' => $user->icHash(),
-        'qrDataUri' => $user->icQrDataUri(),
-    ])->render();
+    $html = renderedSlip($event, $entry);
 
     // The officer is not known when the slip is printed, so nothing is printed
     // for them: name, date and signature are written at the counter.
@@ -278,10 +269,23 @@ it('prints the craft code in the lot box, not the craft category', function () {
 
     $this->actingAs($user)->post(route('zvote.submit', $event), ['agreement' => '1']);
 
-    $entry->refresh();
-    expect($entry->plot->bidang_id)->toBe($tbps->id);
+    expect($entry->fresh()->plot->bidang_id)->toBe($tbps->id);
 
-    $html = view('pdf.lot-result', [
+    $html = renderedSlip($event, $entry);
+
+    // `name` on a code row is the category; it printed "Craft code: TEKSTIL"
+    // above a table that said TBPS.
+    expect($html)->toContain('Craft code: TBPS (BATIK)')
+        ->and(str_contains($html, 'Craft code: TEKSTIL'))->toBeFalse();
+});
+
+/** The slip's HTML for a participant who has drawn, as LotDrawController::slip() builds it. */
+function renderedSlip(Event $event, EventRegistration $entry): string
+{
+    $entry->refresh();
+    $user = $entry->company->user;
+
+    return view('pdf.lot-result', [
         'event' => $event,
         'registration' => $entry->load('company'),
         'assignedPlot' => $entry->plot()->with(['plotSize', 'bidang'])->first(),
@@ -290,9 +294,27 @@ it('prints the craft code in the lot box, not the craft category', function () {
         'icHash' => $user->icHash(),
         'qrDataUri' => $user->icQrDataUri(),
     ])->render();
+}
 
-    // `name` on a code row is the category; it printed "Craft code: TEKSTIL"
-    // above a table that said TBPS.
-    expect($html)->toContain('Craft code: TBPS (BATIK)')
-        ->and(str_contains($html, 'Craft code: TEKSTIL'))->toBeFalse();
+it('leaves the IC number off the slip unless SLIP_SHOWS_IC is on', function () {
+    $event = openDraw();
+    Plot::factory()->create(['event_id' => $event->id, 'plot_code' => 'A-RKP1']);
+    $entry = inDraw($event);
+    $user = $entry->company->user;
+    $user->forceFill(['ic_number' => '750407-01-9575'])->save();
+
+    $this->actingAs($user)->post(route('zvote.submit', $event), ['agreement' => '1']);
+
+    $html = renderedSlip($event, $entry);
+
+    // Off by default: no row, and the number appears nowhere on the slip.
+    expect(config('app.slip_shows_ic'))->toBeFalse()
+        ->and(str_contains($html, 'IC Number'))->toBeFalse()
+        ->and(str_contains($html, '750407-01-9575'))->toBeFalse()
+        // The QR still identifies the holder at the counter.
+        ->and($html)->toContain('Scan to verify holder');
+
+    config(['app.slip_shows_ic' => true]);
+
+    expect(renderedSlip($event, $entry))->toContain('IC Number', '750407-01-9575');
 });

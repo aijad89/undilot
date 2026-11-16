@@ -71,6 +71,14 @@ return [
     'timezone' => 'Asia/Kuala_Lumpur',
 
     /*
+    | Whether the printed lot slip shows the participant's IC number in full.
+    | Off by default (2026-11-16): a slip is shared from phones, and the QR
+    | code already identifies the holder at the counter. Kept as a switch, not
+    | deleted, because the office may need it printed again.
+    */
+    'slip_shows_ic' => (bool) env('SLIP_SHOWS_IC', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
