@@ -432,6 +432,23 @@ membina atas `APP_URL`.
 bertandatangan dengan `APP_KEY`, jadi bukan lubang; tetapi aplikasi ini tidak
 pernah menyentuh cakera `local` langsung, dan GET itu menaungi URI sepanduk.
 
+### Laman awam: `Event::PUBLIC_STATUSES`
+
+Hanya `open` (Published) dan `completed` (Ended) dipaparkan kepada awam dan
+peserta. `closed` (Unpublished) disorok dari senarai untuk semua; halamannya
+404 kecuali kepada admin yang log masuk, dengan sepanduk (K10, keputusan
+pemilik 2026-11-16). Papan pemuka, halaman lot dan slip peserta **tidak**
+menyemak status terbit — peserta dalam cabutan tidak boleh terkunci daripadanya.
+
+**Awas:** penjadual menukar `open` → `closed` bila `registration_close_at` lepas
+jika `auto_close` hidup — acara itu kini hilang dari laman awam pada saat itu.
+
+### IC pada slip ialah suis, `SLIP_SHOWS_IC`
+
+Lalai **off** (2026-11-16): slip dikongsi dari telefon, dan QR sudah mengenal
+pasti pemegang. Disimpan sebagai suis (`config('app.slip_shows_ic')`), bukan
+dibuang, kerana pejabat mungkin perlukannya semula.
+
 ### `$unreadNotificationCount` disediakan oleh senarai view, bukan `*`
 
 View composer dalam `AppServiceProvider` menamakan setiap view yang membacanya.
