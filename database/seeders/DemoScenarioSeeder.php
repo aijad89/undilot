@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * DEMO DATA for the manual test sheet (docs/testing/undilot-test-manual.xlsx)
- * — never on the live server: DemoSeeder calls it, below DatabaseSeeder's
- * isProduction() guard.
+ * — never on the live server: it extends LocalOnlySeeder, which refuses every
+ * APP_ENV but local, testing and e2e.
  *
  * One event per state the sheet's preconditions ask for, titled "Uji: …" and
  * naming its test cases in the description, so a tester finds the right one
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Storage;
  *
  * Re-runnable: an event that already exists is left as it is.
  */
-class DemoScenarioSeeder extends Seeder
+class DemoScenarioSeeder extends LocalOnlySeeder
 {
     private Admin $hq;
 
