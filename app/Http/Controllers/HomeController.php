@@ -16,7 +16,9 @@ class HomeController extends Controller
      */
     public function index(Request $request)
     {
-        $events = Event::where('status', '!=', 'draft')
+        // Published and ended only. Unpublished is hidden here for everyone,
+        // admins included — they reach it from the admin event list (K10).
+        $events = Event::whereIn('status', Event::PUBLIC_STATUSES)
             ->when($request->input('search'), fn ($q, $search) => $q->where(
                 fn ($w) => $w->where('title', 'like', "%{$search}%")->orWhere('location', 'like', "%{$search}%")
             ))
@@ -40,10 +42,18 @@ class HomeController extends Controller
     /**
      * One published event, for anyone. A draft is not public, so it is a 404 —
      * the same as an id that does not exist.
+     *
+     * Unpublished is a 404 too, except to a signed-in admin, who sees the page
+     * with a banner saying it is hidden (K10). An admin is a guest on the `web`
+     * guard, so the admin guard is asked by name.
      */
     public function show(Event $event)
     {
         abort_if($event->status === 'draft', 404);
+
+        $adminPreview = ! $event->isPublic();
+
+        abort_if($adminPreview && ! auth('admin')->check(), 404);
 
         // What a signed-in participant's company has to do with this event: on
         // the draw list, a join request in flight, or neither.
@@ -52,6 +62,7 @@ class HomeController extends Controller
         return view('events.show', [
             'event' => $event,
             'company' => $company,
+            'adminPreview' => $adminPreview,
             'onList' => $company && $event->registrations()->announced()->where('company_id', $company->id)->exists(),
             // Put on the list by the office, waiting for HQ: no form to fill in.
             'beingAdded' => $company && $event->registrations()->whereNull('first_verified_at')->where('company_id', $company->id)->exists(),
