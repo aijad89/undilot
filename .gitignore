@@ -63,3 +63,8 @@ Thumbs.db
 /kraf_lama.sql
 *.sql
 !database/**/*.sql
+
+# Fail kunci Office semasa dokumen dibuka.
+~$*
+# Foto Jadual A.1 (PKKM 2022) dan hierarki-kraf.csv — data kerja, kekal tempatan.
+/files/
