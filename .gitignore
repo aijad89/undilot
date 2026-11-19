@@ -70,6 +70,9 @@ Thumbs.db
 /kraf_lama.sql
 *.sql
 !database/**/*.sql
+# The one exception for a test fixture: entirely made-up names, ICs and logins
+# (see its header). Named exactly, never a folder.
+!/tests/Fixtures/legacy-migrate-sample.sql
 
 # Scratch SDD: ledger kemajuan, brief tugasan, pakej semakan.
 /.superpowers/

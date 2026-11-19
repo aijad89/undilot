@@ -27,6 +27,9 @@ class User extends Authenticatable
         'ic_number',
         'community_id',
         'address',
+        'salutation',
+        'postcode',
+        'district',
         'is_active',
         // Set only by legacy:accounts (dev). Controllers pass validated arrays
         // that never carry it.

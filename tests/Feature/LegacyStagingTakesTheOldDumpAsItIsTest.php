@@ -59,18 +59,18 @@ it('mirrors each legacy table column for column, lowercased, plus its provenance
         'legacy_upengawai' => [
             'id', 'legacy_id', 'source_table',
             'name', 'password', 'userright', 'loginname', 'state', 'ic', 'jawatan',
-            'imported_at',
+            'raw', 'admin_id', 'imported_at',
         ],
         'legacy_usahawan' => [
             'id', 'legacy_id', 'source_table',
             'name', 'ic', 'state', 'companyname', 'crafttype', 'lot', 'location',
             'votetime', 'bidang', 'salu', 'preset', 'comid', 'byuser',
-            'imported_at',
+            'raw', 'user_id', 'company_id', 'imported_at',
         ],
         'legacy_ukhemah' => [
             'id', 'legacy_id', 'source_table',
             'khemah', 'usahawanid', 'boothid', 'bidang', 'crafttype', 'prio', 'event',
-            'imported_at',
+            'raw', 'plot_id', 'imported_at',
         ],
     ];
 

@@ -20,6 +20,14 @@ use RuntimeException;
  * `ukhemah_hkk2012(guna_ini_12032012)`), and `CREATE TABLE` statements that the
  * export truncated mid-definition.
  *
+ * ONE CONVERSION, AND IT LOSES NOTHING: text that is not valid UTF-8 is read as
+ * Windows-1252 — MySQL's `latin1`, which is every table in the old database —
+ * and converted to UTF-8. A latin1 dump writes 'é' as the single byte 0xE9, which
+ * a utf8mb4 column refuses outright in strict mode, so without this the row is
+ * lost rather than kept. The conversion maps back byte for byte. Text that is
+ * ALREADY valid UTF-8 is left alone, including double-encoded 'Ã©': repairing
+ * that is a judgement, and judgements are the transform's.
+ *
  * WHAT IT DOES NOT DO: clean anything. A trailing space on `boothid` ('TBA06 ')
  * and a `comid` of '14-1-14   ' arrive exactly as the dump holds them. Staging
  * is a landing strip; trimming and parsing are the transform's job, where a
@@ -258,11 +266,19 @@ class LegacyDump
     private function finish(string $value, bool $quoted): ?string
     {
         if ($quoted) {
-            return $value;
+            return self::utf8($value);
         }
 
         $bare = trim($value);
 
-        return strcasecmp($bare, 'null') === 0 ? null : $bare;
+        return strcasecmp($bare, 'null') === 0 ? null : self::utf8($bare);
+    }
+
+    /** Valid UTF-8 as it is; anything else read as Windows-1252 (MySQL latin1). */
+    public static function utf8(string $value): string
+    {
+        return mb_check_encoding($value, 'UTF-8')
+            ? $value
+            : mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
     }
 }

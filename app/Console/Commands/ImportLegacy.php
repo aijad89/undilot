@@ -19,15 +19,16 @@ use Throwable;
  *
  * Three families, routed by table-name prefix, because the dump holds 64 tables
  * that are really three shapes repeated: `upengawai*` (37 officers plus three
- * older copies), `usahawan*` (the participant rows plus twenty-odd snapshots)
- * and `ukhemah*` (the booth plans plus their hourly snapshots). Anything else —
- * `syatemconfiguration`, `uploadfile` — is counted as skipped and reported, not
- * silently ignored.
+ * older copies), `usahawan*` (the participant rows, the master list and
+ * twenty-odd snapshots) and `ukhemah*` (the booth plans plus their snapshots).
+ * The admin rows of `fileuser` join `legacy_upengawai` — only UserRight
+ * Administrator or DepartmentAdmin; the rest of that table is the document
+ * system's users. Anything else — `syatemconfiguration`, `uploadfile` — is
+ * counted as skipped and reported, not silently ignored.
  *
- * COLUMNS NOT ON THE STAGING TABLE ARE DROPPED ON PURPOSE and counted so the
- * report says so. 21 of the dump's columns are left out: measured at 0% filled,
- * or filled with one repeated value, or abandoned by the office a decade ago.
- * The schema migration names each one and why.
+ * NOTHING IS DROPPED. Every source row is written whole to `raw` (JSON). A
+ * column without a typed staging column of its own is only in `raw`, and the
+ * report counts those, so the operator sees which fields live there.
  */
 class ImportLegacy extends Command
 {
@@ -48,6 +49,12 @@ class ImportLegacy extends Command
 
     private const CHUNK = 500;
 
+    /** Columns on the staging tables that are not legacy columns. */
+    private const OWN_COLUMNS = ['id', 'legacy_id', 'source_table', 'imported_at', 'raw', 'user_id', 'company_id', 'plot_id', 'admin_id'];
+
+    /** The `fileuser` rights that are Undilot accounts; the rest are not ours. */
+    private const FILEUSER_RIGHTS = ['Administrator', 'DepartmentAdmin'];
+
     /** Staging table => the data columns it will accept. */
     private array $accepts = [];
 
@@ -56,7 +63,7 @@ class ImportLegacy extends Command
 
     private array $loaded = [];      // source table => rows written
     private array $skipped = [];     // source table => rows seen but not routed
-    private array $droppedCols = []; // column name => times dropped
+    private array $rawOnly = [];     // column name => rows where it is only in `raw`
     private array $failures = [];    // human-readable, capped
     private int $malformed = 0;
 
@@ -69,7 +76,7 @@ class ImportLegacy extends Command
         foreach (self::FAMILIES as $staging) {
             $this->accepts[$staging] = array_values(array_diff(
                 Schema::getColumnListing($staging),
-                ['id', 'legacy_id', 'source_table', 'imported_at']
+                self::OWN_COLUMNS
             ));
             $this->buffer[$staging] = [];
         }
@@ -104,7 +111,7 @@ class ImportLegacy extends Command
                 continue;
             }
 
-            $staging = $this->stagingFor($table);
+            $staging = $this->stagingFor($table, $item['row']);
 
             if ($staging === null) {
                 $this->skipped[$table] = ($this->skipped[$table] ?? 0) + 1;
@@ -131,8 +138,18 @@ class ImportLegacy extends Command
         return $this->failures === [] ? self::SUCCESS : self::FAILURE;
     }
 
-    private function stagingFor(string $table): ?string
+    private function stagingFor(string $table, ?array $row = null): ?string
     {
+        if ($table === 'fileuser') {
+            if ($row === null) {
+                return 'legacy_upengawai';
+            }
+
+            $right = collect($row)->first(fn ($v, $k) => strtolower(trim($k)) === 'userright');
+
+            return in_array(trim((string) $right), self::FILEUSER_RIGHTS, true) ? 'legacy_upengawai' : null;
+        }
+
         foreach (self::FAMILIES as $prefix => $staging) {
             if (str_starts_with($table, $prefix)) {
                 return $staging;
@@ -144,7 +161,8 @@ class ImportLegacy extends Command
 
     /**
      * The one mapping rule: a staging column is the legacy column lowercased.
-     * `id` becomes `legacy_id`, because the staging table needs its own.
+     * `id` becomes `legacy_id`, because the staging table needs its own. The
+     * whole row also goes to `raw`, exactly as the dump spelled it.
      */
     private function shape(array $row, string $table, string $staging, $now): array
     {
@@ -152,6 +170,7 @@ class ImportLegacy extends Command
             'legacy_id' => null,
             'source_table' => $table,
             'imported_at' => $now,
+            'raw' => json_encode($row, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ];
 
         foreach ($row as $column => $value) {
@@ -169,7 +188,7 @@ class ImportLegacy extends Command
                 continue;
             }
 
-            $this->droppedCols[$key] = ($this->droppedCols[$key] ?? 0) + 1;
+            $this->rawOnly[$key] = ($this->rawOnly[$key] ?? 0) + 1;
         }
 
         return $out;
@@ -239,11 +258,11 @@ class ImportLegacy extends Command
             }
         }
 
-        if ($this->droppedCols !== []) {
-            arsort($this->droppedCols);
+        if ($this->rawOnly !== []) {
+            arsort($this->rawOnly);
             $this->newLine();
-            $this->line('Columns dropped (not on the staging tables, by design):');
-            foreach ($this->droppedCols as $col => $n) {
+            $this->line('Columns kept in `raw` only (no typed staging column):');
+            foreach ($this->rawOnly as $col => $n) {
                 $this->line('  '.str_pad($col, 16).number_format($n));
             }
         }

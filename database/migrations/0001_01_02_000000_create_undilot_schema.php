@@ -68,10 +68,11 @@ return new class extends Migration
             $table->string('username', 50)->unique();
             $table->string('password');
 
-            // The `upengawai` id this account was built from by legacy:accounts
-            // (dev only), so `--fresh` finds its own rows. Null for every
-            // account made in the app.
-            $table->string('legacy_id', 20)->nullable()->index();
+            // The old-system row this account was built from by legacy:accounts:
+            // `upengawai:5` for an officer, `fileuser:12` for an administrator.
+            // The source is part of the key because the two tables number their
+            // rows independently. Null for every account made in the app.
+            $table->string('legacy_id', 100)->nullable()->index();
 
             // Three roles: admin (one state), hq, super. The vocabulary and the
             // rules about who may hand out which live in Admin::ROLES and
@@ -208,6 +209,10 @@ return new class extends Migration
             $table->unique('user_id');
 
             $table->string('name');
+
+            // The old system's No. Daftar (`usahawan.register`), carried over by
+            // legacy:accounts. Free text.
+            $table->string('registration_no', 100)->nullable();
 
             // The office zone this company is administered under — what a state
             // admin is scoped to. There is no address here and no premises table:
@@ -377,13 +382,12 @@ return new class extends Migration
              * The lot code as it is printed on the booth and on the slip, so it is
              * also what anybody looks a plot up by.
              *
-             * NOT unique, and the reason is in the data: `legacy:transform-aacb`
-             * keeps the office's own `boothid` as `plot_code`, and those are
-             * unique within one event (`TBP01`, `KH01`) but repeat across events —
-             * every fair has a `TBP01`. Unique here would refuse the second event
-             * imported. A unique on (event_id, plot_code) would be true today and
-             * is still not added: nothing reads a plot by that pair, so it would
-             * be a constraint carried for its own sake.
+             * NOT unique, and the reason is in the data: `legacy:transform-event`
+             * keeps the office's own `boothid` as `plot_code`, and those repeat
+             * across events — every fair has a `TBP01` — and the old system did
+             * not even hold them unique within one (it checked in PHP, racily).
+             * Unique here would refuse the old events; (event_id, plot_code)
+             * would refuse a booth id the office used twice in one fair.
              */
             $table->index('plot_code');
         });
@@ -533,18 +537,24 @@ return new class extends Migration
         /* ── Legacy import staging ───────────────────────────────────────── */
 
         /**
-         * A landing strip for the old system's dump. Nothing here is application
-         * data: these three tables hold the columns of the office's MySQL 4-era
-         * tables that the import actually uses, so a wrong mapping costs a
-         * re-transform rather than another export request.
+         * A landing strip for the old system's dump, and ITS ARCHIVE. Nothing
+         * here is application data, so a wrong mapping costs a re-transform
+         * rather than another export request.
          *
-         * NOT EVERY COLUMN, AND THAT IS DELIBERATE. The dump has 64 tables and
-         * 21,032 rows, and the fill rate of each column was measured against it
-         * rather than guessed. Twenty-one columns were left out (2 + 13 + 6): some are 0%
-         * filled in all 21,032 rows, some hold a single repeated value, and some
-         * the office stopped capturing a decade ago. Each table below says which
-         * and why. `kraf_lama.sql` itself is the archive, so narrowing these
-         * tables loses nothing — a later historical import re-reads the file.
+         * EVERY COLUMN OF EVERY ROW IS KEPT, in `raw`: the whole source row as
+         * JSON, original column names, values untrimmed and uncleaned. The typed
+         * columns beside it are only the ones the transforms read and join on;
+         * a column without one (address, postcode, protokol, bayarstatus…) is
+         * still in `raw`. Before 2026-11-19 those columns were DROPPED at load,
+         * on the reasoning that the dump file was the archive — but a dump file
+         * outlives nobody's memory of where it is, and the office's old fields
+         * (Gelaran, Poskod, Daerah, No. Daftar, Protokol) must survive the move.
+         *
+         * EVERY ROW IS LINKED TO WHAT IT BECAME, by the nullable `user_id`,
+         * `company_id`, `plot_id` and `admin_id` columns the transforms fill in.
+         * A staging row with no link is a row the transform did not use, and
+         * `legacy:migrate` reports each one with its reason. No foreign key: the
+         * archive must outlive a deleted company.
          *
          * FIVE RULES, and the first is the one that matters:
          *
@@ -624,13 +634,17 @@ return new class extends Migration
             $table->string('ic', 100)->nullable();
             $table->string('jawatan', 100)->nullable();
 
-            // DROPPED, measured over all 137 rows of every `upengawai*` table:
-            // `sessionID` and `lastlogin` are 0% filled — the old app wrote
-            // neither. `userright` is kept although it holds ONE value across
-            // every row ('Pengawai'), because that single value is the answer to
-            // "which role does this officer get": the old system had none, so
-            // admin/hq/super has to be assigned here, not migrated.
+            // NOT TYPED, in `raw` only: `sessionID` and `lastlogin` (0% filled
+            // over all 137 `upengawai*` rows), and `fileuser`'s `StartDate` /
+            // `ExpireDate`. `userright` holds ONE value across every `upengawai`
+            // row ('Pengawai'): the old system had no roles, so admin/hq/super is
+            // assigned by legacy:accounts, not migrated. The admin accounts of the
+            // shared `fileuser` table land here too (`source_table = 'fileuser'`),
+            // only those with UserRight Administrator or DepartmentAdmin — the
+            // other ~860 belong to the document system, not Undilot.
 
+            $table->longText('raw')->nullable();
+            $table->unsignedBigInteger('admin_id')->nullable();
             $table->timestamp('imported_at')->nullable();
 
             $table->index('legacy_id');
@@ -662,9 +676,9 @@ return new class extends Migration
              * IDENTITY IS THE OTHER PROBLEM. There is no email and no password.
              * `ic` is the only candidate key — and the dump indexes it without a
              * UNIQUE, so two rows may share one, and a row may carry ''.
-             * legacy:accounts keys the accounts it builds on `users.legacy_id`
-             * instead, and `companies.user_id` unique still has to be resolved
-             * before the insert rather than discovered during it.
+             * legacy:accounts finds a person by IC as digits (or name + company
+             * when there is no IC), across every table they appear in, and links
+             * each row here to the one account through `user_id`.
              */
             $table->string('name', 200)->nullable();
             $table->string('ic', 20)->nullable();
@@ -681,32 +695,26 @@ return new class extends Migration
             $table->string('byuser', 11)->nullable();
 
             /*
-             * DROPPED ELEVEN COLUMNS, measured not assumed. Fill rate over the
-             * 175 rows of the live `usahawan` — the AACB event, the only one
-             * whose participants survive:
+             * NOT TYPED, in `raw` only. Measured over the dump this was built
+             * against (`kraf_lama.sql`):
              *
-             *   subcrafttype, votetimepay   0% HERE AND IN EVERY SNAPSHOT.
-             *                               `votetimepay` is '0000-00-00' in all
-             *                               20,000-odd rows; it was never used.
-             *   address, postcode, region   0% live, 92-97% in the 2011/2012
-             *   register, category          snapshots. The office STOPPED
-             *   payment, sstatus,           capturing these. They are real data
-             *   sstatusexport, protokol     for historical rows and nothing for
-             *                               the import we are doing.
+             *   subcrafttype, votetimepay   0% everywhere; `votetimepay` is
+             *                               '0000-00-00' in every row.
+             *   address, postcode, region   0% in that dump's live table, 92-97%
+             *   register, category          in the 2011/2012 snapshots, and the
+             *   payment, sstatus,           office's Excel sheets still carry
+             *   sstatusexport, protokol     several. legacy:accounts reads the
+             *   bayarstatus, undi           ones it maps (salu, address,
+             *                               postcode, region, register) out of
+             *                               `raw`.
              *
-             * `bayarstatus` and `undi` are dropped too, for the opposite reason:
-             * 100% filled but ONE distinct value each ('Ya', 'Yes'). A column
-             * that never varies carries no row-level fact. What they mean —
-             * every AACB participant had paid and had confirmed — belongs in the
-             * transform, which sets `confirmed_participation` and writes a
-             * payment note, not in a column repeating one word 175 times.
-             *
-             * THE DUMP FILE IS THE ARCHIVE, which is what makes this safe.
-             * Nothing is lost by narrowing the table: a later historical import
-             * re-reads `kraf_lama.sql` and widens the schema then, with the
-             * office's answers about events in hand.
+             * `bayarstatus` ('Ya') and `undi` ('Yes') were one value each in that
+             * dump. A fresh dump may vary, and `raw` is what keeps the answer.
              */
 
+            $table->longText('raw')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('company_id')->nullable();
             $table->timestamp('imported_at')->nullable();
 
             $table->index('legacy_id');
@@ -756,16 +764,17 @@ return new class extends Migration
             $table->string('event', 100)->nullable();
 
             /*
-             * DROPPED SIX. Fill rate over the live `ukhemah` (175 booths, event
-             * AACB): `typeitem`, `subtypeitem`, `category`, `sstatusexport`,
-             * `sstatus` and `protokol` are ALL 0%. Across every `ukhemah*` table
-             * they reach 3-17%, entirely in the 2011/2012 rows.
+             * NOT TYPED, in `raw` only: `typeitem`, `subtypeitem`, `category`,
+             * `sstatusexport`, `sstatus` and `protokol` — 0% in the live
+             * `ukhemah` of `kraf_lama.sql`, 3-17% across every `ukhemah*` table,
+             * entirely in the 2011/2012 rows.
              *
-             * `prio` is kept even though the live table holds one value for all
-             * 175 rows, because it varies in the older plans (five values) and
-             * it is what tells a reserved booth from an ordinary one.
+             * `prio` is typed: it varies in the older plans (five values) and is
+             * what tells a reserved booth from an ordinary one.
              */
 
+            $table->longText('raw')->nullable();
+            $table->unsignedBigInteger('plot_id')->nullable();
             $table->timestamp('imported_at')->nullable();
 
             $table->index('legacy_id');

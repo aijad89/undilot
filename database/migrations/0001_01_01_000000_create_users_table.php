@@ -36,6 +36,13 @@ return new class extends Migration
             // reads it but a person, so there is nothing to split it into.
             $table->text('address')->nullable();
 
+            // The old system's Gelaran, Poskod and Daerah (`usahawan.salu`,
+            // `postcode`, `region`), carried over by legacy:accounts so they are
+            // not lost in the move. Free text, as the office typed them.
+            $table->string('salutation', 50)->nullable();
+            $table->string('postcode', 20)->nullable();
+            $table->string('district', 100)->nullable();
+
             // Accounts are created by an admin, never self-registered, so there is
             // no verification step and no `email_verified_at`. Switching an account
             // off is what `is_active` is for, and EnforceUserIsActive turns that
@@ -44,10 +51,12 @@ return new class extends Migration
 
             $table->timestamp('last_seen_at')->nullable();
 
-            // The `usahawan` id this account was built from by legacy:accounts
-            // (dev only): how that command and legacy:transform-aacb find their
-            // own rows. Null for every account the office makes.
-            $table->string('legacy_id', 20)->nullable()->index();
+            // The old-system row this account was built from by legacy:accounts,
+            // as `source_table:id` (e.g. `usahawan:17`) — one person can appear
+            // in many old tables, and this names the one their profile came from.
+            // Every other row that is the same person links here through
+            // `legacy_usahawan.user_id`. Null for every account the office makes.
+            $table->string('legacy_id', 100)->nullable()->index();
 
             $table->rememberToken();
             $table->timestamps();

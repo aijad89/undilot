@@ -29,6 +29,7 @@ class CompanyFactory extends Factory
         return [
             'user_id' => User::factory(),
             'name' => fake()->company(),
+            'registration_no' => null,
             'state' => 'Johor',
             'entrepreneur_category' => 'Pengeluar atau Pedagang',
             'kraf_code' => null,

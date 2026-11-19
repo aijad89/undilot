@@ -7,17 +7,13 @@ use App\Support\AdminZones;
 use Illuminate\Support\Facades\DB;
 
 /*
- * The accounts command exists because the dump cannot answer two questions, and
- * these tests pin the answers it invents instead:
- *
- *   `UserRight` is 'Pengawai' on all 137 rows, so the three undilot roles are
- *   ASSIGNED here, not migrated — and the assignment has to be stable, or a test
- *   that signs in as "the super admin" changes person between runs.
- *
- *   Officers become admins with their `loginname` as username; the old
- *   passwords are not carried (random ones are set). Every row built carries
- *   `legacy_id`, because --fresh deletes by it — never what the office or the
- *   demo seeders made.
+ * legacy:accounts turns the old staff and participants into accounts. Roles come
+ * from the old data (owner, 2026-11-19): every `upengawai` officer becomes the
+ * state admin of their own zone; `fileuser` Administrator / DepartmentAdmin
+ * become super / hq (LegacyMigrateTest covers those). Usernames come from
+ * `loginname`; old passwords are not carried. Every row built carries
+ * `legacy_id` (`source_table:id`), because --fresh deletes by it — never what
+ * the office or the demo seeders made.
  */
 
 function loadForAccounts(): void
@@ -33,18 +29,21 @@ it('refuses to run before anything is loaded', function () {
     expect(Admin::whereNotNull('legacy_id')->exists())->toBeFalse();
 });
 
-it('gives the first officer super, and keeps the office name and title', function () {
+it('makes an officer the state admin of their own zone, keeping the office name', function () {
     loadForAccounts();
     Artisan::call('legacy:accounts');
 
-    $super = Admin::where('role', Admin::SUPER_ROLE)
-        ->whereNotNull('legacy_id')
-        ->first();
+    $admin = Admin::where('legacy_id', 'upengawai:24')->first();
 
-    // The fixture's one live officer, by name, from `upengawai.Name`.
-    expect($super->name)->toBe('NORAINI BINTI OSMAN')
-        ->and($super->username)->toBe('noraini')
-        ->and($super->state)->toBeNull('Super sees every zone, so it carries none.');
+    // An officer was a branch officer in the old system, never HQ: the role is
+    // read from where they came from, not handed out by position in the table.
+    expect($admin->name)->toBe('NORAINI BINTI OSMAN')
+        ->and($admin->username)->toBe('noraini')
+        ->and($admin->role)->toBe('admin')
+        ->and($admin->state)->toBe('Perlis');
+
+    expect(DB::table('legacy_upengawai')->where('legacy_id', '24')->value('admin_id'))
+        ->toBe($admin->id, 'The staging row is linked to the account it became.');
 });
 
 it('builds a participant with their company, craft code and booth size', function () {
@@ -53,7 +52,7 @@ it('builds a participant with their company, craft code and booth size', functio
 
     // 'Manik/Mutiara/Karangan Laut-AMH-3x3' — the code and size are glued to a
     // craft name that itself holds punctuation.
-    $user = User::where('legacy_id', '204')->first();
+    $user = User::where('legacy_id', 'usahawan:204')->first();
 
     expect($user->name)->toBe('SITTI WARDAHAH BINTI ALI DAHLAN')
         ->and($user->ic_number)->toBe('890508-12-0000');
@@ -72,16 +71,16 @@ it('leaves the code and size null for the older rows that carry neither', functi
 
     // The fixture's snapshot rows carry a bare 'Songket' — 89% of the real dump
     // looks like this, so guessing a code here would invent data.
-    $user = User::where('legacy_id', '205')->first();
+    $user = User::where('legacy_id', 'usahawan:205')->first();
     $company = Company::where('user_id', $user->id)->first();
 
     expect($company->kraf_code)->toBe('RBH')
         ->and($company->plot_size)->toBe('3x3');
 
-    // And one from the live table only: the command reads `source_table` =
-    // 'usahawan', so a snapshot row must not become an account at all.
-    expect(User::where('legacy_id', '2')->exists())
-        ->toBeFalse('Only the live AACB rows become accounts.');
+    // An HOURLY BACKUP is not a source of people (Legacy::participantSources):
+    // its rows stay in staging, archive only, and become no account.
+    expect(User::where('name', 'Leena binti Hassan')->exists())
+        ->toBeFalse('An hourly backup row became an account.');
 });
 
 it('hands out the same role to the same officer on a re-run', function () {
@@ -116,14 +115,11 @@ it('gives two officers who share one login two accounts, and does not let the se
     expect($first)->not->toBeNull()
         ->and($second)->not->toBeNull('The second officer was swallowed by the first.');
 
-    expect($first->role)->toBe('hq', 'The second officer demoted the hq admin.')
-        ->and($first->state)->toBeNull()
-        ->and($second->role)->toBe('admin')
-        ->and($second->state)->toBe('Terengganu');
-
-    // One role of each at the top, not two state admins.
-    expect(Admin::whereNotNull('legacy_id')->where('role', 'hq')->count())->toBe(1)
-        ->and(Admin::whereNotNull('legacy_id')->where('role', Admin::SUPER_ROLE)->count())->toBe(1);
+    // Each keeps their OWN zone: had the second updated the first one's row,
+    // the Langkawi officer would now sit in Terengganu.
+    expect($first->state)->toBe('Langkawi', 'The second officer took over the first officer account.')
+        ->and($second->state)->toBe('Terengganu')
+        ->and($first->id)->not->toBe($second->id);
 });
 
 it('translates a legacy zone the office dropdown does not have', function () {
@@ -143,7 +139,7 @@ it('translates a legacy zone the office dropdown does not have', function () {
 
     Artisan::call('legacy:accounts', ['--users' => 'all']);
 
-    $company = Company::whereHas('user', fn ($q) => $q->where('legacy_id', '300'))->first();
+    $company = Company::whereHas('user', fn ($q) => $q->where('legacy_id', 'usahawan:300'))->first();
 
     // THE BUG THIS LOCKS. Stored raw, `companies.state` is 'P.Penang', which no
     // zone dropdown contains — so the edit form renders with NO option selected
@@ -174,7 +170,7 @@ it('puts every imported zone inside the office vocabulary, admins included', fun
     }
 });
 
-it('collapses two legacy zones that became one, and still gives it one admin', function () {
+it('collapses two legacy zones that became one, keeping both officers on it', function () {
     loadForAccounts();
 
     // The old system ran Selangor and Kuala Lumpur as separate offices; undilot
@@ -196,11 +192,12 @@ it('collapses two legacy zones that became one, and still gives it one admin', f
 
     $zone = 'Selangor, Kuala Lumpur dan Putrajaya';
 
-    expect(Admin::where('state', $zone)->count())
-        ->toBe(1, 'A zone takes one state admin, however many offices fed into it.');
+    // Both old offices' officers still work, now in the one zone.
+    expect(Admin::where('state', $zone)->pluck('username')->sort()->values()->all())
+        ->toBe(['kl', 'sel']);
 });
 
-it('refuses a legacy zone it has no mapping for, rather than planting it raw', function () {
+it('gives no account to an officer on a zone it has no mapping for, rather than planting it raw', function () {
     loadForAccounts();
 
     DB::table('legacy_upengawai')->insert([
@@ -209,10 +206,13 @@ it('refuses a legacy zone it has no mapping for, rather than planting it raw', f
         'imported_at' => now(),
     ]);
 
-    // Silently storing it would put an admin where no company can ever be, and
-    // storing the company's side of it would hide the company from everyone.
-    expect(fn () => Artisan::call('legacy:accounts'))
-        ->toThrow(RuntimeException::class, 'Wilayah Baru');
+    // Storing it would put an admin where no company can ever be. The officer's
+    // row stays in staging, unlinked, and the report counts it.
+    Artisan::call('legacy:accounts');
+
+    expect(Admin::where('username', 'nowhere')->exists())->toBeFalse()
+        ->and(DB::table('legacy_upengawai')->where('legacy_id', '60')->value('admin_id'))->toBeNull()
+        ->and(Artisan::output())->toContain('1 staff row(s) got no account');
 });
 
 it('carries the community id across, trimmed', function () {
@@ -221,7 +221,7 @@ it('carries the community id across, trimmed', function () {
 
     // `comid` is filled on 174 of the 175 live rows, and 2,182 rows across the
     // dump carry it with trailing spaces: '10-1-62  '.
-    expect(User::where('legacy_id', '205')->value('community_id'))
+    expect(User::where('legacy_id', 'usahawan:205')->value('community_id'))
         ->toBe('10-1-62');
 });
 

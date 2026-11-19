@@ -635,14 +635,29 @@ pertama; `boothid` lama (`KH01`, `PS05`) tidak mengikut senarai kod.
 
 `salu` ialah **kata panggilan** (`Puan`), bukan status.
 
-### Hanya lajur yang dipakai, diukur bukan diteka
+### Setiap lajur setiap baris disimpan, dalam `raw`
 
-Dump penuh (`kraf_lama.sql`, 8.2MB, **64 jadual, 21,032 baris** — diabaikan git
-kerana ia mengandungi nama, IC dan alamat, dan repo ini awam) diukur isian
-setiap lajur. **21 lajur ditinggalkan** (2 + 13 + 6): ada yang 0% dalam
-kesemua 21,032 baris, ada yang 100% tetapi satu nilai berulang, dan ada yang
-pejabat berhenti merekod sedekad lalu. Fail dump itu sendiri ialah arkib, jadi
-menyempitkan jadual staging tidak menghilangkan apa-apa.
+**Keputusan pemilik (2026-11-19): pindah data lama tanpa mengorbankan apa-apa.**
+Setiap baris staging membawa `raw` — baris sumber penuh sebagai JSON, nama lajur
+asal, nilai tidak dipangkas dan tidak dibersihkan. Lajur bertaip di sebelahnya
+hanya yang transform baca dan join. Lajur tanpa lajur bertaip sendiri
+(`address`, `postcode`, `region`, `register`, `payment`, `bayarstatus`,
+`protokol`, `sstatus`…) **masih ada** dalam `raw`.
+
+Sebelum ini 21 lajur **dibuang** semasa muat, dengan alasan "fail dump ialah
+arkib". Fail dump tidak bertahan lebih lama daripada ingatan sesiapa tentang di
+mana ia disimpan. Sekarang **staging ialah arkib**.
+
+Setiap baris staging dipaut kepada apa yang ia jadi: `legacy_upengawai.admin_id`,
+`legacy_usahawan.user_id` / `company_id`, `legacy_ukhemah.plot_id`. Tiada FK,
+supaya arkib bertahan selepas syarikat dipadam. Baris tanpa pautan ialah baris
+yang tidak digunakan, dan `legacy:migrate` melaporkan setiap satu.
+
+**Satu penukaran semasa membaca, tanpa kehilangan:** teks yang bukan UTF-8 sah
+dibaca sebagai Windows-1252 (MySQL `latin1`, setiap jadual lama) dan ditukar.
+Tanpanya `é` sebagai bait 0xE9 ditolak oleh lajur utf8mb4 dalam mod ketat dan
+baris itu **hilang**. UTF-8 berganda (`Ã©`) kekal dalam staging; ia dibaiki
+(`Legacy::repair()`) hanya semasa masuk ke lajur aplikasi.
 
 ### Empat fakta dump yang menentukan skop import
 
@@ -660,9 +675,14 @@ menyempitkan jadual staging tidak menghilangkan apa-apa.
 4. **`crafttype` berkod hanya 11%** — 2,201 baris ada `-KOD-SAIZ`, 18,218 nama
    kosong tanpa kod dan tanpa saiz.
 
-Jadi **import `AACB` sahaja**: 175 peserta, 174 peruntukan, pasangan hidup
-lengkap, dan satu-satunya data yang membawa kod kraf serta saiz. Sejarah
-2011–2024 kekal dalam fail dump, bukan dipaksa menjadi `events`.
+Skop (pemilik, 2026-11-19): **jadual hidup dan salinan akhir setiap acara**
+menjadi acara sebenar — senarai dalam `App\Support\Legacy::EVENTS`. Salinan
+setiap jam 2011/2012 kekal dalam staging sahaja. HKK 2011 tiada dalam senarai:
+`ukhemah_hkk2011` tiada pasangan `usahawan` bernama sama, dan memadankannya
+dengan teka boleh menyerahkan gerai seseorang kepada orang lain.
+
+Fakta 3 masih benar untuk acara lama: gerai yang pemegangnya sudah tiada menjadi
+**plot tidak diperuntukkan**, bukan dibuang, dan laporan mengiranya.
 
 Satu amaran tentang pautan: semakan "id ini ada dalam **mana-mana** jadual
 `usahawan*`" kuat untuk membuktikan ketiadaan, **lemah** untuk membuktikan
@@ -684,26 +704,33 @@ memutuskan apa-apa** — ia menyalin teks dan melaporkan apa yang dilihatnya.
 senyap. Komen SQL antara statement buat perkara sama. Itu satu larian ujian
 penuh untuk disedari.
 
-`legacy:accounts` (local/testing/e2e sahaja) membina akaun log masuk daripada
-staging: pegawai pertama jadi super, kedua jadi hq, dan setiap zon dalam dump
-dapat satu admin negeri — **peranan ditetapkan, bukan dimigrasi**, kerana
-`UserRight` hanya ada satu nilai. Peserta AACB jadi `users` + `companies`, dengan
-`kraf_code` dan `plot_size` dihurai dari `crafttype` (pecah dari **kanan**).
+`legacy:accounts` membina akaun daripada staging, dan **boleh berjalan di
+pelayan** (`--fresh` sahaja ditolak dalam production).
 
-Dua perkara yang menggigit dan kini dikunci ujian:
-
-- **Penanda ialah `legacy_id`** pada `users` dan `admins`, diisi hanya oleh
-  arahan ini. `--fresh` memadam ikut lajur itu. Dahulu penandanya domain emel
-  (`legacy.test`), dan sekali ia dikongsi dengan `DemoSeeder` — `--fresh`
-  memadam data demo juga. Pegawai mendapat `loginname` sebagai `username` dan
-  kata laluan rawak (kata laluan lama tidak dibawa).
-- **Dua pegawai berkongsi satu `loginname`** (id 5 dan 25, kedua-duanya
-  `haida`). `updateOrCreate` pada kunci bertembung **tidak gagal** — ia mengemas
-  kini baris pegawai pertama, jadi yang kedua merampas peranan yang sudah
-  diberi. Pada dump sebenar: 17 admin dibina, 16 baris wujud, dan admin hq
-  **hilang tanpa sebarang amaran**. Slug pertama menang; yang kemudian membawa
-  `legacy_id`.
-
+- **Peranan dibaca daripada data lama** (pemilik, 2026-11-19): `fileuser`
+  Administrator → super, DepartmentAdmin → hq, setiap pegawai `upengawai` →
+  admin negeri zonnya sendiri (beberapa per zon dibenarkan). Akaun `fileuser`
+  yang lepas `ExpireDate` diimport dimatikan. Pegawai pada zon yang tidak
+  dikenali tiada akaun, dilaporkan, kekal dalam staging. Hanya hak Administrator /
+  DepartmentAdmin dari `fileuser` dimuat — selebihnya pengguna sistem dokumen.
+- **Satu orang, banyak baris lama.** Peserta yang sama muncul dalam jadual hidup,
+  senarai induk dan salinan setiap acara. Mereka satu akaun, dikenal pasti oleh
+  IC sebagai digit (`890508-12-0000` = `890508120000`), atau nama + syarikat bila
+  tiada IC. Sumber terbaru memberi profil (`Legacy::participantSources()`);
+  setiap baris lain dipaut. `comid` `'TIADA'` jadi null.
+- **Medan profil lama dibawa**: Gelaran → `users.salutation`, Poskod →
+  `postcode`, Daerah (`region`) → `district`, Alamat → `address`, No. Daftar →
+  `companies.registration_no`. Borang belum memaparkannya — tunggu pejabat
+  sahkan medan mana yang masih diguna.
+- **Penanda ialah `legacy_id`** = `source_table:id` (`usahawan:204`,
+  `upengawai:5`, `fileuser:1`), diisi hanya oleh arahan ini. `--fresh` memadam
+  ikut lajur itu, bukan domain emel — sekali dahulu penanda dikongsi dengan
+  `DemoSeeder` dan `--fresh` memadam data demo juga.
+- **Dua pegawai berkongsi satu `loginname`** (id 5 dan 25, kedua-duanya `haida`).
+  `updateOrCreate` pada kunci bertembung **tidak gagal** — ia mengemas kini baris
+  pegawai pertama. Slug pertama menang; yang kemudian membawa id (`haida.25`).
+- Kata laluan lama **tidak dibawa** (teks biasa dan MD5): rawak, super admin
+  menetapkan semula. Peserta log masuk dengan ID Komuniti + IC.
 
 ### Zon lama **mesti** diterjemah, tidak boleh disimpan mentah
 
@@ -724,45 +751,60 @@ pengesahan. Diukur pada baris sebenar, bukan dibayangkan. Itu persis kegagalan
 yang docblock `AdminZones` sendiri beri amaran.
 
 Dua zon lama bergabung jadi satu (`Selangor` + `Kuala Lumpur` →
-`Selangor, Kuala Lumpur dan Putrajaya`), dan satu zon tetap satu admin.
+`Selangor, Kuala Lumpur dan Putrajaya`); pegawai kedua-dua pejabat menjadi admin
+zon itu.
 Sasaran diselesaikan terhadap **senarai hidup**, bukan salinan — zon ialah
-`ManagedList` yang boleh dinamakan semula. Nama tanpa pemetaan **melontar**,
-tidak disimpan mentah.
+`ManagedList` yang boleh dinamakan semula. Nama tanpa pemetaan **tidak disimpan
+mentah**: `LegacyZones::translate()` melontar, dan `Legacy::zone()` menjawabnya
+sebagai null yang dilaporkan.
 
 `AdminZones::rename()` **menolak nama zon lain**, tidak peka huruf besar (MySQL
 membandingkan lajur ini begitu juga) — jika tidak, dua zon bergabung senyap
 (K08). Menukar huruf besar/kecil nama sendiri dibenarkan.
 
-### `legacy:transform-aacb` membina satu acara, bukan sejarah
+### `legacy:migrate`: satu arahan, satu dump, dengan bukti
 
-Ia membina acara AACB penuh daripada staging: pelan (4 pasangan lokasi/saiz),
-175 plot, 174 pendaftaran, 174 preset dan 174 undi. Silang-semak terhadap dump
-lulus kesemuanya — `plot_code` dari dump, plot padan `usahawan.lot`, kod
-pendaftaran = kod plot, tiada plot ditanda kategori, tiada baris belum disahkan.
+```
+php artisan legacy:migrate <dump.sql>      # import:legacy → legacy:accounts → transform-event × EVENTS
+php artisan legacy:migrate x --report-only # hanya laporan rekonsiliasi
+```
 
-Keputusan yang dibuat di sini dan sebabnya:
+Ia berakhir dengan **rekonsiliasi**: untuk setiap jadual lama, berapa baris,
+berapa dipaut, berapa tidak — kiraan sahaja, tiada nama atau IC. Jadual
+"archive" (salinan setiap jam) dijangka tidak dipaut. Selamat dijalankan semula
+pada dump sama: akaun ditemui semula ikut identiti, setiap acara menggantikan
+yang dibinanya dahulu (kunci `settings` `legacy_event:<jadual>`, bukan
+`description` yang pejabat sunting).
 
-- **`plot_code` ialah `boothid` pejabat**, bukan `Plot::codeFor()`. Pejabat
-  tulis `TBP01`; penjana akan tulis `BASEMENT-TBP1`. `usahawan.lot` padan dengan
-  `boothid` pada **kesemua 174** peruntukan, dan id itulah yang dicetak pada
-  gerai dan slip.
-- **`use_preset` dan `allocation_type = 'preset'`**, kerana `lot` = `preset`
-  pada kesemua 175 baris: pejabat menetapkan setiap gerai, peserta mengesahkan.
-  Membina semula seolah-olah algoritma yang menjalankannya ialah acara lain.
-- **Setiap pendaftaran ditulis `verified_at`**, kerana cabutan itu **selesai**.
-  `PollingGuard` menahan cabutan selagi ada baris belum disahkan, jadi acara
-  yang sampai ke penghujung sudah melalui kedua-dua semakan.
-- **Tetingkap cabutan dibaca dari `votetime`** (2025-10-06 10:02 → 13:54), bukan
-  direka. **Tajuk, tempat dan tarikh acara pula tiada dalam dump** — pilihan
-  arahan membekalkannya dan laporan menyatakan yang mana tekaan.
-- **Pemangkasan ruang berlaku di sini**, bukan di staging. `'RKP01 '` jadi
-  `'RKP01'`; staging menyimpannya utuh kerana membersih ialah keputusan.
-- Arahan **berhenti** jika ada kod kraf tiada pada helaian pengekodan — plot
-  dengan kod tak dikenali tidak boleh dipadankan oleh mana-mana pendaftaran.
+Ambil dump segar `digitalCraft` semasa cutover. Dalam pembangunan, **hanya dump
+bertopeng**.
+
+### `legacy:transform-event` membina satu acara lama
+
+`legacy:transform-event usahawan_fkj2025 --booths=ukhemah_fkj2025 --code=FKJ`
+membina acara `completed` penuh: pelan (pasangan lokasi/saiz), satu plot setiap
+baris gerai, pendaftaran, undi, preset. Keputusan dan sebabnya:
+
+- **`plot_code` ialah `boothid` pejabat**, bukan `Plot::codeFor()` — id itulah
+  yang dicetak pada gerai dan slip. Boothid berulang tetap dua plot.
+- **Preset ikut baris**: plot `preset` bila `usahawan.preset` = gerai itu.
+  `preset_allocations` hanya untuk kod pada helaian (ia FK).
+- **Setiap pendaftaran ditulis `verified_at`**, kerana cabutan itu selesai.
+- **Tetingkap cabutan dari `votetime`**; tiada `votetime` → tahun daripada nama
+  jadual, dilaporkan sebagai tekaan. **Tajuk, tempat dan tarikh acara tiada
+  dalam dump** — pilihan arahan, atau sunting acara selepas itu.
+- **Kod tidak pada helaian, atau tiada kod (89% baris lama)**: plot tanpa kod,
+  saiz `unknown`; pendaftaran menyimpan kod sebagai teks. Untuk acara **lama**
+  ini tidak menghilangkan apa-apa — dahulu arahan berhenti.
+- **Syarikat dengan dua gerai** ("MOHON 2 LOT"): satu pendaftaran (unik
+  acara+syarikat), kedua-dua plot diperuntukkan kepadanya.
+- **Tiada jadual `ukhemah`** (FKJ 2022): gerai dibina semula dari
+  `usahawan.lot` / `location`.
+- `bayarstatus` Ya/Tidak → `payment_status` paid/unpaid; `payment` (No. Resit)
+  → `payment_note`.
 
 `--fresh` membuang pendaftaran **dahulu**, kemudian acara: `plot_id` tiada
-klausa `ON DELETE`, jadi pangkalan data menyekat pembuangan plot yang masih
-ditunjuk.
+klausa `ON DELETE`.
 
 ### Pembersihan yang data sebenar sudah tunjukkan perlu
 
@@ -776,8 +818,8 @@ ditunjuk.
   `'Ya'` / `'Tidak'`.
 
 Transform dari staging ke jadual aplikasi yang membuat keputusan. **Jangan**
-tambah lajur status (`sstatus`, `bayarstatus`, `Protokol`) kepada
-`event_registrations` untuk menampung dump — model dua-semakan sudah
+tambah lajur status (`sstatus`, `Protokol`) kepada `event_registrations` untuk
+menampung dump — ia kekal dalam `raw` — model dua-semakan sudah
 menggantikannya, dan `PollingGuard` serta `EventRegistration::booted()`
 bergantung padanya.
 
