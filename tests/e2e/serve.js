@@ -89,8 +89,8 @@ function sweepStrays() {
 
     // LOWERCASED BEFORE COMPARING, because Windows paths are case-insensitive
     // and JavaScript string matching is not. Node resolves this file's directory
-    // to `F:\herd\undilot2026` while the process list spells the same directory
-    // `F:\Herd\undilot2026`, so a plain `includes` matched nothing and the sweep
+    // to `F:\herd\undilotlook` while the process list spells the same directory
+    // `F:\Herd\undilotlook`, so a plain `includes` matched nothing and the sweep
     // took one process out of three — the queue worker, whose signature carries
     // no path at all.
     const root = ROOT.toLowerCase();

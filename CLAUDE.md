@@ -480,15 +480,15 @@ Empat perkara menggigit setiap kali:
 
 ```
 vendor/pestphp/pest/bin/pest              # SQLite dalam-memori
-DB_CONNECTION=mysql DB_DATABASE=undilot2026_test vendor/pestphp/pest/bin/pest   # MySQL, pangkalan data sendiri
-npx playwright test                        # MySQL undilot2026_e2e, melalui tests/e2e/serve.js
+DB_CONNECTION=mysql DB_DATABASE=undilotlook_test vendor/pestphp/pest/bin/pest   # MySQL, pangkalan data sendiri
+npx playwright test                        # MySQL undilotlook_e2e, melalui tests/e2e/serve.js
 ```
 
 ### Suite Pest pada MySQL, dan apa yang ia jumpa
 
 Pemboleh ubah persekitaran menang atas `phpunit.xml`, jadi baris kedua di atas
-menghalakan suite yang sama ke `undilot2026_test` (cipta sekali,
-`utf8mb4_unicode_ci`). **Jangan** halakan ia ke `undilot2026`:
+menghalakan suite yang sama ke `undilotlook_test` (cipta sekali,
+`utf8mb4_unicode_ci`). **Jangan** halakan ia ke `undilotlook`:
 `RefreshDatabase` mengosongkan apa sahaja yang ditunjuk.
 
 Larian pertama (2026-11-15) gagal empat ujian yang lulus pada SQLite, dan tiada
@@ -574,8 +574,8 @@ Dua perkara yang menggigit semasa membinanya:
   berguna: shell mati, PHP hidup dengan pid yang tiada siapa catat. Sapuan
   memadan **baris arahan**, bukan pid.
 - **Laluan Windows tidak peka huruf besar; padanan string peka.** Node
-  menyelesaikan `F:\herd\undilot2026` sedangkan senarai proses mengeja
-  `F:\Herd\undilot2026`, jadi `includes()` memadan tiada apa dan sapuan
+  menyelesaikan `F:\herd\undilotlook` sedangkan senarai proses mengeja
+  `F:\Herd\undilotlook`, jadi `includes()` memadan tiada apa dan sapuan
   mengambil satu proses daripada tiga. Dibandingkan huruf kecil sekarang.
 - **`artisan serve` ialah penyelia.** Bunuh hanya router di bawahnya dan ia
   memulakan yang baharu. Induk dicapai melalui anak, bukan dipadan terus —

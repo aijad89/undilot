@@ -372,11 +372,8 @@ return new class extends Migration
              * The lot code as it is printed on the booth and on the slip, so it is
              * also what anybody looks a plot up by.
              *
-             * NOT unique, and the reason is in the data: `legacy:transform-aacb`
-             * keeps the office's own `boothid` as `plot_code`, and those are
-             * unique within one event (`TBP01`, `KH01`) but repeat across events —
-             * every fair has a `TBP01`. Unique here would refuse the second event
-             * imported. A unique on (event_id, plot_code) would be true today and
+             * NOT unique: lot codes are unique within one event (`TBP01`,
+             * `KH01`) but repeat across events — every fair has a `TBP01`. A unique on (event_id, plot_code) would be true today and
              * is still not added: nothing reads a plot by that pair, so it would
              * be a constraint carried for its own sake.
              */
