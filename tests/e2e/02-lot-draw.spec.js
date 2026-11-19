@@ -135,7 +135,8 @@ test('two participants confirm, and each sees a lot of their own code revealed',
         // below still passing.
         await expect(page.locator('.lr-flap.is-rolling').first()).toBeHidden({ timeout: 1000 });
         await expect(page.locator('.lr-flap.is-rolling').first()).toBeVisible({ timeout: 6000 });
-        await expect(page.locator('strong[data-lot-code]')).toContainText(`-${code}`);
+        // Plot::codeFor(): the craft code, then a two-digit number (TTN01).
+        await expect(page.locator('strong[data-lot-code]')).toHaveText(new RegExp(`^\\s*${code}\\d{2,}\\s*$`));
 
         const slip = await page.request.get(await page.locator('a', { hasText: 'Print Slip' }).getAttribute('href'));
         expect(slip.headers()['content-type']).toBe('application/pdf');
@@ -158,5 +159,6 @@ test('the office closes voting and assigns the rest, and the draw completes', as
     await expect(page.locator('.draw-band [aria-current="step"]')).toHaveText(/End/);
 
     await signInAs(page, 'E2E-KAYU');
-    await expect(page.getByText(/DEWAN B-RKP1/)).toBeVisible();
+    // Plot::codeFor(): code + two digits; the hall (DEWAN B) is not in it.
+    await expect(page.getByText(/\bRKP01\b/).first()).toBeVisible();
 });
