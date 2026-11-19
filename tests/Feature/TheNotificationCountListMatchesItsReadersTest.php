@@ -10,10 +10,9 @@ use Illuminate\Support\Facades\File;
  *   A READER NOT ON THE LIST is a 500 — the readers do not guard with isset().
  *
  *   A NAME ON THE LIST THAT NO LONGER READS IT is a COUNT query per request for
- *   a number nothing renders. That is not hypothetical: `partials.portal-bar`
- *   stayed on the list after its bell was removed, and the bar is included by
- *   both layouts/frontend and layouts/public — so every participant page and
- *   every public page paid for it, silently.
+ *   a number nothing renders. `partials.portal-bar` is included by both
+ *   layouts/frontend and layouts/public, so if its bell is ever removed and the
+ *   name left here, every participant page and every public page pays for it.
  *
  * So this test asserts set equality, not "every reader is listed".
  */
@@ -82,9 +81,9 @@ it('renders the dashboard, which reads the count, without an undefined variable'
     $this->actingAs($user, 'web')->get(route('dashboard'))->assertOk();
 });
 
-it('renders a public page, which does not read the count, while signed in', function () {
-    // The other half: the pages the bar sits on must not need the variable. This
-    // is the page that was paying for a COUNT it never displayed.
+it('renders a public page, whose portal bar reads the count, while signed in', function () {
+    // The bar is included by the public layout too, so being on the list is what
+    // keeps this page from a 500.
     $user = App\Models\User::factory()->create();
 
     $this->actingAs($user, 'web')->get(route('home'))->assertOk();
