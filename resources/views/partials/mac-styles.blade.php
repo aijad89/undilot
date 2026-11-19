@@ -316,7 +316,10 @@
            it, the field takes a line and its worded button the next. */
         .mac-pop { display: block !important; margin-bottom: 6px; }
         .mac-pop > form { position: static; width: auto; max-width: none; padding: 0; margin-top: 6px; border: 0; box-shadow: none; background: none; flex-wrap: wrap; }
-        .mac-pop > form > :is(input, select) { flex: 1 1 100%; min-width: 0 !important; }
+        /* `input[type="text"]` in the list so this outranks the 14rem desktop
+           minimum above; with plain `input` it lost on specificity and the
+           field pushed the phone card sideways. */
+        .mac-pop > form > :is(input[type="text"], input, select) { flex: 1 1 100%; min-width: 0 !important; }
         .mac-pop > form > .mac-action-btn { flex: 1 1 100%; justify-content: center; }
         .mac-table thead { display: none; }
         .mac-table, .mac-table tbody { display: block; width: 100%; }

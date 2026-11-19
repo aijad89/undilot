@@ -129,20 +129,24 @@
                                 <td class="mac-text-sm">
                                     {{-- Every company is added by the office, so the officer
                                          records whether it paid, and how: receipt no., date, method. --}}
-                                    <form method="POST" action="{{ route('admin.events.registrations.payment-note', [$event, $registration]) }}" class="d-flex gap-1">
+                                    {{-- Stacked, status over receipt: side by side the three
+                                         made this the widest column and the table scrolled. --}}
+                                    <form method="POST" action="{{ route('admin.events.registrations.payment-note', [$event, $registration]) }}" class="d-flex flex-column gap-1" style="max-width: 180px">
                                         @csrf
                                         @method('PUT')
-                                        <select name="payment_status" class="mac-select mac-action-btn-field" style="min-width: 100px"
+                                        <select name="payment_status" class="mac-select mac-action-btn-field"
                                                 aria-label="Payment status for {{ $registration->company->name }}">
                                             <option value="">— Status —</option>
                                             @foreach(\App\Models\EventRegistration::PAYMENT_STATUSES as $key => $label)
                                                 <option value="{{ $key }}" @selected($registration->payment_status === $key)>{{ $label }}</option>
                                             @endforeach
                                         </select>
-                                        <input type="text" name="payment_note" value="{{ $registration->payment_note }}" maxlength="500"
-                                               class="mac-form-control mac-action-btn-field" style="min-width: 120px" placeholder="Receipt no., date"
-                                               aria-label="Payment note for {{ $registration->company->name }}">
-                                        <button type="submit" class="mac-action-btn" title="Save payment"><i class="bi bi-check-lg"></i></button>
+                                        <div class="d-flex gap-1">
+                                            <input type="text" name="payment_note" value="{{ $registration->payment_note }}" maxlength="500"
+                                                   class="mac-form-control mac-action-btn-field" style="min-width: 0; flex: 1" placeholder="Receipt no., date"
+                                                   aria-label="Payment note for {{ $registration->company->name }}">
+                                            <button type="submit" class="mac-action-btn" title="Save payment"><i class="bi bi-check-lg"></i></button>
+                                        </div>
                                     </form>
                                     @if(! $registration->payment_status)
                                         <div class="mac-muted mt-1">Payment status not recorded yet.</div>
