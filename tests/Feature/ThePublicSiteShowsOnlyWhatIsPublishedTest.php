@@ -1,14 +1,11 @@
 <?php
 
 use App\Models\Event;
-use App\Models\FooterMenu;
-use App\Models\SocialLink;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * The public site: published events, the footer pages and social links the
- * office manages, and nothing a participant should not see.
+ * The public site: published events, and nothing a participant should not see.
  */
 it('lists published events for anyone, upcoming first, and never a draft or a lot count', function () {
     Event::factory()->create(['title' => 'Draft Fair', 'status' => 'draft']);
@@ -38,56 +35,13 @@ it('opens a published event on its own page, and a draft is a 404 there too', fu
     $this->get(route('events.show', $draft))->assertNotFound();
 });
 
-it('shows the footer pages and social links that are switched on', function () {
-    FooterMenu::create(['title' => 'Contact Us', 'content' => '<p>Tel 03-1234</p>', 'sort_order' => 0, 'is_active' => true]);
-    FooterMenu::create(['title' => 'Hidden Page', 'content' => '<p>x</p>', 'sort_order' => 1, 'is_active' => false]);
-    SocialLink::create(['label' => 'Facebook', 'url' => 'https://facebook.com/kraftangan', 'icon_type' => 'bootstrap', 'icon_class' => 'bi-facebook', 'sort_order' => 0, 'is_active' => true]);
-
-    $this->get(route('home'))
-        ->assertSee('Contact Us')
-        ->assertDontSee('Hidden Page')
-        ->assertSee('https://facebook.com/kraftangan');
-});
-
-it('cleans a footer page of anything but plain formatting', function () {
-    $this->actingAs(superAdmin(), 'admin')
-        ->post(route('admin.footer-menus.store'), [
-            'title' => 'Terma', 'content' => '<p onclick="steal()">Hello<script>alert(1)</script></p>', 'is_active' => 1,
-        ])
-        ->assertRedirect(route('admin.footer-menus.index'));
-
-    expect(FooterMenu::sole()->content)->toBe('<p>Hello</p>');
-});
-
-it('refuses an SVG icon, which could carry script on this origin', function () {
-    Storage::fake('public');
-
-    $this->actingAs(superAdmin(), 'admin')
-        ->post(route('admin.social-links.store'), [
-            'label' => 'X', 'url' => 'https://example.test', 'icon_type' => 'image',
-            'icon_image' => UploadedFile::fake()->createWithContent('icon.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'),
-            'is_active' => 1,
-        ])
-        ->assertSessionHasErrors('icon_image');
-
-    expect(SocialLink::count())->toBe(0);
-});
-
-it('keeps the public site screens to super and hq', function () {
-    $this->actingAs(stateAdmin('Johor'), 'admin')->get(route('admin.footer-menus.index'))->assertForbidden();
-    $this->actingAs(stateAdmin('Johor'), 'admin')->get(route('admin.social-links.index'))->assertForbidden();
-
-    $this->actingAs(superAdmin(), 'admin')->get(route('admin.footer-menus.create'))->assertOk();
-    $this->actingAs(superAdmin(), 'admin')->get(route('admin.social-links.create'))->assertOk();
-});
-
 it('gives each public event one stage, the event dates winning over the draw', function () {
     $make = fn (array $a) => Event::factory()->create(array_merge(['status' => 'open', 'start_date' => now()->addMonth(), 'end_date' => now()->addMonth()->addDay()], $a));
 
     expect($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay()])->publicStage())->toBe('open')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->subMinute()])->publicStage())->toBe('closed')
         ->and($make(['polling_status' => 'completed'])->publicStage())->toBe('closed')
-        ->and($make(['polling_status' => 'draft'])->publicStage())->toBe('register')
+        ->and($make(['polling_status' => 'draft'])->publicStage())->toBe('soon')
         ->and($make(['polling_status' => 'draft', 'registration_open_at' => now()->addDay(), 'registration_close_at' => now()->addDays(2)])->publicStage())->toBe('soon')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay(), 'start_date' => now()->subDay()])->publicStage())->toBe('now')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay(), 'start_date' => now()->subWeek(), 'end_date' => now()->subDay()])->publicStage())->toBe('ended');
@@ -102,13 +56,42 @@ it('shows past events six at a time, and More asks for six more', function () {
     $this->get(route('home', ['past' => 12]))->assertSee('Old Fair 8')->assertDontSee('past=18', false);
 });
 
-it('gives a signed-in participant the portal bar on the public pages too, bell and all', function () {
+it('gives a signed-in participant the same portal bar on the public pages too', function () {
     $event = Event::factory()->create(['status' => 'open']);
     $this->actingAs(\App\Models\User::factory()->create(), 'web');
 
+    // One bar, three pages: a participant walking from the event list to their
+    // dashboard never sees it change. The dashboard link and the text-size
+    // toggle stand for it — the notification bell used to, until the bar was
+    // narrowed to what a participant has to act on.
     foreach ([route('home'), route('events.show', $event), route('dashboard')] as $url) {
         $this->get($url)->assertOk()
-            ->assertSee(route('notifications.index'))
+            ->assertSee(route('dashboard'))
             ->assertSee('apTextSizeToggle', false);
     }
+});
+
+it('never invites a visitor to register, because the office enters every company', function () {
+    $event = Event::factory()->create([
+        'status' => 'open',
+        'polling_status' => 'draft',
+        'registration_open_at' => now()->subDay(),
+        'registration_close_at' => now()->addWeek(),
+        'start_date' => now()->addMonth(),
+        'end_date' => now()->addMonth()->addDay(),
+    ]);
+
+    // An event inside its registration window used to read "Register now" and
+    // link to a multi-step form. There is no such form: the office adds every
+    // company, so inviting a visitor to register promises something nobody can
+    // deliver.
+    expect($event->publicStage())->toBe('soon');
+
+    $list = $this->get(route('home'))->assertOk();
+    expect(str_contains($list->getContent(), 'Register now'))
+        ->toBeFalse('The public list still offers to register.');
+
+    $page = $this->get(route('events.show', $event))->assertOk();
+    expect(str_contains($page->getContent(), 'Register now'))
+        ->toBeFalse('The event page still offers to register.');
 });

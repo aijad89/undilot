@@ -51,9 +51,8 @@ until the company confirms.
   held.
 - **Admin sidebar, by job:** Dashboard (needs attention, events, companies,
   shortcuts) · User (Companies, HQ Admins, State Admins) · The Event (Events,
-  Lot Draw) · Announcements · Setting (Reports as CSV, Dropdown Lists, Craft
-  Category Code, Craft Hierarchy, Lot Draw, Footer Pages, Social Links, Audit
-  Trail). Everything under Setting except Reports is super/HQ only. HQ manages
+  Lot Draw) · Setting (Dropdown Lists, Craft Category Code, Craft Hierarchy,
+  Lot Draw), super/HQ only. HQ manages
   state admins only; HQ Admins is super only.
 - **Craft data:** five fixed craft categories, with sub-categories, classifications
   and products beneath them; the office ticks a company's classifications and
@@ -63,10 +62,11 @@ until the company confirms.
 - **Participant flow:** dashboard lists their draws → lot page → tick agreement →
   Confirm (once) → animated reveal (split-flap board or sealed envelope, one choice
   for every event under Setting › Lot Draw) → lot details, check-in QR from their
-  IC, printable/shareable PDF slip. Notifications (announcements, a reminder before
-  voting closes) arrive in the portal.
+  IC, printable/shareable PDF slip. Notifications (a reminder before
+  voting closes, confirmation that the office has added the company to a
+  draw) arrive in the portal.
 - **Public site:** an event list and a page per event, sharing the portal's top
-  bar and footer; footer pages and social links are edited by the office.
+  bar and footer.
 - Two sign-ins, separate: admin and participant.
 
 ## Capabilities and Constraints

@@ -16,9 +16,6 @@
 
         <div class="d-flex flex-wrap gap-2">
             {{-- Downloads the rows this table is showing: same search, zone and "missing" filter. --}}
-            <a href="{{ route('admin.reports.companies', request()->only('search', 'state', 'missing')) }}" class="mac-btn-secondary">
-                <i class="bi bi-download me-1"></i> Export
-            </a>
             <a href="{{ route('admin.companies.create') }}" class="mac-btn-primary">
                 <i class="bi bi-plus-lg me-1"></i> New Company
             </a>
@@ -27,7 +24,7 @@
 
     <form method="GET" class="mac-filter-bar mb-3">
         <input type="search" name="search" value="{{ request('search') }}"
-               class="mac-input" placeholder="Company, owner, email, IC or community ID" aria-label="Search companies">
+               class="mac-input" placeholder="Company, owner, IC or community ID" aria-label="Search companies">
 
         @if($canFilterZone)
             <select name="state" class="mac-select" aria-label="Filter by zone">

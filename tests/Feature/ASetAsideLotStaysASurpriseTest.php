@@ -34,8 +34,6 @@ function zoneScreens(Event $event): array
     return [
         'lot draw' => $as->get(route('admin.polling.show', $event))->assertOk()->getContent(),
         'draw list' => $as->get(route('admin.events.registrations.index', $event))->assertOk()->getContent(),
-        'lot results csv' => $as->get(route('admin.reports.lot-draw'))->assertOk()->streamedContent(),
-        'draw lists csv' => $as->get(route('admin.reports.registrations'))->assertOk()->streamedContent(),
     ];
 }
 
@@ -90,8 +88,6 @@ it('leaves no trace in the zone admin counts or messages', function () {
     $this->actingAs($zone, 'admin')->get(route('admin.dashboard'))
         ->assertSee('0/1 plots taken');
 
-    $summary = $this->actingAs($zone, 'admin')->get(route('admin.reports.event-summary'))->streamedContent();
-    expect(str_getcsv(explode("\n", trim($summary))[1])[8])->toBe('0');
 
     $this->actingAs($zone, 'admin')
         ->delete(route('admin.events.registrations.destroy', [$event, $entry]))

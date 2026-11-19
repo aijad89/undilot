@@ -8,8 +8,7 @@ use App\Models\User;
 
 /**
  * The Companies list in the office's column order — owner, IC, community ID,
- * company, craft category and sub-category, zone — and an Export that is
- * exactly the rows on screen.
+ * company, craft category and sub-category, zone.
  */
 function listedCompany(string $name, string $zone, array $owner = []): Company
 {
@@ -40,14 +39,14 @@ it('saves a community ID from the company form', function () {
 
     $this->actingAs(superAdmin(), 'admin')->put(route('admin.companies.update', $company), [
         'name' => 'Tenun Jaya', 'state' => 'Perak',
-        'owner_name' => $company->user->name, 'email' => $company->user->email,
-        'community_id' => 'KOM-0099', 'is_active' => '1', 'account_active' => '1',
+        'owner_name' => $company->user->name,
+        'community_id' => 'KOM-0099', 'ic_number' => $company->user->ic_number, 'is_active' => '1', 'account_active' => '1',
     ])->assertSessionHas('success');
 
     expect($company->user->fresh()->community_id)->toBe('KOM-0099');
 });
 
-it('finds a company by IC or community ID, and exports only what the list shows', function () {
+it('finds a company by IC or community ID', function () {
     listedCompany('Wanted Co', 'Perak', ['ic_number' => '900202-08-5555', 'community_id' => 'KOM-0777']);
     listedCompany('Other Co', 'Perak');
     listedCompany('Johor Co', 'Johor', ['community_id' => 'KOM-0777']);
@@ -56,12 +55,5 @@ it('finds a company by IC or community ID, and exports only what the list shows'
     foreach (['900202', 'KOM-0777'] as $search) {
         $this->actingAs($admin, 'admin')->get(route('admin.companies.index', ['search' => $search]))
             ->assertSee('Wanted Co')->assertDontSee('Other Co')->assertDontSee('Johor Co');
-
-        $csv = $this->actingAs($admin, 'admin')->get(route('admin.reports.companies', ['search' => $search]))->streamedContent();
-        expect($csv)->toContain('Wanted Co')->not->toContain('Other Co')->not->toContain('Johor Co');
     }
-
-    // The page's Export button carries the search through.
-    $this->actingAs($admin, 'admin')->get(route('admin.companies.index', ['search' => 'KOM-0777']))
-        ->assertSee(route('admin.reports.companies', ['search' => 'KOM-0777']), false);
 });

@@ -184,39 +184,8 @@ class Event extends Model
         return $this->hasMany(PresetAllocation::class);
     }
 
-    public function joinRequests()
-    {
-        return $this->hasMany(EventJoinRequest::class);
-    }
-
     /**
-     * Called off, as a participant sees it: the draw cancelled, or the event
-     * put back to draft. Its requests to join are no longer answered.
-     *
-     * NOT Unpublished (`closed`). The scheduler unpublishes an event by itself
-     * when registration closes (auto_close), while requests sent before the
-     * close are still with the office and the draw goes on. Counting that as
-     * called off froze those requests and told their companies the event was
-     * cancelled.
-     */
-    public function isCalledOff(): bool
-    {
-        return $this->polling_status === 'cancelled' || $this->status === 'draft';
-    }
-
-    /**
-     * Whether a participant may ask to join now: published, inside the
-     * registration window, and the draw not started.
-     */
-    public function acceptsJoinRequests(): bool
-    {
-        return $this->status === 'open'
-            && $this->polling_status === 'draft'
-            && now()->between($this->registration_open_at, $this->registration_close_at);
-    }
-
-    /**
-     * Where a published event stands for a visitor: ended, now, open, register,
+     * Where a published event stands for a visitor: ended, now, open,
      * soon or closed. The public list and the event page both read this, so they never
      * disagree. The event's own dates win over the draw — a fair that is on, or
      * over, is that first — and an open draw whose deadline has passed is
@@ -229,7 +198,6 @@ class Event extends Model
             $this->start_date->isPast() => 'now',
             $this->polling_status === 'polling' && ! $this->polling_deadline?->isPast() => 'open',
             in_array($this->polling_status, ['polling', 'closed', 'completed', 'cancelled'], true) => 'closed',
-            $this->acceptsJoinRequests() => 'register',
             default => 'soon',
         };
     }

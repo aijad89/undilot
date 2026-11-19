@@ -71,7 +71,14 @@ Thumbs.db
 *.sql
 !database/**/*.sql
 
+# Scratch SDD: ledger kemajuan, brief tugasan, pakej semakan.
+/.superpowers/
+
+# Senarai peserta sebenar dari pejabat: data peribadi. Repo ini AWAM.
+/docs/SLIDE SENARAI PEMILIHAN USAHAWAN FKJ 2026.xlsx
 # Fail kunci Office semasa dokumen dibuka.
 ~$*
+# Senarai kerja data peribadi (diminta 2026-11-16) — kekal tempatan.
+/docs/TO-DO_DataUpdate.md
 # Foto Jadual A.1 (PKKM 2022) dan hierarki-kraf.csv — data kerja, kekal tempatan.
 /files/

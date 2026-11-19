@@ -5,14 +5,13 @@ namespace App\Notifications;
 use App\Models\Event;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
  * HQ took the company off a draw it had been told it is in, and why. Sent only
  * for a company that heard "you are in" — one taken off before HQ verified it
  * never heard anything, and hears nothing now. Carries `join_event_id`, like
- * JoinRequestAnswered: the next step is the event page, not Confirm Lot.
+ * AddedToDraw: the next step is the event page, not Confirm Lot.
  */
 class RemovedFromDraw extends Notification implements ShouldQueue
 {
@@ -24,20 +23,14 @@ class RemovedFromDraw extends Notification implements ShouldQueue
         $this->afterCommit();
     }
 
+    /**
+     * In-app only. The app sends no email at all (owner's decision,
+     * 2026-11-17): participants sign in with community ID + IC and most
+     * give no address. Do not add 'mail' back without that decision.
+     */
     public function via($notifiable): array
     {
-        return ['mail', 'database'];
-    }
-
-    public function toMail($notifiable): MailMessage
-    {
-        return (new MailMessage)
-            ->subject('Taken off the draw list: '.$this->event->title)
-            ->greeting('Hi '.$notifiable->name.',')
-            ->line('The office took your company off the draw list for '.$this->event->title.'.')
-            ->line('Reason: '.$this->reason)
-            ->action('Open the event', route('events.show', $this->event))
-            ->line('You may ask to join again while registration is open.');
+        return ['database'];
     }
 
     public function toArray($notifiable): array

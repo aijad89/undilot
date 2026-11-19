@@ -40,8 +40,8 @@ it('indexes the columns the importers and the lot screens look rows up by', func
         return false;
     };
 
-    // The office finds a participant by IC; `community_id` is its other
-    // handle on the same person.
+    // `import:participants` finds a participant by IC, the sign-in by both;
+    // `community_id` is the office's other handle on the same person.
     expect($indexed('users', 'ic_number'))->toBeTrue('users.ic_number is not indexed.')
         ->and($indexed('users', 'community_id'))->toBeTrue('users.community_id is not indexed.');
 
@@ -54,8 +54,8 @@ it('does not make ic_number unique, because the office writes it two ways', func
     // A unique index compares STRINGS, and the dump carries both
     // `890508-12-0000` and `890508120000` for the same person — so it would
     // admit exactly the duplicates it appears to forbid. The real rule is
-    // "unique once reduced to digits", which belongs in PHP,
-    // where a clash can drop BOTH rows instead of picking one.
+    // "unique once reduced to digits", which the importers enforce in PHP,
+    // where they can also drop BOTH rows of a clash instead of picking one.
     $unique = collect(Schema::getIndexes('users'))
         ->filter(fn ($i) => $i['unique'] && $i['columns'] === ['ic_number']);
 

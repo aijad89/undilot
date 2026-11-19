@@ -21,19 +21,13 @@ const ADMIN_PAGES = [
     '/admin/admins/hq',
     '/admin/admins/state',
     '/admin/admins/create',
-    '/admin/reports',
-    '/admin/announcements',
-    '/admin/announcements/create',
-    '/admin/audit-trails',
-    '/admin/footer-menus',
-    '/admin/social-links/create',
     '/admin/settings/lists',
     '/admin/settings/kraf-codes',
     '/admin/settings/kraf-hierarchy',
 ];
 
 test('every admin screen opens for a super admin, with no browser errors', async ({ page }) => {
-    await signInAs(page, 'e2e-super@e2e.test');
+    await signInAs(page, 'e2e-super');
 
     for (const url of ADMIN_PAGES) {
         const errors = watchErrors(page);
@@ -47,27 +41,27 @@ test('every admin screen opens for a super admin, with no browser errors', async
 });
 
 test('a state admin sees no national screens in the sidebar and is refused them by URL', async ({ page }) => {
-    await signInAs(page, 'e2e-admin@e2e.test');
+    await signInAs(page, 'e2e-admin');
 
     // By text, not by link role: a group is a button, so a link count of zero
     // would pass whether or not it showed. The first loop proves the
     // locator finds what IS there, so the second cannot pass vacuously.
     const sidebar = page.locator('#sidebar');
-    for (const label of ['User', 'Companies', 'The Event', 'Events', 'Lot Draw', 'Announcements', 'Setting', 'Reports']) {
+    for (const label of ['User', 'Companies', 'The Event', 'Events', 'Lot Draw']) {
         await expect(sidebar.getByText(label, { exact: true }), label).toHaveCount(1);
     }
-    for (const label of ['Dropdown Lists', 'Audit Trail', 'Footer Pages', 'HQ Admins', 'State Admins']) {
+    for (const label of ['Setting', 'Dropdown Lists', 'HQ Admins', 'State Admins']) {
         await expect(sidebar.getByText(label, { exact: true }), label).toHaveCount(0);
     }
 
-    for (const url of ['/admin/settings/lists', '/admin/audit-trails', '/admin/footer-menus', '/admin/polling/create', '/admin/admins/hq', '/admin/admins/state']) {
+    for (const url of ['/admin/settings/lists', '/admin/polling/create', '/admin/admins/hq', '/admin/admins/state']) {
         expect((await page.goto(url)).status(), url).toBe(403);
     }
 });
 
 test('a participant lands on their dashboard, with the draw listed', async ({ page }) => {
     const errors = watchErrors(page);
-    await signInAs(page, 'tenun@e2e.test');
+    await signInAs(page, 'E2E-TENUN');
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText('E2E Fair')).toBeVisible();

@@ -246,27 +246,14 @@
                     ],
                 ],
                 [
-                    'label' => 'Announcements',
-                    'icon'  => 'megaphone',
-                    'route' => 'admin.announcements.index',
-                    'match' => ['admin.announcements.*'],
-                ],
-                [
-                    // Reports are for every role (each export filters to the admin's
-                    // zone). The rest is national lists, the public site and the audit
-                    // trail: a state admin editing any of it would be editing thirteen
-                    // other zones, so those are super/HQ only.
+                    // National lists: super/HQ only.
                     'label'    => 'Setting',
                     'icon'     => 'sliders',
                     'children' => [
-                        ['label' => 'Reports', 'route' => 'admin.reports.index', 'match' => ['admin.reports.*']],
                         ['label' => 'Dropdown Lists', 'route' => 'admin.settings.lists', 'when' => $globalOnly],
                         ['label' => 'Craft Category Code', 'route' => 'admin.settings.kraf-codes', 'when' => $globalOnly],
                         ['label' => 'Craft Hierarchy', 'route' => 'admin.settings.kraf-hierarchy', 'when' => $globalOnly],
                         ['label' => 'Lot Draw', 'route' => 'admin.settings.lot-draw', 'when' => $globalOnly],
-                        ['label' => 'Footer Pages', 'route' => 'admin.footer-menus.index', 'match' => ['admin.footer-menus.*'], 'when' => $globalOnly],
-                        ['label' => 'Social Links', 'route' => 'admin.social-links.index', 'match' => ['admin.social-links.*'], 'when' => $globalOnly],
-                        ['label' => 'Audit Trail', 'route' => 'admin.audit-trails.index', 'match' => ['admin.audit-trails.*'], 'when' => $globalOnly],
                     ],
                 ],
             ];

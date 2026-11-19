@@ -14,7 +14,11 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('email')->unique();
+
+            // NO EMAIL COLUMN. Participants sign in with community ID + IC, and
+            // the project uses no email anywhere (owner's decision, 2026-11-17).
+            // `password` stays because Authenticatable expects one; it is a
+            // random hash nobody is told.
             $table->string('password');
             $table->string('phone')->nullable();
 
@@ -39,30 +43,37 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
 
             $table->timestamp('last_seen_at')->nullable();
+
+            // The `usahawan` id this account was built from by legacy:accounts
+            // (dev only): how that command and legacy:transform-aacb find their
+            // own rows. Null for every account the office makes.
+            $table->string('legacy_id', 20)->nullable()->index();
+
             $table->rememberToken();
             $table->timestamps();
 
             /*
-             * The two columns the office looks a participant up by: IC, and
-             * `community_id`, the office's other handle on the same person.
+             * The two columns the office's own imports look rows up by.
+             *
+             * `import:participants` MATCHES ON IC, and the sign-in on community
+             * ID + IC; both load candidates to do it — the match is on IC normalised to
+             * digits, which no index can serve, but the reads around it are plain
+             * lookups that this does serve. `community_id` is the office's other
+             * handle on a person and is read the same way.
              *
              * INDEX, NOT UNIQUE, on `ic_number`, and that is a decision rather
              * than caution. A unique index compares STRINGS, and the office writes
              * the same IC two ways — `890508-12-0000` and `890508120000` — so it
              * would admit exactly the duplicates it appears to forbid while
              * rejecting nothing. The real uniqueness rule is "unique once reduced
-             * to digits", which belongs in PHP, where a clash can drop BOTH rows
-             * rather than pick one.
+             * to digits", which the importers enforce in PHP, where they can also
+             * drop BOTH rows of a clash rather than pick one.
              */
             $table->index('ic_number');
             $table->index('community_id');
         });
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
+        // No `password_reset_tokens`: there is no password reset (no email).
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
@@ -80,7 +91,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
 };

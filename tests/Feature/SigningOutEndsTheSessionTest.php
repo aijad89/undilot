@@ -24,8 +24,8 @@ use App\Models\User;
 
 function signInParticipant($test): User
 {
-    $user = User::factory()->create(['password' => 'kraf1234']);
-    $test->post(route('login'), ['email' => $user->email, 'password' => 'kraf1234']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $test->post(route('login'), ['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
     auth()->forgetGuards();
 
     return $user;
@@ -34,7 +34,7 @@ function signInParticipant($test): User
 function signInAdmin($test): Admin
 {
     $admin = Admin::factory()->super()->create(['password' => 'kraf1234']);
-    $test->post(route('admin.login'), ['email' => $admin->email, 'password' => 'kraf1234']);
+    $test->post(route('admin.login'), ['username' => $admin->username, 'password' => 'kraf1234']);
     auth()->forgetGuards();
 
     return $admin;
@@ -83,13 +83,16 @@ it('kills a "remember me" sign-in too, so the cookie cannot sign anyone back in'
     // copy of the cookie worthless. Both sign-in forms offer "Remember me".
     $guard = $who === 'participant' ? 'web' : 'admin';
     $model = $who === 'participant'
-        ? User::factory()->create(['password' => 'kraf1234'])
+        ? User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000'])
         : Admin::factory()->super()->create(['password' => 'kraf1234']);
 
     $recaller = auth($guard)->getRecallerName();
 
     $signIn = $this->post(route($who === 'participant' ? 'login' : 'admin.login'), [
-        'email' => $model->email, 'password' => 'kraf1234', 'remember' => 'on',
+        ...($who === 'participant'
+            ? ['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']
+            : ['username' => $model->username, 'password' => 'kraf1234']),
+        'remember' => 'on',
     ])->assertCookie($recaller);
 
     $tokenBefore = $model->fresh()->remember_token;

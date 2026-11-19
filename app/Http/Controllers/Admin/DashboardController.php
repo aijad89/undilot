@@ -67,15 +67,8 @@ class DashboardController extends Controller
                 'registrations as confirmed' => fn ($q) => $inZone($q)->where('confirmed_participation', true),
                 // Event-wide on purpose: only super and HQ read it (rule A7).
                 'registrations as awaiting' => fn ($q) => $q->awaitingLot(),
-                // A request the zone has approved stays pending until HQ verifies,
-                // but its company is on the list and it is no longer the zone's to review.
-                'joinRequests as join_pending' => fn ($q) => $inZone($q)->where('status', 'pending')
-                    ->whereNotExists(fn ($r) => $r->selectRaw('1')->from('event_registrations')
-                        ->whereColumn('event_registrations.event_id', 'event_join_requests.event_id')
-                        ->whereColumn('event_registrations.company_id', 'event_join_requests.company_id')),
                 'registrations as hq_waiting' => fn ($q) => $inZone($q)->whereNull('verified_at')->whereNull('hq_note'),
                 'registrations as hq_returned' => fn ($q) => $inZone($q)->whereNotNull('hq_note'),
-                'joinRequests as zone_rejected' => fn ($q) => $q->rejectedByZone()->where('reviewed_at', '>=', now()->subDays(7)),
                 'plots as plots_total',
                 // A set-aside lot is a surprise to the zone until it is confirmed.
                 'plots as plots_taken' => fn ($q) => $q->where('is_allocated', true)
@@ -103,23 +96,11 @@ class DashboardController extends Controller
             }
         }
 
-        // A8 — companies asking to join, waiting on this admin's zone.
-        foreach ($events as $event) {
-            if ($event->join_pending > 0) {
-                $rows[] = ['warn', "{$event->title}: {$event->join_pending} join ".str('request')->plural($event->join_pending).' to review',
-                    route('admin.events.registrations.index', $event).'#join-requests'];
-            }
-        }
-
         // A9 — the two checks: rows waiting on HQ, and rows HQ sent back to the zone.
         foreach ($events as $event) {
             if ($global && $event->hq_waiting > 0) {
                 $rows[] = ['warn', "{$event->title}: {$event->hq_waiting} draw-list ".str('row')->plural($event->hq_waiting).' waiting for HQ to verify',
                     route('admin.events.registrations.index', [$event, 'status' => 'waiting'])];
-            }
-            if ($global && $event->zone_rejected > 0) {
-                $rows[] = ['warn', "{$event->title}: {$event->zone_rejected} join ".str('request')->plural($event->zone_rejected).' rejected by zones in the last 7 days',
-                    route('admin.events.registrations.index', $event).'#rejected'];
             }
             if (! $global && $event->hq_returned > 0) {
                 $rows[] = ['bad', "{$event->title}: {$event->hq_returned} draw-list ".str('row')->plural($event->hq_returned).' returned by HQ',

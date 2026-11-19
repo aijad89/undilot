@@ -6,12 +6,25 @@ use App\Models\EventRegistration;
 use App\Models\KrafBidang;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Putting a company on an event's draw list IS the approval — there is no status
  * to set afterwards. What the office still has to say is the craft code it draws
  * under and the booth size it needs, because the plan is built from those two.
  */
+it('has no approve or reject route, because there is nothing to approve', function () {
+    // The draw list IS the approval: the zone puts a company on it and HQ
+    // verifies the row. A separate approve step belonged to join requests.
+    expect(Route::has('admin.events.registrations.approve'))->toBeFalse()
+        ->and(Route::has('admin.events.registrations.reject'))->toBeFalse();
+
+    expect(method_exists(App\Http\Controllers\Admin\EntRegistrationController::class, 'approve'))
+        ->toBeFalse('approve() is still on the controller.');
+    expect(method_exists(App\Http\Controllers\Admin\EntRegistrationController::class, 'reject'))
+        ->toBeFalse('reject() is still on the controller.');
+});
+
 it('adds companies to the draw, with the account the draw keys on', function () {
     $event = Event::factory()->create();
     $a = Company::factory()->create(['state' => 'Johor']);
@@ -173,8 +186,9 @@ it('creates the company and its one account from a single form', function () {
             'name' => 'Kraf Tenun',
             'state' => 'Johor',
             'owner_name' => 'Aminah',
-            'email' => 'aminah@example.test',
             'phone' => '012-3456789',
+            'ic_number' => '900101-01-2222',
+            'community_id' => 'KOM-0003',
             'password' => 'kraf1234',
             'password_confirmation' => 'kraf1234',
         ])
@@ -184,7 +198,7 @@ it('creates the company and its one account from a single form', function () {
     $user = User::sole();
 
     expect($company->user_id)->toBe($user->id)
-        ->and($user->email)->toBe('aminah@example.test')
+        ->and($user->community_id)->toBe('KOM-0003')
         ->and($user->is_active)->toBeTrue()
         ->and(Hash::check('kraf1234', $user->password))->toBeTrue();
 });
@@ -193,24 +207,24 @@ it('stores an IC typed as twelve bare digits in its dashed form, so one IC is on
     $existing = Company::factory()->create(['state' => 'Johor']);
     $existing->user->update(['ic_number' => '880101-01-5555']);
 
-    $post = fn (string $ic, string $email) => $this->actingAs(stateAdmin('Johor'), 'admin')
+    $post = fn (string $ic, string $tag) => $this->actingAs(stateAdmin('Johor'), 'admin')
         ->post(route('admin.companies.store'), [
-            'name' => 'Kraf '.$email, 'state' => 'Johor', 'owner_name' => 'Owner',
-            'email' => $email, 'ic_number' => $ic,
+            'name' => 'Kraf '.$tag, 'state' => 'Johor', 'owner_name' => 'Owner',
+            'ic_number' => $ic, 'community_id' => 'KOM-'.$tag,
         ]);
 
     // The same IC as the existing account, typed without dashes: refused as a
     // duplicate, never stored as a second spelling.
-    $post('880101015555', 'twin@example.test')->assertSessionHasErrors('ic_number');
+    $post('880101015555', 'twin')->assertSessionHasErrors('ic_number');
 
-    $post('900202 02 6666', 'new@example.test')->assertRedirect();
-    expect(User::where('email', 'new@example.test')->value('ic_number'))->toBe('900202-02-6666');
+    $post('900202 02 6666', 'new')->assertRedirect();
+    expect(User::where('community_id', 'KOM-new')->value('ic_number'))->toBe('900202-02-6666');
 
-    $post('12345', 'short@example.test')
+    $post('12345', 'short')
         ->assertSessionHasErrors(['ic_number' => 'An IC number has twelve digits, written 990101-01-1234.']);
 });
 
-it('refuses a second company on one email, with a message rather than a database error', function () {
+it('refuses a second company on one IC, with a message rather than a database error', function () {
     $existing = Company::factory()->create(['state' => 'Johor']);
 
     $this->actingAs(stateAdmin('Johor'), 'admin')
@@ -218,9 +232,10 @@ it('refuses a second company on one email, with a message rather than a database
             'name' => 'Second Company',
             'state' => 'Johor',
             'owner_name' => 'Someone',
-            'email' => $existing->user->email,
+            'ic_number' => $existing->user->ic_number,
+            'community_id' => 'KOM-0777',
         ])
-        ->assertSessionHasErrors('email');
+        ->assertSessionHasErrors('ic_number');
 
     expect(Company::count())->toBe(1);
 });
@@ -306,29 +321,21 @@ it('shows each row the lot number it holds', function () {
 });
 
 /*
- * The zone checks the payment and approves; only HQ sets the craft code and
- * booth size the plan is built from. The zone reads them.
+ * The two checks: the zone places the row and sets the craft code and booth
+ * size the plan is built from; only HQ verifies it or returns it with a note.
  */
-it('lets a zone admin check everything and approve; HQ verifies, or returns it with a note', function () {
-    Illuminate\Support\Facades\Storage::fake('local');
+it('lets a zone admin place a row and set its code and size; HQ verifies, or returns it with a note', function () {
     KrafBidang::factory()->code('RKP')->create();
     $event = Event::factory()->create();
     $company = Company::factory()->create(['state' => 'Johor', 'kraf_code' => 'TBPS', 'plot_size' => '3x6']);
-    Illuminate\Support\Facades\Storage::disk('local')->put("join-requests/{$event->id}/r.jpg", 'jpeg');
-    $request = App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $company->id, 'payment_method' => 'transfer', 'documents' => [
-        ['name' => 'Payment receipt', 'path' => "join-requests/{$event->id}/r.jpg", 'original' => 'resit.jpg'],
-        ['name' => 'Product photo 1', 'path' => "products/{$company->id}/p.jpg", 'original' => 'p.jpg'],
-    ]]);
     $zone = stateAdmin('Johor');
     $hq = superAdmin();
     $index = route('admin.events.registrations.index', $event);
 
-    // The zone sees the proof and picks the code and size itself.
-    $this->actingAs($zone, 'admin')->get($index)->assertOk()
-        ->assertSeeInOrder(['Online transfer', 'Payment receipt', 'class="mac-proof-pop"', 'Product photo 1'], false)
-        ->assertSee('aria-label="Craft code"', false);
-    $this->post(route('admin.events.registrations.approve', [$event, $request]), ['code' => 'RKP', 'plot_size' => '3x9'])
-        ->assertSessionHas('success');
+    // The zone adds the company and picks the code and size itself.
+    $this->actingAs($zone, 'admin')->post(route('admin.events.registrations.store', $event), [
+        'company_id' => [$company->id], 'code' => 'RKP', 'plot_size' => '3x9',
+    ])->assertSessionHas('success');
     $row = EventRegistration::sole();
     expect($row->code)->toBe('RKP')->and($row->plot_size)->toBe('3x9')->and($row->verified_at)->toBeNull();
 
@@ -338,7 +345,7 @@ it('lets a zone admin check everything and approve; HQ verifies, or returns it w
     expect($row->fresh()->verified_at)->toBeNull();
 
     // HQ returns it with a note; the zone sees it, fixes it, and it waits again.
-    $this->actingAs($hq, 'admin')->get($index)->assertSee('Payment receipt')->assertSee('Waiting for HQ');
+    $this->actingAs($hq, 'admin')->get($index)->assertSee('Waiting for HQ');
     $this->post(route('admin.events.registrations.return', [$event, $row]), ['hq_note' => 'Booth should be 3x6.'])->assertSessionHas('success');
     $this->get($index)->assertDontSee('1 waiting for HQ');
     $this->actingAs($zone, 'admin')->get($index)->assertSee('Returned by HQ')->assertSee('Booth should be 3x6.');
@@ -435,19 +442,14 @@ it('lets a zone admin remove only a row the company has not been told of; HQ rem
 
 it('lets only HQ add a company once the draw has started, verified at once', function () {
     $event = Event::factory()->create(['polling_status' => 'polling']);
-    [$a, $b, $c] = Company::factory()->count(3)->create(['state' => 'Johor']);
-    $request = App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $c->id]);
+    [$a, $b] = Company::factory()->count(2)->create(['state' => 'Johor']);
     $zone = stateAdmin('Johor');
 
-    $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.index', $event))
-        ->assertSee('The draw has started: only HQ can approve now.');
     $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.companies', $event))
         ->assertSee('The draw has started: only HQ can add companies now.');
     $this->post(route('admin.events.registrations.store', $event), ['company_id' => [$a->id]])
         ->assertSessionHas('error', 'The draw has started: only HQ can add companies now.');
-    $this->post(route('admin.events.registrations.approve', [$event, $request]), ['plot_size' => '3x3'])
-        ->assertSessionHas('error');
-    expect(EventRegistration::count())->toBe(0)->and($request->fresh()->status)->toBe('pending');
+    expect(EventRegistration::count())->toBe(0);
 
     $this->actingAs(superAdmin(), 'admin')->post(route('admin.events.registrations.store', $event), ['company_id' => [$b->id]])
         ->assertSessionHas('success');

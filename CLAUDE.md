@@ -12,7 +12,15 @@ diterbitkan semula dengan membaca kod.
 **undilot** — sistem cabutan lot untuk acara usahawan kraf. Laravel 12, PHP
 `^8.4`, MySQL pada dev dan produksi, SQLite dalam-memori untuk ujian.
 
-Ia dipisahkan daripada **`daftar`** (`f:\herd\daftar`) pada 2026-10-13. `daftar`
+**undilot2026** ialah pecahan daripada **`undilotlook`** (2026-11-13): hanya
+log masuk peserta, log masuk admin (super, HQ dan negeri pada satu `/admin/login`,
+peranan menentukan akses), acara dan cabutan lot. Pengumuman, halaman footer,
+pautan sosial, skrin audit trail, laporan CSV dan permohonan sertai dibuang —
+pejabat memasukkan setiap syarikat ke senarai cabutan sendiri; peserta tidak
+pernah memohon, mereka log masuk dan mengesahkan lot. Jejak audit (`Auditable`)
+masih direkod; cuma skrinnya tiada. Data sebenar akan dimuatkan dari CSV.
+
+`undilotlook` pula dipisahkan daripada **`daftar`** (`f:\herd\daftar`) pada 2026-10-13. `daftar`
 membawa 285 route, 156 migration dan 62 entri backlog, dan backlog itu tertumpu
 pada modul yang bukan produk. undilot membawa cabutan lot dan apa yang cabutan
 perlukan.
@@ -29,10 +37,10 @@ disalin.
 |---|---|
 | Laluan | `f:\herd\undilotlook` |
 | URL | `http://undilotlook.test` (Herd) |
-| DB | `undilotlook` pada `127.0.0.1` — sendiri, tidak dikongsi dengan undilot |
+| DB | `undilotlook` pada `127.0.0.1` — sendiri |
 | PHP CLI | `/c/Users/ALOY/.config/herd/bin/php84.bat` |
 | MySQL CLI | `/c/Program Files/MySQL/MySQL Server 9.5/bin/mysql.exe` |
-| Admin pertama | dari `.env` — `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` |
+| Admin pertama | dari `.env` — `ADMIN_SEED_USERNAME` / `ADMIN_SEED_PASSWORD` |
 | Log masuk pantas | `http://undilotlook.test/auto` — sebarang akaun, tanpa kata laluan, plus butang *Work the queue* |
 | DB suite pelayar | `undilotlook_e2e`, dicipta dan ditetapkan semula oleh `tests/e2e/serve.js` |
 | Git | `https://github.com/aijad89/undilotlook` (peribadi), cawangan `main` |
@@ -41,7 +49,9 @@ disalin.
 menanya pangkalan data, atau skrip PHP yang memuat `bootstrap/app.php`.
 
 Setiap notifikasi berbaris (queue). Pada mesin ini tiada pekerja berjalan, jadi
-pengumuman dan peringatan kekal dalam `jobs` sehingga butang pada `/auto` ditekan.
+peringatan undian, `AddedToDraw` (syarikat dimasukkan ke cabutan, dihantar
+sekali bila HQ mengesahkan buat pertama kali) dan `RemovedFromDraw` kekal dalam
+`jobs` sehingga butang pada `/auto` ditekan.
 
 **Jerangkap shell pada mesin ini:** `php` tiada dalam PATH bash — guna
 `php84.bat` di atas (Node dengan `shell: true` menemuinya). Heredoc bash yang
@@ -116,8 +126,27 @@ paling sukar dipulihkan.
 
 `DatabaseSeeder` memanggil `AdminSeeder` dan `KrafCodeSeeder` (helaian pengekodan
 HKK 2025 + lima kategori) — tanpanya pemasangan baharu tidak boleh memberi kod
-kepada sesiapa. Kedua-duanya boleh dijalankan semula. Data demo, jika ada, pergi
-**di bawah** pengawal `isProduction()`. `E2eSeeder` hanya berjalan dalam `e2e`.
+kepada sesiapa. Kedua-duanya boleh dijalankan semula.
+
+**Setiap seeder data demo/ujian mewarisi `LocalOnlySeeder`**, yang menolak
+(campak `RuntimeException`) setiap `APP_ENV` selain `local`, `testing` dan `e2e`
+(`App\Support\DevEnvironment::NAMES`). Ia **senarai benar**, bukan
+`isProduction()`: pelayan yang `APP_ENV`-nya `staging`, salah eja atau tiada
+tetap ditolak. Pengawal berada dalam `__invoke`, jadi `db:seed --class=X` dan
+`$this->call(X::class)` kedua-duanya melaluinya. `DatabaseSeeder` bertanya soalan
+yang sama sebelum memanggil `DemoSeeder`. Sebabnya: `DemoThreeEventsSeeder`
+memadam **setiap** acara sebelum menanam, dan dahulu tiada pengawal sendiri.
+
+Seeder baharu: data demo → `extends LocalOnlySeeder`; data rujukan → tambah
+namanya pada `REFERENCE_SEEDERS` dalam
+`tests/Feature/DemoSeedersNeverRunOnAServerTest.php`. Ujian itu gagal jika tidak.
+
+**`db:wipe`, `migrate:fresh`, `migrate:refresh`, `migrate:reset` dan
+`migrate:rollback` juga ditolak** di luar senarai yang sama
+(`DevEnvironment::lockDestructiveCommands()` dalam `AppServiceProvider`).
+`migrate --force` tidak disentuh.
+
+`E2eSeeder` pula hanya berjalan dalam `e2e` (dan `testing`).
 
 ### `/auto` tidak pernah wujud di pelayan
 
@@ -197,8 +226,7 @@ Baris **di dalam** acara tetap ditapis mengikut zon.
 ### Tulis digate di route, baca menskop sendiri
 
 Tindakan tulis berada di bawah `can:` dalam `routes/web.php` (`manage-events`,
-`manage-settings`, `manage-site-content`, `send-announcements`,
-`read-audit-trail`, `verify-draw-list`), ditakrif dalam `AppServiceProvider`. Skrin
+`manage-settings`, `verify-draw-list`), ditakrif dalam `AppServiceProvider`. Skrin
 baca terbuka kepada semua peranan dan menapis sendiri. Pautan nav untuk skrin
 bergate disorok dengan `when` yang bertanya soalan yang sama.
 
@@ -249,22 +277,24 @@ peruntukan awal. **Dua kunci, dua soalan, dengan sengaja.**
 ### Dua semakan: baris ialah kelulusan zon, `verified_at` ialah HQ
 
 Tiada lajur `status` pada `event_registrations`. **Admin negeri menyemak
-semua** — butiran syarikat, bukti bayaran, kod kraf, saiz gerai — dan
+semua** — butiran syarikat, nota bayaran, kod kraf, saiz gerai — dan
 meletakkannya ke senarai cabutan. Baris itu menunggu HQ.
 
 **HQ menyemak semula** (gate `verify-draw-list`): sahkan (boleh membetulkan kod
 atau saiz dalam langkah yang sama), atau pulangkan kepada zon dengan nota
 (`hq_note`). Zon membetulkan, baris menunggu HQ lagi.
 
-**HQ boleh memintas zon, dengan sengaja.** Permintaan yang HQ luluskan atau
-syarikat yang HQ tambah terus disahkan — tiada semakan zon. Itu keputusan, bukan
+**HQ boleh memintas zon, dengan sengaja.** Syarikat yang HQ tambah sendiri ke
+senarai cabutan terus disahkan — tiada semakan zon. Itu keputusan, bukan
 lubang; jangan "betulkan".
 
-- Permintaan sertai kekal `pending` dan peserta **tidak diberitahu** sehingga
-  HQ mengesahkan. Bacaan portal menggunakan skop `announced()`
-  (`first_verified_at`), **bukan** `verified_at`: syarikat yang sudah
-  diberitahu tidak hilang dari portalnya sendiri bila zon menyunting dan HQ
-  menyemak semula.
+- Baris yang pejabat masukkan **tidak diberitahu** sehingga HQ mengesahkan.
+  Bacaan portal menggunakan skop `announced()` (`first_verified_at`), **bukan**
+  `verified_at`: syarikat yang sudah diberitahu tidak hilang dari portalnya
+  sendiri bila zon menyunting dan HQ menyemak semula. Pengesahan HQ yang
+  pertama menghantar `AddedToDraw` — satu-satunya pemberitahuan "anda dalam
+  cabutan ini", kerana syarikat tidak pernah memohon untuk tahu bila ditolak
+  sebelum itu.
 - `PollingGuard` menahan cabutan selagi ada baris belum disahkan.
 - Perubahan kod atau saiz oleh admin negeri — dari mana-mana pintu, termasuk
   halaman syarikat melalui `syncBoothSize()` — **mengosongkan** `verified_at`.
@@ -278,8 +308,9 @@ lubang; jangan "betulkan".
 - Admin negeri hanya membuang baris yang **belum** diberitahu kepada syarikat
   (`first_verified_at` null). Mengeluarkan syarikat daripada cabutan yang ia
   sudah diberitahu ialah keputusan HQ (`zoneMayRemove()`). HQ mesti memberi
-  sebab; syarikat menerima `RemovedFromDraw` dan sebab itu disimpan pada
-  `event_join_requests.removed_reason` (baris pendaftaran sudah tiada).
+  sebab; syarikat menerima `RemovedFromDraw`, dan sebab itu hidup **hanya**
+  dalam mesej notifikasi itu sendiri, kekal dalam jadual `notifications` —
+  baris pendaftaran yang dibuang tidak menyimpan apa-apa.
 - Sebaik cabutan bermula, admin negeri **tidak menambah atau meluluskan**
   sesiapa (`zoneLocked()`); hanya HQ, dan baris HQ disahkan serta-merta. Tiada
   baris menunggu HQ boleh wujud semasa cabutan berjalan. **Undo juga menambah
@@ -287,29 +318,31 @@ lubang; jangan "betulkan".
   memulihkan baris seperti asal (mungkin masih menunggu HQ) dan tanpa
   pemberitahuan kepada syarikat yang sudah menerima `RemovedFromDraw`. Ditemui
   oleh ujian 2026-11-15; sebelum itu undo tiada pengawal ini.
-- **Unpublished (`closed`) bukan "dibatalkan".** `Event::isCalledOff()` hanya
-  cabutan `cancelled` atau acara kembali ke `draft`. auto_close menyahterbit
-  acara sendiri bila pendaftaran tutup, sementara permintaan yang dihantar
-  sebelum itu masih di pejabat — ia mesti boleh dijawab.
-- Penolakan zon terus kepada peserta; HQ melihatnya selepas itu (papan pemuka
-  7 hari, dan "Rejected by zones" pada senarai cabutan) — `rejectedByZone()`.
+- **Syarikat tidak boleh dipadam** (oleh sesiapa) selagi ia ada baris yang sudah
+  diberitahu dalam cabutan `draft`/`polling`/`closed` — padam akan cascade baris
+  itu tanpa sebab dan tanpa `RemovedFromDraw`. HQ keluarkan baris dahulu.
+  `Company::booted()` (K07).
 - `first_verified_at` tidak pernah dikosongkan; ia membezakan semakan semula
   daripada yang pertama, supaya peserta diberitahu sekali sahaja.
 
 ### Baris `plot_sizes` ialah pasangan (lokasi, saiz)
 
-Borang tidak menaip pasangan itu terus: satu baris pada borang ialah **lokasi**
-dengan kiraan, dan setiap peruntukan kraf yang bersarang di bawahnya menamakan
-**saiznya sendiri**. `PollingController::savePlan()` menyelesaikannya kembali
-kepada baris, memadan pada (lokasi, saiz) supaya pasangan yang terselamat
-mengekalkan id-nya. `total_plots` dikira di sana, tidak pernah diambil daripada
-borang.
+Borang tidak menaip pasangan itu terus, **dan tidak menaip jumlah**
+(keputusan pemilik 2026-11-17 — bahagian "Booth sizes here" dibuang kerana
+mengulang peruntukan). Satu kad ialah **lokasi**; plotnya ialah peruntukan kod
+kraf (kod, saiz, bilangan) **ditambah** baris **plot simpanan** pilihan
+(`plot_sizes.*.spares`: saiz, bilangan — plot tanpa kod, kolam terbuka).
+`PollingController::savePlan()` menjumlahkan kedua-duanya per (lokasi, saiz),
+memadan pada (lokasi, saiz) supaya pasangan yang terselamat mengekalkan id-nya.
+Tiada "terlebih peruntukan" lagi — tiada nombor kedua untuk bercanggah. Lokasi
+tanpa kod dan tanpa simpanan ditolak. Bila dibuka semula, simpanan = kuantiti
+pasangan tolak peruntukannya. `total_plots` dikira, tidak pernah dari borang.
 
 Saiz gerai sebuah pendaftaran ialah `event_registrations.plot_size` — satu
 **string**, lalai `3x3`. Bukan rujukan `plot_sizes`: pejabat menyatakannya
 sebelum sebarang pelan wujud, kerana pelan dibina daripada nombor itu.
 
-**Setiap lokasi menamakan saiz plot lebihannya** (`plot_sizes.*.size`, wajib).
+**Setiap plot menamakan saiznya** (`bidang_allocations.*.size` dan `plot_sizes.*.spares.*.size`, wajib).
 Lot hanya ditarik pada saiz gerai pendaftaran itu sendiri, jadi plot tanpa saiz
 tidak pernah boleh dimenangi. Borang `daftar` tidak pernah menghantar medan itu,
 dan setiap plot lebihan yang dibinanya mati.
@@ -352,7 +385,17 @@ seseorang menyunting pelan.
 
 Pelan **dibekukan** sebaik satu lot dipegang, preset termasuk
 (`PollingController::planIsFrozen()`): sunting, kosongkan dan cat semuanya
-ditolak. Jadi tiada penulisan semula yang perlu mengosongkan `plot_id` — cabang
+ditolak. **Sebelum itu, jika cabutan sudah bermula** (`polling`/`closed`), setiap
+tulis semula atau cat semula memanggil `PollingGuard::refuseIfStartedAndBroken()`
+dalam transaksi yang sama: jika cabutan tidak lagi boleh selesai, perubahan
+dibatalkan (K05, 2026-11-16).
+
+**Tarikh tamat ada pintu sendiri** (`PollingController::updateDeadline()`), kerana
+borang pelan terkunci pada lot pertama. *Reopen voting* ditolak bila tarikh
+tamat sudah lepas — `PollingGuard` hanya bertanya tarikh itu wujud (K06).
+
+*Take back* (`unassignPlot()`) ditolak pada cabutan `completed` — tiada jalan
+balik untuk memberi lot semula (K04). Jadi tiada penulisan semula yang perlu mengosongkan `plot_id` — cabang
 "pulihkan preset" `daftar` tidak pernah boleh berjalan, dan tidak dibawa.
 
 ### Audit cabutan sebahagiannya ditulis dengan tangan
@@ -399,17 +442,18 @@ sehingga larian pelayar pertama menunjukkan "Confirmed On" lapan jam awal.
 
 ### `SESSION_DRIVER` mesti `database`
 
-`NewPasswordController::logOutOtherDevices()` mengusir dengan memadam baris
-daripada jadual `sessions`. Pada pemacu lain ia memadan **tiada apa**: reset
-melaporkan berjaya dan peranti lain kekal log masuk. Tiada ralat, tiada ujian
-gagal — hanya satu `Log::warning`.
+Sebab asalnya — reset kata laluan mengusir peranti lain dengan memadam baris
+`sessions` — hilang bersama aliran reset (dibuang 2026-11-17). Ia kekal
+`database` kerana jadual `sessions` ada dalam skema dan deploy menjangkakannya;
+jangan tukar tanpa sebab baharu.
 
-### Fail muat naik yang dikawal tinggal di cakera `local`
+### Satu-satunya muat naik ialah sepanduk acara, ke cakera `public`
 
-Sepanduk dan lampiran pengumuman disimpan di cakera `local` dan dihidang melalui
-controller yang bertanya siapa yang dicapai (`announcements.file`). Hanya imej
-yang tidak rahsia (sepanduk acara, ikon sosial) ke cakera `public`. **Tiada SVG
-ke cakera `public`** — pada origin ini ia boleh membawa skrip.
+`EventController::storeBanner()` ialah satu-satunya laluan muat naik dalam
+aplikasi ini — tiada apa lagi menulis ke cakera `local`. Pengesahan
+(`'mimes:jpeg,png,jpg,webp'`) **sengaja** tidak menyenaraikan `svg`: pada
+origin ini SVG boleh membawa skrip, dan sepanduk dihidang terus dari cakera
+`public`.
 
 **`php artisan storage:link` ialah langkah deploy, dan ia senyap bila
 terlupa.** `public/storage` ialah symlink dan diabaikan git, jadi ia tidak
@@ -443,6 +487,81 @@ menyemak status terbit — peserta dalam cabutan tidak boleh terkunci daripadany
 **Awas:** penjadual menukar `open` → `closed` bila `registration_close_at` lepas
 jika `auto_close` hidup — acara itu kini hilang dari laman awam pada saat itu.
 
+### Peserta log masuk dengan ID Komuniti + IC, tanpa kata laluan
+
+Keputusan pemilik 2026-11-17: peserta tidak memberi emel, jadi aliran kata
+laluan (yang hanya bermula dengan pautan reset melalui emel) tidak boleh
+membawa mereka masuk. `LoginRequest` mencari **satu** akaun yang memegang
+kedua-dua nilai: ID dipotong ruang dan tidak peka huruf besar, IC dibanding
+sebagai **digit** (`890508-12-0000` = `890508120000`). Dua akaun dengan pasangan
+yang sama → ditolak, bukan yang pertama. Had cuba: 5 per ID Komuniti + IP
+(bukan per IC, atau setiap tekaan memulakan kiraan baharu).
+
+**Kelemahan yang diterima buat sementara:** kedua-dua nilai bukan rahsia — IC
+dicetak pada slip. Pasukan akan menyemak semula kemudian; **jangan "betulkan"
+tanpa keputusan pemilik.**
+
+Akibatnya: borang syarikat **mewajibkan** ID Komuniti dan IC. Import memberi
+amaran untuk baris tanpa `no_komuniti` — orang itu tidak boleh log masuk. Kad
+"Change password" di profil dan route `profile.password` dibuang; profil
+memaparkan ID Komuniti.
+
+### Pegawai log masuk dengan nama pengguna + kata laluan
+
+Keputusan pemilik 2026-11-17. `admins.username` (unik, wajib) menggantikan
+emel; disimpan **huruf kecil dan dipotong ruang** (`AdminController`), dan
+`AdminLoginRequest::username()` menormalkan input yang sama — SQLite
+membanding string peka huruf besar, MySQL tidak, jadi tanpa normalisasi
+`Hafiz` log masuk pada satu pemacu dan gagal pada yang lain. Kata laluan
+**baharu**, ditetapkan dalam aplikasi: aplikasi web lama dipersarakan, bukan
+dimigrasi, jadi kata laluan lamanya tidak dibawa. Admin pertama dari
+`ADMIN_SEED_USERNAME` / `ADMIN_SEED_PASSWORD`.
+
+### Tiada emel langsung dalam projek ini (keputusan pemilik 2026-11-17)
+
+**Tiada lajur `email`** pada `users` atau `admins`, tiada jadual
+`password_reset_tokens`, tiada medan emel pada mana-mana borang, dan import CSV
+tidak membaca lajur `emel` (ia dilaporkan sebagai lajur tidak dibaca). Demo dan
+seeder mengenal pasti baris mereka dengan ID Komuniti (`KOM-…`, `BATIK-…`,
+`E2E-…`) atau nama pengguna (`demo.hq`, `e2e-super`), bukan domain emel.
+`legacy:emails` dibuang.
+
+Setiap notifikasi (`AddedToDraw`, `RemovedFromDraw`, `VotingCloseReminder`)
+ialah **dalam aplikasi sahaja** — `via()` = `['database']`, tiada `toMail()`.
+Aliran lupa/reset kata laluan (satu-satunya lagi yang menghantar mel) dibuang
+bersama controller dan view-nya. Jadi pelayan mel yang dikonfigurasi kemudian
+pun tidak menghantar apa-apa. `TheAppSendsNoEmailTest` menolak mana-mana
+kelas dalam `app/Notifications` yang ada `toMail()`. **Jangan tambah saluran
+`mail` tanpa keputusan pemilik.** Admin menetapkan semula kata laluan admin
+lain dari skrin admin.
+
+### Nombor lot: `TBPS02`, tanpa lokasi (keputusan pemilik 2026-11-17)
+
+`Plot::codeFor($token, $n)` = kod kraf + nombor dipad dua digit (`TBPS01`,
+`TBPS100` selepas 99). Plot tanpa kod memakai saiz dengan sengkang
+(`3X3-04`) supaya digit saiz tidak bercantum dengan nombor. **Tiada lokasi
+dalam label** — slip mencetak lokasi pada barisnya sendiri. Jadi pembilang
+dikira **per kod merentas seluruh acara**, bukan per lokasi: TBPS di dua dewan
+bersambung (`TBPS01`–`02` di Dewan A, `TBPS03`–`04` di Dewan B), atau dua gerai
+memegang `TBPS01`. `doGeneratePlots()` dan `PlotPainterController::renumber()`
+kedua-duanya mengunci pada kod sahaja; jangan tambah lokasi semula pada kunci.
+
+### Kategori usahawan: dua nilai sahaja
+
+`EntrepreneurCategories::DEFAULTS` = `Pengeluar atau Pedagang`, `Pemborong`
+(keputusan pemilik 2026-11-17). Senarai lama (ODOI, MSM, agensi kerajaan, NGO…)
+dan peraturan `isExternalEntity()` yang membacanya dibuang — tiada pemanggil.
+Ia `ManagedList`: baris `settings` yang tersimpan menang atas lalai, jadi
+pelayan yang sudah menyimpan senarai lama perlu dikemas kini di Settings.
+
+### Status bayaran ialah pilihan, catatan bayaran ialah teks
+
+`event_registrations.payment_status` (`EventRegistration::PAYMENT_STATUSES`:
+`paid` / `unpaid`, string bukan enum) diisi pegawai bersebelahan
+`payment_note`, melalui borang dan route yang sama. Peraturannya sama dengan
+catatan: perubahan oleh admin negeri mengosongkan `verified_at`, dan baris tanpa
+status dikira "missing" dalam senarai cabutan. Ia tidak menyekat cabutan.
+
 ### IC pada slip ialah suis, `SLIP_SHOWS_IC`
 
 Lalai **on** — IC dicetak (keputusan pemilik 2026-11-16). Suis
@@ -454,6 +573,213 @@ sudah mengenal pasti pemegang. `SLIP_SHOWS_IC=false` menyorokkannya.
 
 View composer dalam `AppServiceProvider` menamakan setiap view yang membacanya.
 View baharu yang membacanya **mesti** ditambah pada senarai itu, atau ia 500.
+
+### Jadual `legacy_*` ialah pelantar pendaratan, bukan data aplikasi
+
+`legacy_upengawai`, `legacy_usahawan` dan `legacy_ukhemah` memegang dump pejabat
+**sebijik-sebijik**. Tiada FK, tiada unique, dan **setiap lajur data ialah string
+nullable**.
+
+String itu bukan kemalasan. Dump itu MySQL 4: tiada satu lajur pun nullable, jadi
+"tiada nilai" ialah `''`; dan `lastlogin`, `votetime`, `votetimepay` diisytihar
+`datetime NOT NULL` tanpa default, jadi "belum pernah" ialah
+`0000-00-00 00:00:00`. MySQL 8 di sini berjalan dengan
+`NO_ZERO_DATE,STRICT_TRANS_TABLES` dan **menolak kedua-duanya** — diukur:
+ralat 1292 untuk zero-date pada lajur `datetime`, ralat 1366 untuk `''` pada
+lajur `int`. Menaip lajur staging bermakna import mati pada baris pertama.
+
+Nama lajur ialah **nama lama, dihurufkecilkan, tiada apa lagi** — itu sebabnya
+`userright`, `loginname`, `sessionid` dan `protokol` kelihatan ganjil. Satu
+peraturan bermakna pemuatan tidak perlu pemetaan per-lajur dan audit ialah diff.
+
+`legacy_id` menyimpan `id` asal, kerana tanpanya pautan antara jadual lama tidak
+boleh dibina semula (`ukhemah.usahawanid` → `usahawan.id`,
+`usahawan.byuser` → `upengawai.id`). `source_table` menamakan jadual asal, dan
+dump itu ada **lebih** daripada satu keluarga salinan: jadual `ukhemah*` (hidup,
+snapshot setiap jam seperti `ukhemah_day1_2pm`, jadual per-acara bernama seperti
+`ukhemah_fkj2024`, dan `ukhemah10` yang berhenti selepas enam lajur), **dan**
+`usahawan*` yang ada salinan dalam gaya sama (`usahawan_19 feb 6pm`).
+`event` **bukan** milik jadual hidup sahaja — `ukhemah_fkj2024` membawanya juga
+(`'FKJ'`).
+
+### `ukhemah` ialah pelan, bukan pendaftaran
+
+Satu baris `ukhemah` ialah **satu gerai**: `boothid` (`KH01`, `TBA02`) berdiri di
+lokasi yang `khemah` namakan (`Khemah A`, `Basement`, `PADANG AKASIA , ANGSANA
+JOHOR BAHRU MALL`), dikategorikan ikut kraf, dengan `usahawanid` **kosong**
+sehingga ada yang memegangnya. Itu jadual `plots` undilot dengan peruntukannya
+sebaris. Transform membina **plot**, bukan entri cabutan, daripada sini.
+`prio` ialah keutamaan gerai dan `protokol` (`'Ya'`) menandakan gerai simpanan.
+
+### Tiga lajur kraf lama tidak bermaksud apa namanya kata
+
+Ini sambungan langsung kepada amaran dua-senarai `kraf_bidangs`, dibaca
+daripada baris sebenar:
+
+| Lajur lama | Sebenarnya | Contoh |
+|---|---|---|
+| `bidang` | **kategori** kraf | `Tekstil`, `Hasil Rimba`, `Hasil Tanah`, `Aneka Kraf` |
+| `crafttype` | **kod** kraf + saiz plot | `Batik-TBA-3x3`, `Buluh/Rotan-RBH-3x3` |
+| `category` | **bukan kraf** — kategori usahawan | `Pentahapan 2 (Pengilang/Pedagang,Pengeluar,Agensi)` |
+
+Jadi lajur bernama `category` pergi ke `companies.entrepreneur_category`, bukan
+ke mana-mana senarai kraf. `bidang` ke kategori (`code` NULL), `crafttype` ke kod
+(`code` berisi).
+
+**`crafttype` ada dua era.** Data lama membawa nama kosong tanpa kod dan tanpa
+saiz (`Songket`, `Tenun`, `Kayu(Hiasan Ukiran & Kegunaan)`); data baharu
+melekatkan kod dan saiz (`Batik-TBA-3x3`). Pecah dari **kanan** — nama kraf
+sendiri boleh mengandungi tanda baca. `boothid` mengulang kod itu sebagai prefiks
+dalam data baharu (`TBA02` ← TBA), yang boleh digunakan untuk menyemak bacaan
+pertama; `boothid` lama (`KH01`, `PS05`) tidak mengikut senarai kod.
+
+`salu` ialah **kata panggilan** (`Puan`), bukan status.
+
+### Hanya lajur yang dipakai, diukur bukan diteka
+
+Dump penuh (`kraf_lama.sql`, 8.2MB, **64 jadual, 21,032 baris** — diabaikan git
+kerana ia mengandungi nama, IC dan alamat, dan repo ini awam) diukur isian
+setiap lajur. **21 lajur ditinggalkan** (2 + 13 + 6): ada yang 0% dalam
+kesemua 21,032 baris, ada yang 100% tetapi satu nilai berulang, dan ada yang
+pejabat berhenti merekod sedekad lalu. Fail dump itu sendiri ialah arkib, jadi
+menyempitkan jadual staging tidak menghilangkan apa-apa.
+
+### Empat fakta dump yang menentukan skop import
+
+1. **`upengawai.UserRight` ada SATU nilai** — `Pengawai`, merentas 137 baris
+   semua versi. Sistem lama **tiada peranan**, jadi `admin`/`hq`/`super`
+   mesti **ditetapkan**, bukan dimigrasi.
+2. **Tiada jadual acara.** `syatemconfiguration` cuma konfigurasi aplikasi lama
+   (Clipsoft 2007). Identiti acara hanya ada pada **nama jadual**, plus tiga kod
+   dalam lajur `event`: `AACB` (jadual hidup), `FKJ`, `HKK`. Tiada tajuk, tiada
+   tarikh — semua yang `events` perlukan.
+3. **21% peruntukan rosak.** 6,842 peruntukan gerai; **1,464** menunjuk kepada
+   `usahawanid` yang tiada dalam mana-mana jadual `usahawan*`. `usahawan` ialah
+   jadual kerja, bukan arkib: yang hidup ada id 204–381, baris 1–203 sudah
+   dipadam. HKK 2022/2023/2024 dan FKJ 2023 kehilangan **semua** pesertanya.
+4. **`crafttype` berkod hanya 11%** — 2,201 baris ada `-KOD-SAIZ`, 18,218 nama
+   kosong tanpa kod dan tanpa saiz.
+
+Jadi **import `AACB` sahaja**: 175 peserta, 174 peruntukan, pasangan hidup
+lengkap, dan satu-satunya data yang membawa kod kraf serta saiz. Sejarah
+2011–2024 kekal dalam fail dump, bukan dipaksa menjadi `events`.
+
+Satu amaran tentang pautan: semakan "id ini ada dalam **mana-mana** jadual
+`usahawan*`" kuat untuk membuktikan ketiadaan, **lemah** untuk membuktikan
+kehadiran — id ialah integer kecil yang diguna semula merentas jadual. Hanya
+pasangan bernama sama (`ukhemah_day1_2pm` ↔ `usahawan_day1_2pm`) boleh
+dipercayai.
+
+### Dua arahan: `import:legacy` dan `legacy:accounts`
+
+`import:legacy <fail.sql>` memuatkan dump ke tiga jadual staging dan **tidak
+memutuskan apa-apa** — ia menyalin teks dan melaporkan apa yang dilihatnya.
+`--dry-run`, `--append`, `--only=<prefiks>`. Pada dump penuh: 21,031 baris dalam
+5.7 detik, sifar kegagalan.
+
+`App\Support\LegacyDump` **memburu statement `insert`**, bukan memecah fail pada
+`;`. Memecah pada `;` nampak betul dan tidak: export ini memotong setiap
+`CREATE TABLE` di tengah definisi **tanpa koma bertitik**, jadi pembaca
+`;` melekatkan CREATE yang rosak pada INSERT selepasnya dan baris itu hilang
+senyap. Komen SQL antara statement buat perkara sama. Itu satu larian ujian
+penuh untuk disedari.
+
+`legacy:accounts` (local/testing/e2e sahaja) membina akaun log masuk daripada
+staging: pegawai pertama jadi super, kedua jadi hq, dan setiap zon dalam dump
+dapat satu admin negeri — **peranan ditetapkan, bukan dimigrasi**, kerana
+`UserRight` hanya ada satu nilai. Peserta AACB jadi `users` + `companies`, dengan
+`kraf_code` dan `plot_size` dihurai dari `crafttype` (pecah dari **kanan**).
+
+Dua perkara yang menggigit dan kini dikunci ujian:
+
+- **Penanda ialah `legacy_id`** pada `users` dan `admins`, diisi hanya oleh
+  arahan ini. `--fresh` memadam ikut lajur itu. Dahulu penandanya domain emel
+  (`legacy.test`), dan sekali ia dikongsi dengan `DemoSeeder` — `--fresh`
+  memadam data demo juga. Pegawai mendapat `loginname` sebagai `username` dan
+  kata laluan rawak (kata laluan lama tidak dibawa).
+- **Dua pegawai berkongsi satu `loginname`** (id 5 dan 25, kedua-duanya
+  `haida`). `updateOrCreate` pada kunci bertembung **tidak gagal** — ia mengemas
+  kini baris pegawai pertama, jadi yang kedua merampas peranan yang sudah
+  diberi. Pada dump sebenar: 17 admin dibina, 16 baris wujud, dan admin hq
+  **hilang tanpa sebarang amaran**. Slug pertama menang; yang kemudian membawa
+  `legacy_id`.
+
+
+### Zon lama **mesti** diterjemah, tidak boleh disimpan mentah
+
+`App\Support\LegacyZones` memetakan nama zon lama kepada zon undilot. Ia bukan
+kemasan — ia pembetulan pepijat yang diukur pada baris sebenar.
+
+Dump membawa **18 nama zon dan 7 bukan zon undilot** (`P.Penang`,
+`N.Sembilan`, `Selangor`, `Kuala Lumpur`, `Sabah`, `Kedah(Langkawi)`,
+`P.Langkawi (Kedah)`). Pejabat sendiri tidak konsisten: dump ada **kedua-dua**
+`N.Sembilan` dan `Negeri Sembilan`, **kedua-dua** `P.Penang` dan `Pulau Pinang`.
+
+Disimpan mentah, skop **nampak** berfungsi — baris import salah dengan cara yang
+sama, jadi admin lama padan syarikat lama. Yang pecah ialah **borang**: setiap
+dropdown zon dibina daripada `AdminZones`, jadi syarikat pada `'P.Penang'`
+membuka borang suntingannya dengan **tiada option `selected`**, dan simpanan
+seterusnya memindahkannya ke zon pertama dalam senarai — tanpa ralat, tanpa
+pengesahan. Diukur pada baris sebenar, bukan dibayangkan. Itu persis kegagalan
+yang docblock `AdminZones` sendiri beri amaran.
+
+Dua zon lama bergabung jadi satu (`Selangor` + `Kuala Lumpur` →
+`Selangor, Kuala Lumpur dan Putrajaya`), dan satu zon tetap satu admin.
+Sasaran diselesaikan terhadap **senarai hidup**, bukan salinan — zon ialah
+`ManagedList` yang boleh dinamakan semula. Nama tanpa pemetaan **melontar**,
+tidak disimpan mentah.
+
+`AdminZones::rename()` **menolak nama zon lain**, tidak peka huruf besar (MySQL
+membandingkan lajur ini begitu juga) — jika tidak, dua zon bergabung senyap
+(K08). Menukar huruf besar/kecil nama sendiri dibenarkan.
+
+### `legacy:transform-aacb` membina satu acara, bukan sejarah
+
+Ia membina acara AACB penuh daripada staging: pelan (4 pasangan lokasi/saiz),
+175 plot, 174 pendaftaran, 174 preset dan 174 undi. Silang-semak terhadap dump
+lulus kesemuanya — `plot_code` dari dump, plot padan `usahawan.lot`, kod
+pendaftaran = kod plot, tiada plot ditanda kategori, tiada baris belum disahkan.
+
+Keputusan yang dibuat di sini dan sebabnya:
+
+- **`plot_code` ialah `boothid` pejabat**, bukan `Plot::codeFor()`. Pejabat
+  tulis `TBP01`; penjana akan tulis `BASEMENT-TBP1`. `usahawan.lot` padan dengan
+  `boothid` pada **kesemua 174** peruntukan, dan id itulah yang dicetak pada
+  gerai dan slip.
+- **`use_preset` dan `allocation_type = 'preset'`**, kerana `lot` = `preset`
+  pada kesemua 175 baris: pejabat menetapkan setiap gerai, peserta mengesahkan.
+  Membina semula seolah-olah algoritma yang menjalankannya ialah acara lain.
+- **Setiap pendaftaran ditulis `verified_at`**, kerana cabutan itu **selesai**.
+  `PollingGuard` menahan cabutan selagi ada baris belum disahkan, jadi acara
+  yang sampai ke penghujung sudah melalui kedua-dua semakan.
+- **Tetingkap cabutan dibaca dari `votetime`** (2025-10-06 10:02 → 13:54), bukan
+  direka. **Tajuk, tempat dan tarikh acara pula tiada dalam dump** — pilihan
+  arahan membekalkannya dan laporan menyatakan yang mana tekaan.
+- **Pemangkasan ruang berlaku di sini**, bukan di staging. `'RKP01 '` jadi
+  `'RKP01'`; staging menyimpannya utuh kerana membersih ialah keputusan.
+- Arahan **berhenti** jika ada kod kraf tiada pada helaian pengekodan — plot
+  dengan kod tak dikenali tidak boleh dipadankan oleh mana-mana pendaftaran.
+
+`--fresh` membuang pendaftaran **dahulu**, kemudian acara: `plot_id` tiada
+klausa `ON DELETE`, jadi pangkalan data menyekat pembuangan plot yang masih
+ditunjuk.
+
+### Pembersihan yang data sebenar sudah tunjukkan perlu
+
+- **Ruang hujung**: `boothid` `'TBA06 '`, `comid` `'10-1-62  '`, `'14-1-14   '`.
+- **Zero-date benar-benar ada**: `votetimepay` = `'0000-00-00 00:00:00'` dalam
+  setiap baris sampel.
+- **IC dua format**: `'890508-12-0000'` berbanding `'800601100000'`.
+- **Huruf besar/kecil tidak sepadan antara jadual**: `usahawan.location` =
+  `'KHEMAH A'` sedangkan `ukhemah.khemah` = `'Khemah A'`. Join mesti normalisasi.
+- **Bendera bercampur bahasa**: `undi` = `'Yes'`, `bayarstatus` / `sstatus` =
+  `'Ya'` / `'Tidak'`.
+
+Transform dari staging ke jadual aplikasi yang membuat keputusan. **Jangan**
+tambah lajur status (`sstatus`, `bayarstatus`, `Protokol`) kepada
+`event_registrations` untuk menampung dump — model dua-semakan sudah
+menggantikannya, dan `PollingGuard` serta `EventRegistration::booted()`
+bergantung padanya.
 
 ---
 
@@ -631,3 +957,25 @@ Dalam ujian Pest, `actingAs()` tanpa guard menggunakan guard **lalai**, yang
 permintaan admin terdahulu dalam ujian yang sama mungkin telah tukar kepada
 `admin`. Namakan guard (`actingAs($user, 'web')`) dalam ujian yang mencampur
 kedua-duanya, dan `auth()->forgetGuards()` sebelum menguji akses orang lain.
+
+### Jangan beri mesej kepada `toContain` — ia needle, bukan mesej
+
+`toContain` ialah **variadic**. `expect($x)->not->toContain('check (', 'mesej')`
+membaca "mesej" sebagai needle **kedua**, dan `not->toContain` lulus sebaik
+**mana-mana** needle tidak hadir. Mesej penerangan tidak pernah hadir dalam
+nilai, jadi assertion itu lulus tanpa pernah menimbang needle pertama.
+
+Ini bukan teori. Pengawal enum dalam
+`tests/Feature/SchemaHoldsTheSameShapeOnBothDriversTest.php` ditulis begitu dan
+**mati sepanjang hayat fail** — diuji dengan menyelit lajur `enum` betul ke dalam
+skema: bentuk lama lulus, bentuk satu-needle gagal. Ujian yang CLAUDE.md sendiri
+namakan sebagai pengunci peraturan tiada-enum tidak mengunci apa-apa.
+
+`toBe`, `toBeTrue`, `toBeNull` dan `toThrow` **memang** terima mesej sebagai
+argumen kedua. Hanya `toContain` tidak. Bila mesej diperlukan bersama
+pemeriksaan "tidak mengandungi", tulis perbandingan eksplisit dan letak mesej
+pada `toBeTrue`, dan simpan penerangan dalam komen.
+
+`toContain` positif dengan beberapa needle (`toContain('a', 'b', 'c')`) adalah
+sah dan bermakna — semua needle mesti hadir. Yang berbahaya ialah bentuk
+**bernegatif**.

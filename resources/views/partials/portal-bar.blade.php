@@ -5,14 +5,11 @@
 
     Navy, on the 1000px column. Signed in, the nav lives in a navy rail down the
     left that looks exactly like the office's: fixed on a desk (the menu button
-    hides and shows it), a drawer on a phone. It holds the nav, Notifications and
-    Sign Out; the bar keeps the page title, text size, the bell and the user
-    menu. The layouts mark a signed-in body `ap-with-rail` to make room for it.
-    Signed out there is no rail: on a desk the nav sits in the bar, on a phone
-    it is the drawer, with Events, the text size and Sign In.
-
-    Reads $unreadNotificationCount, so it is named in AppServiceProvider's view
-    composer list.
+    hides and shows it), a drawer on a phone. It holds the nav and Sign Out; the
+    bar keeps the page title, text size and the user menu. The layouts mark a
+    signed-in body `ap-with-rail` to make room for it. Signed out there is no
+    rail: on a desk the nav sits in the bar, on a phone it is the drawer, with
+    Events, the text size and Sign In.
 
     The page title on a phone comes from @section('page-title').
 --}}
@@ -169,10 +166,18 @@
         // The lot page belongs to the dashboard: every draw is listed there,
         // and the lot is reached from its row.
         $apNav[] = ['label' => 'Dashboard', 'icon' => 'house-door', 'route' => 'dashboard', 'key' => 'dashboard', 'match' => ['dashboard', 'zvote.*'], 'menu' => true];
-        $apNav[] = ['label' => 'Past events', 'icon' => 'clock-history', 'route' => 'past-events', 'key' => 'past-events', 'match' => ['past-events', 'past-events.*'], 'drawer' => true];
-        // The drawer only: the bar has its bell.
-        $apNav[] = ['label' => 'Notifications', 'icon' => 'bell', 'route' => 'notifications.index', 'key' => 'notifications', 'match' => ['notifications.*'], 'drawer' => true, 'count' => $unreadNotificationCount];
         $apNav[] = ['label' => 'Profile', 'icon' => 'person', 'route' => 'profile', 'key' => 'profile', 'match' => ['profile', 'profile.*'], 'drawer' => true, 'menu' => true];
+        /*
+         * PAST EVENTS AND NOTIFICATIONS ARE NOT LISTED HERE, and both still
+         * work: `past-events`, `past-events.show` and `notifications.index`
+         * are registered, and the notifications a participant is sent are
+         * still written and still readable at their own URL.
+         *
+         * They are off the nav because the participant's job in this app is
+         * one thing — confirm a lot — and a bar that offers four doors makes
+         * that one harder to find. Put either back by adding its line here;
+         * nothing else has to change.
+         */
     }
     $apHome = auth()->check() ? route('dashboard') : route('home');
 @endphp
@@ -256,16 +261,9 @@
         </button>
 
         @auth
-            <a href="{{ route('notifications.index') }}" class="ap-icon-btn position-relative"
-               aria-label="Notifications{{ $unreadNotificationCount ? ", {$unreadNotificationCount} unread" : '' }}">
-                <i class="bi bi-bell"></i>
-                @if($unreadNotificationCount)
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.75rem;">
-                        {{ $unreadNotificationCount > 99 ? '99+' : $unreadNotificationCount }}
-                    </span>
-                @endif
-            </a>
-
+            {{-- The bell stood here. It is gone with the Notifications nav
+                 entry, for the same reason: the bar carries what a participant
+                 has to do, and the draw is on the dashboard. --}}
             <div class="dropdown">
                 <button class="ap-user-menu dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border:none;">
                     <div class="ap-avatar">{{ strtoupper(substr(Auth::user()->name, 0, 2)) }}</div>

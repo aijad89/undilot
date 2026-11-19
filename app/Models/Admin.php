@@ -18,11 +18,14 @@ class Admin extends Authenticatable
 
     protected $fillable = [
         'name',
-        'email',
+        'username',
         'password',
         'role',
         'state',
         'is_active',
+        // Set only by legacy:accounts (dev). Controllers pass validated arrays
+        // that never carry it.
+        'legacy_id',
     ];
 
     protected $hidden = [
@@ -170,22 +173,6 @@ class Admin extends Authenticatable
 
     /** Super or HQ may manage events and the lot draw. */
     public function canManageEvents(): bool
-    {
-        return $this->hasGlobalAccess();
-    }
-
-    /**
-     * Super or HQ may edit what the public site says — the footer menus and the
-     * social links.
-     *
-     * None of it is state-scoped: one footer is read by every usahawan in the
-     * country, so a state admin editing it is editing thirteen other states'
-     * footer.
-     *
-     * What this does NOT cover is anything that writes the `admins` table.
-     * Account management stays super-only, and so do zones.
-     */
-    public function canManageSiteContent(): bool
     {
         return $this->hasGlobalAccess();
     }

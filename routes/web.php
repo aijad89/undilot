@@ -1,22 +1,16 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
-use App\Http\Controllers\Admin\AnnouncementController;
-use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EntRegistrationController;
 use App\Http\Controllers\Admin\EventController;
-use App\Http\Controllers\Admin\FooterMenuController;
 use App\Http\Controllers\Admin\PlotPainterController;
 use App\Http\Controllers\Admin\PollingController;
-use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
-use App\Http\Controllers\Admin\SocialLinkController;
 use App\Http\Controllers\Auth\Admin\LoginController as AdminLoginController;
 use App\Http\Controllers\DevAutoLoginController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\JoinRequestController;
 use App\Http\Controllers\LotDrawController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -52,43 +46,19 @@ Route::middleware(['auth:web', 'user.active'])->group(function () {
     Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
     Route::get('/past-events', [HomeController::class, 'pastEvents'])->name('past-events');
     Route::get('/past-events/{event}', [HomeController::class, 'pastEvent'])->name('past-events.show');
-    Route::get('/join-requests/{joinRequest}/photos', [JoinRequestController::class, 'photos'])->name('join-requests.photos');
 
     Route::get('/events/{event}/lot', [LotDrawController::class, 'show'])->name('zvote.index');
     Route::post('/events/{event}/lot', [LotDrawController::class, 'submit'])->name('zvote.submit');
     Route::get('/events/{event}/lot/slip', [LotDrawController::class, 'slip'])->name('zvote.slip');
-    Route::post('/events/{event}/join', [JoinRequestController::class, 'store'])->name('events.join');
 
-    // Read-only account facts, and the password. Throttled: the current
-    // password is checked here, and must not be guessable by repetition.
+    // Read-only account facts. No password change: participants sign in with
+    // community ID + IC and never hold a password (owner, 2026-11-17).
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
-    Route::put('/profile/password', [ProfileController::class, 'password'])
-        ->middleware('throttle:6,1')
-        ->name('profile.password');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read'])->name('notifications.read');
 });
-
-/* A join request's document: for its own company, or an admin of that zone. */
-Route::get('/join-requests/{joinRequest}/documents/{index}', [JoinRequestController::class, 'document'])
-    ->middleware('auth:web,admin')
-    ->whereNumber('index')
-    ->name('join-requests.document');
-Route::get('/join-requests/{joinRequest}/photos/{index}', [JoinRequestController::class, 'photo'])
-    ->middleware('auth:web,admin')
-    ->whereNumber('index')
-    ->name('join-requests.photo');
-
-/*
- * An announcement's banner or file: reached from either portal, so either guard
- * may ask. The controller decides whether this caller may have it.
- */
-Route::get('/announcements/{announcement}/{kind}', [NotificationController::class, 'file'])
-    ->middleware('auth:web,admin')
-    ->whereIn('kind', ['banner', 'attachment'])
-    ->name('announcements.file');
 
 /* ── Dev: click-to-login ─────────────────────────────────────────────────── */
 
@@ -153,8 +123,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('{registration}/payment-note', [EntRegistrationController::class, 'paymentNote'])->name('payment-note');
                 Route::post('{registration}/return', [EntRegistrationController::class, 'returnToZone'])->middleware('can:verify-draw-list')->name('return');
                 Route::delete('{registration}', [EntRegistrationController::class, 'destroy'])->name('destroy');
-                Route::post('join/{joinRequest}/approve', [EntRegistrationController::class, 'approve'])->name('approve');
-                Route::post('join/{joinRequest}/reject', [EntRegistrationController::class, 'reject'])->name('reject');
             });
 
         /*
@@ -221,37 +189,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('admins/{admin}', [AdminController::class, 'update'])->name('admins.update');
             Route::patch('admins/{admin}/active', [AdminController::class, 'toggleActive'])->name('admins.active');
             Route::delete('admins/{admin}', [AdminController::class, 'destroy'])->name('admins.destroy');
-        });
-
-        /* Announcements: every admin reads what reached them; super/hq send. */
-        Route::get('announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
-        Route::middleware('can:send-announcements')->group(function () {
-            Route::get('announcements/create', [AnnouncementController::class, 'create'])->name('announcements.create');
-            Route::post('announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
-        });
-        Route::get('announcements/{announcement}', [AnnouncementController::class, 'show'])->name('announcements.show');
-
-        /* CSV exports. Every admin; a state admin's are narrowed to their zone. */
-        Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/', [ReportController::class, 'index'])->name('index');
-            Route::get('registrations', [ReportController::class, 'registrations'])->name('registrations');
-            Route::get('companies', [ReportController::class, 'companies'])->name('companies');
-            Route::get('event-summary', [ReportController::class, 'eventSummary'])->name('event-summary');
-            Route::get('lot-draw', [ReportController::class, 'lotDraw'])->name('lot-draw');
-        });
-
-        /* The public site's footer pages and social links: national, super and hq. */
-        Route::middleware('can:manage-site-content')->group(function () {
-            Route::post('footer-menus/reorder', [FooterMenuController::class, 'reorder'])->name('footer-menus.reorder');
-            Route::resource('footer-menus', FooterMenuController::class)->except(['show']);
-            Route::post('social-links/reorder', [SocialLinkController::class, 'reorder'])->name('social-links.reorder');
-            Route::resource('social-links', SocialLinkController::class)->except(['show']);
-        });
-
-        /* The audit trail: read-only, super and hq. */
-        Route::middleware('can:read-audit-trail')->group(function () {
-            Route::get('audit-trails', [AuditTrailController::class, 'index'])->name('audit-trails.index');
-            Route::get('audit-trails/{auditTrail}', [AuditTrailController::class, 'show'])->name('audit-trails.show');
         });
 
         /* Settings — national lists, so super and HQ only. */

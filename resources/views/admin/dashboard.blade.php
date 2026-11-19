@@ -23,9 +23,6 @@
                 <a href="{{ route('admin.events.create') }}" class="mac-btn-secondary"><i class="bi bi-calendar-plus me-1"></i> New event</a>
             @endcan
             <a href="{{ route('admin.companies.create') }}" class="mac-btn-secondary"><i class="bi bi-building-add me-1"></i> Add company</a>
-            @can('send-announcements')
-                <a href="{{ route('admin.announcements.create') }}" class="mac-btn-secondary"><i class="bi bi-megaphone me-1"></i> Announce</a>
-            @endcan
             {{-- The public events list, as participants see it. A new tab, so the
                  admin session's page stays where it was. --}}
             <a href="{{ route('home') }}" class="mac-btn-secondary" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i> Public event page</a>

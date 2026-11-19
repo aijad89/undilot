@@ -181,36 +181,6 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(fn () => Password::min(8)->letters()->numbers());
 
         /*
-         * NO ResetPassword::createUrlUsing() HERE, AND THAT IS DELIBERATE.
-         *
-         * The Sanctum SPA scaffolding ships one, and it builds
-         * `config('app.frontend_url')."/password-reset/$token"`. For a Blade
-         * monolith both halves are wrong: there is no `/password-reset/{token}`
-         * route — the real one is `/reset-password/{token}` — and
-         * `app.frontend_url` is not defined in this application's config, so it
-         * resolves to the FRAMEWORK default of `http://localhost:3000` and never
-         * reaches APP_URL. The emailed link is then unreachable twice over.
-         *
-         * Laravel's default builds `route('password.reset', [token, email])`,
-         * which is the route that exists and honours APP_URL. If one is ever added
-         * here it has to be kept in step with routes/auth.php by hand, which is
-         * the part that drifts.
-         */
-
-        /*
-         * A named gate rather than a policy per model: the things it guards —
-         * footer menus and social links — are not one model and share no parent,
-         * and the question asked of each is the same one.
-         *
-         * None of it is state-scoped, which is the actual reason it needs a gate
-         * at all: one footer is read by every usahawan in the country, so a state
-         * admin editing it is editing thirteen other states' footer.
-         */
-        Gate::define('manage-site-content', function (Admin $admin) {
-            return $admin->canManageSiteContent();
-        });
-
-        /*
          * Who may create, edit and delete events — and with them the draw that
          * lives inside each one.
          *
@@ -238,15 +208,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
         /*
-         * Sending an announcement. Reading is not gated — Announcement::
-         * visibleToAdmin() narrows what each admin sees — but sending is not a
-         * state admin's job, whoever would receive it.
-         */
-        Gate::define('send-announcements', function (Admin $admin) {
-            return $admin->hasGlobalAccess();
-        });
-
-        /*
          * The admin-accounts screens. Reaching them is super and hq; WHO each may
          * act on and WHICH role each may hand out are decided per request inside
          * AdminController, by authorizeTarget() and Admin::assignableRolesFor() —
@@ -267,13 +228,8 @@ class AppServiceProvider extends ServiceProvider
             return $admin->hasGlobalAccess();
         });
 
-        /* The audit trail. hq included, Admin rows and all — see AuditTrailController. */
-        Gate::define('read-audit-trail', function (Admin $admin) {
-            return $admin->hasGlobalAccess();
-        });
-
         /*
-         * ┌─ THE VIEWS THAT READ $unreadNotificationCount. ADD A FOURTH HERE. ─┐
+         * ┌─ THE VIEWS THAT READ $unreadNotificationCount. ADD A THIRD HERE. ─┐
          *
          * Any view that starts reading `$unreadNotificationCount` MUST be named in
          * this list. A view that reads it without being listed gets an undefined
@@ -286,11 +242,13 @@ class AppServiceProvider extends ServiceProvider
          * admin view displays at all. Scoping the list is what takes an admin page
          * to zero; memoising alone only takes it to one.
          *
-         * The list cuts BOTH ways: a name left on it after the view stops reading
-         * the count is a query per request; a name missing from it is a 500.
-         * TheNotificationCountListMatchesItsReadersTest holds it to set equality.
+         * The list cuts BOTH ways, which is why it is this short: `partials.portal-bar`
+         * sat here after its bell was removed, and the bar is included by both
+         * layouts/frontend and layouts/public — so every participant page and every
+         * public page ran the COUNT for a number nothing rendered. A name left on
+         * this list is a query per request; a name missing from it is a 500.
          */
-        View::composer(['dashboard', 'partials.portal-bar', 'notifications.index'], function ($view) {
+        View::composer(['dashboard', 'notifications.index'], function ($view) {
             $view->with('unreadNotificationCount', app('notifications.unread-count'));
         });
     }

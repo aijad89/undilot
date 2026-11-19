@@ -3,7 +3,7 @@
 use App\Models\Admin;
 
 /**
- * The admin sidebar: Dashboard, User, The Event, Announcements, Setting, Sign Out.
+ * The admin sidebar: Dashboard, User, The Event, Setting, Sign Out.
  * Each role sees only what it may open, a group opens by itself on its own pages,
  * and a screen reader is told which group is open and which page is current.
  */
@@ -29,8 +29,7 @@ it('gives a super admin every item, admins in two lists', function () {
         'Dashboard',
         'User', 'Companies', 'HQ Admins', 'State Admins',
         'The Event', 'Events', 'Lot Draw',
-        'Announcements',
-        'Setting', 'Reports', 'Dropdown Lists', 'Craft Category Code', 'Craft Hierarchy', 'Lot Draw', 'Footer Pages', 'Social Links', 'Audit Trail',
+        'Setting', 'Dropdown Lists', 'Craft Category Code', 'Craft Hierarchy', 'Lot Draw',
         'Sign Out',
     ]);
 });
@@ -38,17 +37,15 @@ it('gives a super admin every item, admins in two lists', function () {
 it('gives an hq admin the state admins but not the hq list', function () {
     $labels = sidebarLabels(sidebarOf(Admin::factory()->hq()->create()));
 
-    expect($labels)->toContain('State Admins', 'Setting', 'Audit Trail')
+    expect($labels)->toContain('State Admins', 'Setting', 'Craft Hierarchy')
         ->not->toContain('HQ Admins');
 });
 
-it('gives a state admin no admin lists, and only Reports under Setting', function () {
+it('gives a state admin no admin lists, and no Setting group', function () {
     expect(sidebarLabels(sidebarOf(stateAdmin())))->toBe([
         'Dashboard',
         'User', 'Companies',
         'The Event', 'Events', 'Lot Draw',
-        'Announcements',
-        'Setting', 'Reports',
         'Sign Out',
     ]);
 });

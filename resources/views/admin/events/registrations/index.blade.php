@@ -46,117 +46,6 @@
         </div>
     </div>
 
-    @if($joinRequests->isNotEmpty())
-        <div class="mac-card mb-3" id="join-requests">
-            <div class="mac-card-padded pb-0">
-                <h3 class="mac-card-title">Join requests ({{ $joinRequests->count() }})</h3>
-                <p class="mac-muted mac-text-sm mb-0">
-                    Check the company's details, files and payment proof, set its craft code and booth, then approve with ✓
-                    @unless($isHq) — HQ verifies it before the company is told —@endunless
-                    or reject with a reason the company will see.
-                </p>
-            </div>
-            <div class="table-responsive">
-                <table class="mac-table">
-                    <thead>
-                        <tr>
-                            <th>Company</th>
-                            <th>Payment</th>
-                            <th>Documents</th>
-                            <th style="width:300px;">Approve</th>
-                            <th style="width:280px;">Reject</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($joinRequests as $jr)
-                            <tr>
-                                <td>
-                                    <strong>{{ $jr->company->name }}</strong>
-                                    <div class="mac-text-sm mac-muted">{{ $jr->company->state }} · sent {{ $jr->updated_at->format('d M Y') }}</div>
-                                    {{-- As the company declared it with this request. --}}
-                                    @if($a = $jr->answers)
-                                        <div class="mac-text-sm mt-1">
-                                            @include('partials.join-answers', ['a' => $a])
-                                        </div>
-                                    @endif
-                                </td>
-                                <td class="mac-text-sm">
-                                    @include('partials.payment-proof', ['jr' => $jr])
-                                </td>
-                                <td class="mac-text-sm">
-                                    {{-- The payment files are under Payment; these are the company's own. --}}
-                                    @forelse(collect($jr->documents ?? [])->reject(fn ($d) => str_starts_with($d['path'] ?? '', 'join-requests/')) as $i => $doc)
-                                        <div><a href="{{ route('join-requests.document', [$jr, $i]) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark me-1"></i>{{ $doc['name'] }}</a></div>
-                                    @empty
-                                        <span class="mac-muted">No files</span>
-                                    @endforelse
-                                </td>
-                                <td>
-                                    @if($zoneLocked)
-                                    <span class="mac-text-sm mac-muted">The draw has started: only HQ can approve now.</span>
-                                    @else
-                                    <form method="POST" action="{{ route('admin.events.registrations.approve', [$event, $jr]) }}" class="d-flex gap-1">
-                                        @csrf
-                                        <select name="code" class="mac-select mac-action-btn-field" style="min-width: 110px" aria-label="Craft code">
-                                            <option value="">{{ $jr->company->kraf_code ? 'Own: '.$jr->company->kraf_code : '— None —' }}</option>
-                                            @foreach($codes as $code)
-                                                <option value="{{ $code->code }}">{{ $code->code }}</option>
-                                            @endforeach
-                                        </select>
-                                        <select name="plot_size" class="mac-select mac-action-btn-field" style="min-width: 90px" aria-label="Booth">
-                                            @foreach($plotSizes as $size)
-                                                <option value="{{ $size }}" @selected(($jr->company->plot_size ?? '3x3') === $size)>{{ $size }}</option>
-                                            @endforeach
-                                        </select>
-                                        <button type="submit" class="mac-action-btn" title="Approve and add to the draw list">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-                                    </form>
-                                    @endif
-                                </td>
-                                <td>
-                                    <form method="POST" action="{{ route('admin.events.registrations.reject', [$event, $jr]) }}" class="d-flex gap-1">
-                                        @csrf
-                                        <input type="text" name="reject_reason" class="mac-form-control mac-action-btn-field" placeholder="Reason" aria-label="Reason for rejecting" required maxlength="1000">
-                                        <button type="submit" class="mac-action-btn mac-action-btn-danger" title="Reject">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    @endif
-
-    @if($rejected->isNotEmpty())
-        <details class="mac-card mb-3" id="rejected">
-            <summary class="mac-card-padded mac-card-title" style="cursor: pointer">Rejected by zones ({{ $rejected->count() }})</summary>
-            <p class="mac-muted mac-text-sm px-4 mb-2">
-                Told to the company at once, with the reason below. The company may change its request and send it again.
-            </p>
-            <div class="table-responsive">
-                <table class="mac-table">
-                    <thead>
-                        <tr><th>Company</th><th>Reason</th><th>Rejected by</th><th>When</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach($rejected as $jr)
-                            <tr>
-                                <td><strong>{{ $jr->company->name }}</strong><div class="mac-text-sm mac-muted">{{ $jr->company->state }}</div></td>
-                                <td class="mac-text-sm">{{ $jr->reject_reason }}</td>
-                                <td class="mac-text-sm">{{ $jr->reviewer?->name ?? '—' }}</td>
-                                <td class="mac-text-sm text-nowrap">{{ $jr->reviewed_at?->format('d M Y') }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </details>
-    @endif
-
     <form method="GET" class="mac-filter-bar mb-3">
         <input type="search" name="search" value="{{ request('search') }}"
                class="mac-input" placeholder="Company name" aria-label="Search the draw list">
@@ -231,29 +120,38 @@
                                 </td>
                                 <td class="mac-text-sm" style="overflow-wrap: anywhere">
                                     @if($registration->user_id)
-                                        {{ $registration->company->user->email }}
+                                        {{ $registration->company->user->community_id ?? '—' }}
                                     @else
                                         <span class="mac-badge mac-badge-orange">No account</span>
                                     @endif
                                 </td>
 
                                 <td class="mac-text-sm">
-                                    @if(isset($proofs[$registration->company_id]))
-                                        @include('partials.payment-proof', ['jr' => $proofs[$registration->company_id]])
-                                    @else
-                                        {{-- Added by the office: no request, so the zone writes how it paid. --}}
-                                        <form method="POST" action="{{ route('admin.events.registrations.payment-note', [$event, $registration]) }}" class="d-flex gap-1">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="text" name="payment_note" value="{{ $registration->payment_note }}" maxlength="500"
-                                                   class="mac-form-control mac-action-btn-field" style="min-width: 120px" placeholder="Receipt no., date"
-                                                   aria-label="Payment note for {{ $registration->company->name }}">
-                                            <button type="submit" class="mac-action-btn" title="Save payment note"><i class="bi bi-check-lg"></i></button>
-                                        </form>
-                                        @unless($registration->payment_note)
-                                            <div class="mac-muted mt-1">Added by the office, no payment note yet.</div>
-                                        @endunless
+                                    {{-- Every company is added by the office, so the officer
+                                         records whether it paid, and how: receipt no., date, method. --}}
+                                    <form method="POST" action="{{ route('admin.events.registrations.payment-note', [$event, $registration]) }}" class="d-flex gap-1">
+                                        @csrf
+                                        @method('PUT')
+                                        <select name="payment_status" class="mac-select mac-action-btn-field" style="min-width: 100px"
+                                                aria-label="Payment status for {{ $registration->company->name }}">
+                                            <option value="">— Status —</option>
+                                            @foreach(\App\Models\EventRegistration::PAYMENT_STATUSES as $key => $label)
+                                                <option value="{{ $key }}" @selected($registration->payment_status === $key)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                        <input type="text" name="payment_note" value="{{ $registration->payment_note }}" maxlength="500"
+                                               class="mac-form-control mac-action-btn-field" style="min-width: 120px" placeholder="Receipt no., date"
+                                               aria-label="Payment note for {{ $registration->company->name }}">
+                                        <button type="submit" class="mac-action-btn" title="Save payment"><i class="bi bi-check-lg"></i></button>
+                                    </form>
+                                    @if(! $registration->payment_status)
+                                        <div class="mac-muted mt-1">Payment status not recorded yet.</div>
+                                    @elseif($registration->payment_status === 'unpaid')
+                                        <span class="mac-badge mac-badge-red mt-1">Not paid</span>
                                     @endif
+                                    @unless($registration->payment_note)
+                                        <div class="mac-muted mt-1">Added by the office, no payment note yet.</div>
+                                    @endunless
                                 </td>
 
                                 <td class="mac-text-sm">

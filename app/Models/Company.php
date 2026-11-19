@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Support\EntrepreneurCategories;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,57 +28,11 @@ class Company extends Model
         'state',
         'entrepreneur_category',
         'is_active',
-        'credentials',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'credentials' => 'array',
     ];
-
-    /** Recognition received — one at most. */
-    public const RECOGNITIONS = [
-        'adiguru' => 'Adiguru Kraf',
-        'tokoh' => 'Tokoh Kraf Negara',
-        'none' => 'Not applicable',
-    ];
-
-    /** Quality compliance standards, by the craft (pecahan_bidang) they apply to. */
-    public const QUALITY_STANDARDS = [
-        'batik' => 'Batik Standard entrepreneur',
-        'songket_tenun' => 'Songket / Tenunan Standard entrepreneur',
-    ];
-
-    private const QUALITY_CRAFTS = ['BATIK' => 'batik', 'SONGKET' => 'songket_tenun', 'TENUN' => 'songket_tenun'];
-
-    /**
-     * The answers to fill the join form with: what the company last sent, with
-     * this event's own draft over it where there is one. A draft stays inside
-     * its event; only a sent request becomes the company's answers.
-     */
-    public function answersFor(?EventJoinRequest $joinRequest): array
-    {
-        $draft = $joinRequest?->status === 'draft'
-            ? array_filter($joinRequest->answers ?? [], fn ($answer) => $answer !== null && $answer !== [])
-            : [];
-
-        return array_merge($this->credentials ?? [], $draft);
-    }
-
-    /**
-     * The quality standard this company's craft is held to, or null when it has
-     * none (Tekatan and every non-textile craft). Read from the craft code the
-     * office set, through the coding sheet's own pecahan_bidang — the participant
-     * is never asked what they make.
-     */
-    public function qualityStandard(): ?string
-    {
-        $craft = $this->kraf_code
-            ? KrafBidang::codes()->where('code', $this->kraf_code)->value('pecahan_bidang')
-            : null;
-
-        return self::QUALITY_CRAFTS[strtoupper(trim((string) $craft))] ?? null;
-    }
 
     public function user()
     {
@@ -93,8 +46,7 @@ class Company extends Model
 
     /**
      * The Companies list's filters: search, zone, and the dashboard's "missing"
-     * links. Shared by the list and its Export, so the file is always the rows
-     * on screen. A state admin's own-zone SCOPE is not here; each caller adds it.
+     * links. A state admin's own-zone SCOPE is not here; each caller adds it.
      */
     public function scopeListFilters($query, \Illuminate\Http\Request $request)
     {
@@ -102,7 +54,6 @@ class Company extends Model
             ->when($request->input('search'), fn ($q, $search) => $q->where(
                 fn ($w) => $w->where('name', 'like', "%{$search}%")
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('ic_number', 'like', "%{$search}%")
                         ->orWhere('community_id', 'like', "%{$search}%"))
             ))
@@ -190,18 +141,6 @@ class Company extends Model
     public function krafSelections()
     {
         return $this->hasMany(CompanyKraf::class)->orderByDesc('is_primary')->orderBy('id');
-    }
-
-    /**
-     * A government agency or similar, rather than a craft entrepreneur.
-     *
-     * This is what lets a plot be preset for a body that belongs to no craft
-     * category at all — the case that ALWAYS crosses categories, and the one the
-     * draw has to be asked about rather than silently allowed.
-     */
-    public function isExternalEntity(): bool
-    {
-        return in_array($this->entrepreneur_category, EntrepreneurCategories::EXTERNAL_ENTITY, true);
     }
 
     /**

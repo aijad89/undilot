@@ -60,8 +60,18 @@ return new class extends Migration
         Schema::create('admins', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('email')->unique();
+
+            // What the officer signs in with, with `password`. NO EMAIL: the
+            // project uses none, anywhere (owner's decision, 2026-11-17).
+            // Unique, compared lower-cased by AdminLoginRequest — MySQL's
+            // collation compares it that way too.
+            $table->string('username', 50)->unique();
             $table->string('password');
+
+            // The `upengawai` id this account was built from by legacy:accounts
+            // (dev only), so `--fresh` finds its own rows. Null for every
+            // account made in the app.
+            $table->string('legacy_id', 20)->nullable()->index();
 
             // Three roles: admin (one state), hq, super. The vocabulary and the
             // rules about who may hand out which live in Admin::ROLES and
@@ -205,8 +215,8 @@ return new class extends Migration
             // its workshop is.
             $table->string('state')->nullable();
 
-            // Read by Company::isExternalEntity(), which is what lets a
-            // government agency be given a plot outside any craft category.
+            // One of EntrepreneurCategories: 'Pengeluar atau Pedagang' or
+            // 'Pemborong'. A label only; the draw does not read it.
             $table->string('entrepreneur_category')->nullable();
 
             // The company's usual craft code (TBP, RKP…), set by an admin and never
@@ -219,11 +229,6 @@ return new class extends Migration
             // suggestion: copied to event_registrations.plot_size when the
             // company is added to a draw list, where it can still be changed.
             $table->string('plot_size')->nullable();
-
-            // What the participant last said about the company's recognition and
-            // certificates, filled into the next join request so a returning
-            // company only confirms it. Company::credentials() names the keys.
-            $table->json('credentials')->nullable();
 
             $table->boolean('is_active')->default(true);
             $table->timestamps();
@@ -278,8 +283,8 @@ return new class extends Migration
             $table->dateTime('start_date');
             $table->dateTime('end_date');
 
-            // The registration window: a participant may ask to join only between
-            // these two. With auto_open / auto_close it also drives `events.status`.
+            // The registration window. With auto_open / auto_close it drives
+            // `events.status` — the office enters companies inside it.
             $table->dateTime('registration_open_at');
             $table->dateTime('registration_close_at');
             $table->boolean('auto_open')->default(false);
@@ -372,8 +377,11 @@ return new class extends Migration
              * The lot code as it is printed on the booth and on the slip, so it is
              * also what anybody looks a plot up by.
              *
-             * NOT unique: lot codes are unique within one event (`TBP01`,
-             * `KH01`) but repeat across events — every fair has a `TBP01`. A unique on (event_id, plot_code) would be true today and
+             * NOT unique, and the reason is in the data: `legacy:transform-aacb`
+             * keeps the office's own `boothid` as `plot_code`, and those are
+             * unique within one event (`TBP01`, `KH01`) but repeat across events —
+             * every fair has a `TBP01`. Unique here would refuse the second event
+             * imported. A unique on (event_id, plot_code) would be true today and
              * is still not added: nothing reads a plot by that pair, so it would
              * be a constraint carried for its own sake.
              */
@@ -442,10 +450,14 @@ return new class extends Migration
             $table->timestamp('first_verified_at')->nullable();
             $table->text('hq_note')->nullable();
 
-            // How a company the office added paid — receipt number, date, how —
-            // written by the zone for HQ to check. A company that asked to join
-            // carries its proof on the join request instead.
+            // How the company paid — receipt number, date, how — written by the
+            // zone for HQ to check. The office enters every company, so this is
+            // the only record of payment there is.
             $table->string('payment_note', 500)->nullable();
+
+            // Paid or not, chosen by the officer beside the note: a key of
+            // EventRegistration::PAYMENT_STATUSES. Null until someone says.
+            $table->string('payment_status', 20)->nullable();
 
             $table->timestamps();
 
@@ -468,47 +480,6 @@ return new class extends Migration
              * touches could change that, for a query that runs once when an admin
              * asks whether a draw may open.
              */
-            $table->unique(['event_id', 'company_id']);
-        });
-
-        /**
-         * A participant asking to join an event's draw. Approving it is what
-         * puts the company on the draw list; the request stays as the record.
-         * draft | pending | approved | rejected — EventJoinRequest::STATUSES.
-         * A draft is the participant's own, unsent; the office sees pending on.
-         */
-        Schema::create('event_join_requests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-
-            // cash | cheque | transfer | waiver — EventJoinRequest::PAYMENT_METHODS.
-            $table->string('payment_method', 20)->nullable();
-            // Set only for a waiver — EventJoinRequest::WAIVER_CATEGORIES.
-            $table->string('waiver_category', 20)->nullable();
-
-            // [{name, path, original}]: the payment receipt first, then any
-            // supporting documents. Files on the `local` disk, served through a
-            // controller that asks who is reading.
-            $table->json('documents')->nullable();
-
-            // The company's credentials as they were sent with this request: a
-            // copy, so a later renewal does not rewrite what the office reviewed.
-            $table->json('answers')->nullable();
-
-            $table->string('status', 20)->default('pending');
-            $table->text('reject_reason')->nullable();
-            // Why HQ took the company off the draw list after it was told it is
-            // in. On the request because the row itself is gone; shown with
-            // "taken off" until the company asks again.
-            $table->text('removed_reason')->nullable();
-            $table->foreignId('reviewed_by')->nullable()->constrained('admins')->nullOnDelete();
-            $table->timestamp('reviewed_at')->nullable();
-            $table->timestamps();
-
-            // One request per company per event; asking again after a rejection
-            // reuses it.
             $table->unique(['event_id', 'company_id']);
         });
 
@@ -545,7 +516,7 @@ return new class extends Migration
          * Laravel's own notifications table, written out here rather than
          * published, so the whole schema stays in one file.
          *
-         * It is NOT optional even before any announcement screen exists:
+         * It is NOT optional even if nothing has ever been sent:
          * AppServiceProvider's `notifications.unread-count` binding calls
          * `unreadNotifications()` for any signed-in user, so a missing table is a
          * 500 on every portal page rather than a feature that is merely absent.
@@ -559,48 +530,249 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        /* ── Announcements ───────────────────────────────────────────────── */
+        /* ── Legacy import staging ───────────────────────────────────────── */
 
-        Schema::create('announcements', function (Blueprint $table) {
+        /**
+         * A landing strip for the old system's dump. Nothing here is application
+         * data: these three tables hold the columns of the office's MySQL 4-era
+         * tables that the import actually uses, so a wrong mapping costs a
+         * re-transform rather than another export request.
+         *
+         * NOT EVERY COLUMN, AND THAT IS DELIBERATE. The dump has 64 tables and
+         * 21,032 rows, and the fill rate of each column was measured against it
+         * rather than guessed. Twenty-one columns were left out (2 + 13 + 6): some are 0%
+         * filled in all 21,032 rows, some hold a single repeated value, and some
+         * the office stopped capturing a decade ago. Each table below says which
+         * and why. `kraf_lama.sql` itself is the archive, so narrowing these
+         * tables loses nothing — a later historical import re-reads the file.
+         *
+         * FIVE RULES, and the first is the one that matters:
+         *
+         * 1. EVERY DATA COLUMN IS A NULLABLE STRING. Not a convenience — the
+         *    dump cannot be stored any other way on this MySQL. `usahawan`
+         *    declares `votetime` as `datetime NOT NULL` with no default, which on
+         *    MySQL 4/5 means "never" was written as `0000-00-00 00:00:00` — and
+         *    45% of the snapshot rows carry exactly that. This server runs
+         *    `sql_mode = STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE`, which
+         *    REJECTS that value for a date column outright. `prio` has the same
+         *    shape of problem: an `int` column in a dump that may hold ''.
+         *    Typing a staging column is how the load fails on row one.
+         *
+         * 2. COLUMN NAMES ARE THE LEGACY NAMES, LOWERCASED, and nothing else.
+         *    One rule, so the load needs no per-column mapping and an audit is a
+         *    diff rather than a judgement. That is why `userright` and `loginname`
+         *    read oddly: they are `UserRight` and `LoginName` in the dump.
+         *
+         * 3. `legacy_id` KEEPS THE ORIGINAL `id`. Without it the links between
+         *    the old tables cannot be rebuilt: `ukhemah.usahawanid` points at
+         *    `usahawan.id`, and `usahawan.byuser` at `upengawai.id`. It is a
+         *    string, not an integer, for rule 1's reason.
+         *
+         * 4. `source_table` NAMES THE TABLE THE ROW CAME FROM. The dump holds
+         *    fifteen `ukhemah*` tables — one live, fourteen hourly snapshots with
+         *    names like `ukhemah_day1_2pm` and `ukhemah_18 feb 11`. One staging
+         *    table with provenance beats fifteen staging tables, and the column
+         *    carries those names (spaces, brackets and all) as data, where they
+         *    cannot break anything.
+         *
+         * 5. NO FOREIGN KEY, NO UNIQUE INDEX. Staging has to accept duplicates,
+         *    orphans and half-filled rows — `ukhemah10` has only six of the
+         *    fourteen columns, so the rest land NULL. Finding that is the
+         *    transform's job and a refusal here would only hide it.
+         *
+         * `imported_at` instead of `timestamps()`: a staging row is written once
+         * and never updated, so `updated_at` would be a copy of `created_at`
+         * forever. The only fact worth keeping is when the load ran.
+         *
+         * THE THREE CRAFT COLUMNS DO NOT MEAN WHAT THEY ARE CALLED, and getting
+         * them backwards is the mistake this schema's `kraf_bidangs` note warns
+         * about. Read off real rows:
+         *
+         *   `bidang`    the craft CATEGORY — 'Tekstil', 'Hasil Rimba',
+         *               'Hasil Tanah', 'Aneka Kraf'. Title case here, upper case
+         *               in `kraf_bidangs`.
+         *   `crafttype` the craft CODE, with the plot size glued on in the newer
+         *               data: 'Batik-TBA-3x3', 'Buluh/Rotan-RBH-3x3'. Older rows
+         *               carry a bare name instead — 'Songket', 'Tenun',
+         *               'Kayu(Hiasan Ukiran & Kegunaan)' — with no code and no
+         *               size. Split from the RIGHT: the craft name itself can
+         *               hold punctuation.
+         *   `category`  NOT a craft at all — the ENTREPRENEUR category,
+         *               'Pentahapan 2 (Pengilang/Pedagang,Pengeluar,Agensi)'.
+         *               It belongs in `companies.entrepreneur_category`.
+         *
+         * `boothid` repeats the code as its prefix in the newer data (TBA02 for
+         * TBA, AMH03 for AMH), which is a second reading of the same fact and a
+         * way to check the first. Older booth ids (KH01, PS05, ST11) follow no
+         * code list.
+         *
+         * `salu` is a SALUTATION ('Puan'), not a status.
+         */
+        Schema::create('legacy_upengawai', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            $table->text('message');
+            $table->string('legacy_id', 20)->nullable();
+            $table->string('source_table', 100)->nullable();
 
-            // news | alert | system | message
-            $table->string('type', 20);
+            // `upengawai`: the old officers table. There is NO email column in
+            // it — it signed in with `loginname`, which legacy:accounts turns
+            // into `admins.username`.
+            $table->string('name', 100)->nullable();
+            $table->string('password', 100)->nullable();
+            $table->string('userright', 100)->nullable();
+            $table->string('loginname', 100)->nullable();
+            $table->string('state', 100)->nullable();
+            $table->string('ic', 100)->nullable();
+            $table->string('jawatan', 100)->nullable();
 
-            // Not a foreign key, and not a join table: "all_users", "all_admins",
-            // or "admin_<id>". Announcement::recipientsFor() reads it.
-            $table->string('sent_to')->nullable();
+            // DROPPED, measured over all 137 rows of every `upengawai*` table:
+            // `sessionID` and `lastlogin` are 0% filled — the old app wrote
+            // neither. `userright` is kept although it holds ONE value across
+            // every row ('Pengawai'), because that single value is the answer to
+            // "which role does this officer get": the old system had none, so
+            // admin/hq/super has to be assigned here, not migrated.
 
-            $table->string('banner')->nullable();
-            $table->string('attachment')->nullable();
-            $table->timestamps();
+            $table->timestamp('imported_at')->nullable();
+
+            $table->index('legacy_id');
+            $table->index('source_table');
         });
 
-        /* ── Public site content ─────────────────────────────────────────── */
-
-        Schema::create('footer_menus', function (Blueprint $table) {
+        Schema::create('legacy_usahawan', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            // Rich text, sanitised through mews/purifier on the way in.
-            $table->longText('content');
-            $table->integer('sort_order')->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->string('legacy_id', 20)->nullable();
+            $table->string('source_table', 100)->nullable();
+
+            /*
+             * `usahawan`: the office's REGISTER OF PARTICIPANTS — one row per
+             * usahawan, not one per event. That is why it has no `event` column
+             * and why the dump indexes `name`, `ic` and `companyname`: it is
+             * looked up, not appended to per draw.
+             *
+             * One row holds both the person and their company, which is exactly
+             * the pair undilot keeps as `users` + `companies` — and
+             * `companies.user_id` is unique, so the shapes agree.
+             *
+             * THE TRAP IS THE DRAW COLUMNS. `lot`, `location`, `votetime`,
+             * `undi`, `preset`, `payment`, `bayarstatus` and `votetimepay` sit
+             * on this row with nothing naming an event, so they hold the LATEST
+             * draw only, overwritten each time. Per-event history lives in
+             * `ukhemah`, which does carry `event`. A transform that reads a lot
+             * from here would hand the last draw's result to every event.
+             *
+             * IDENTITY IS THE OTHER PROBLEM. There is no email and no password.
+             * `ic` is the only candidate key — and the dump indexes it without a
+             * UNIQUE, so two rows may share one, and a row may carry ''.
+             * legacy:accounts keys the accounts it builds on `users.legacy_id`
+             * instead, and `companies.user_id` unique still has to be resolved
+             * before the insert rather than discovered during it.
+             */
+            $table->string('name', 200)->nullable();
+            $table->string('ic', 20)->nullable();
+            $table->string('state', 20)->nullable();
+            $table->string('companyname', 100)->nullable();
+            $table->string('crafttype', 100)->nullable();
+            $table->string('lot', 10)->nullable();
+            $table->string('location', 20)->nullable();
+            $table->string('votetime', 25)->nullable();
+            $table->string('bidang', 30)->nullable();
+            $table->string('salu', 20)->nullable();
+            $table->string('preset', 10)->nullable();
+            $table->string('comid', 10)->nullable();
+            $table->string('byuser', 11)->nullable();
+
+            /*
+             * DROPPED ELEVEN COLUMNS, measured not assumed. Fill rate over the
+             * 175 rows of the live `usahawan` — the AACB event, the only one
+             * whose participants survive:
+             *
+             *   subcrafttype, votetimepay   0% HERE AND IN EVERY SNAPSHOT.
+             *                               `votetimepay` is '0000-00-00' in all
+             *                               20,000-odd rows; it was never used.
+             *   address, postcode, region   0% live, 92-97% in the 2011/2012
+             *   register, category          snapshots. The office STOPPED
+             *   payment, sstatus,           capturing these. They are real data
+             *   sstatusexport, protokol     for historical rows and nothing for
+             *                               the import we are doing.
+             *
+             * `bayarstatus` and `undi` are dropped too, for the opposite reason:
+             * 100% filled but ONE distinct value each ('Ya', 'Yes'). A column
+             * that never varies carries no row-level fact. What they mean —
+             * every AACB participant had paid and had confirmed — belongs in the
+             * transform, which sets `confirmed_participation` and writes a
+             * payment note, not in a column repeating one word 175 times.
+             *
+             * THE DUMP FILE IS THE ARCHIVE, which is what makes this safe.
+             * Nothing is lost by narrowing the table: a later historical import
+             * re-reads `kraf_lama.sql` and widens the schema then, with the
+             * office's answers about events in hand.
+             */
+
+            $table->timestamp('imported_at')->nullable();
+
+            $table->index('legacy_id');
+            $table->index('source_table');
+
+            // The three the dump itself indexed, kept because the transform
+            // joins on exactly these, plus the two keys it resolves.
+            $table->index('name');
+            $table->index('ic');
+            $table->index('companyname');
+            $table->index('comid');
+            $table->index('byuser');
         });
 
-        Schema::create('social_links', function (Blueprint $table) {
+        Schema::create('legacy_ukhemah', function (Blueprint $table) {
             $table->id();
-            $table->string('label');
-            $table->string('url');
-            // bootstrap | image
-            $table->string('icon_type', 20)->default('bootstrap');
-            $table->string('icon_class')->nullable();
-            $table->string('icon_image')->nullable();
-            $table->integer('sort_order')->default(0);
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->string('legacy_id', 20)->nullable();
+            $table->string('source_table', 100)->nullable();
+
+            /*
+             * `ukhemah` IS THE PLAN, NOT THE REGISTRATIONS. Read against real
+             * rows: one row is one booth — `boothid` ('KH01', 'TBA02') standing
+             * at a location named by `khemah` ('Khemah A', 'Basement', 'PADANG
+             * AKASIA , ANGSANA JOHOR BAHRU MALL'), categorised by craft, with
+             * `usahawanid` EMPTY until somebody holds it. That is undilot's
+             * `plots` table with its allocation inlined, so the transform builds
+             * plots and their allocation from here — not draw entries.
+             *
+             * THE WIDEST SHAPE OF THE `ukhemah*` TABLES, and there are more than
+             * the snapshots: `ukhemah_fkj2024` is a named per-event table that
+             * DOES carry `event` ('FKJ'), so `event` is not the live table's
+             * alone. `ukhemah10` stops after `subtypeitem`. `usahawan` has
+             * copies of its own in the same style (`usahawan_19 feb 6pm`), which
+             * is why `source_table` is on all three staging tables and not just
+             * this one.
+             *
+             * `prio` is the priority a booth carries, and `protokol` ('Ya' or
+             * empty) marks a reserved one — the sample's `protokol = 'Ya'` rows
+             * are the ones with `prio = 6`.
+             */
+            $table->string('khemah', 100)->nullable();
+            $table->string('usahawanid', 11)->nullable();
+            $table->string('boothid', 10)->nullable();
+            $table->string('bidang', 100)->nullable();
+            $table->string('crafttype', 100)->nullable();
+            $table->string('prio', 20)->nullable();
+            $table->string('event', 100)->nullable();
+
+            /*
+             * DROPPED SIX. Fill rate over the live `ukhemah` (175 booths, event
+             * AACB): `typeitem`, `subtypeitem`, `category`, `sstatusexport`,
+             * `sstatus` and `protokol` are ALL 0%. Across every `ukhemah*` table
+             * they reach 3-17%, entirely in the 2011/2012 rows.
+             *
+             * `prio` is kept even though the live table holds one value for all
+             * 175 rows, because it varies in the older plans (five values) and
+             * it is what tells a reserved booth from an ordinary one.
+             */
+
+            $table->timestamp('imported_at')->nullable();
+
+            $table->index('legacy_id');
+            $table->index('source_table');
+            $table->index('usahawanid');
+            $table->index('boothid');
+            $table->index('event');
         });
     }
 
@@ -608,13 +780,12 @@ return new class extends Migration
     {
         // Reverse creation order, so a foreign key never outlives what it points at.
         foreach ([
-            'social_links',
-            'footer_menus',
-            'announcements',
+            'legacy_ukhemah',
+            'legacy_usahawan',
+            'legacy_upengawai',
             'notifications',
             'preset_allocations',
             'polls',
-            'event_join_requests',
             'event_registrations',
             'plots',
             'bidang_allocations',

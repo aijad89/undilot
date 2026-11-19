@@ -14,7 +14,7 @@ use App\Support\AdminZones;
  * zone dropdown is built from this list, so a company whose zone left the list
  * opens its edit form with no option `selected` — and the next save files it
  * under the FIRST zone on the list, with no error and no validation failure.
- * An import with untranslated zone names hits exactly that. One row in
+ * The legacy import hit exactly that with untranslated zone names. One row in
  * any of the three columns that hold a zone is enough to refuse.
  *
  * Zones decide who sees what, so only a super admin changes them — not HQ,

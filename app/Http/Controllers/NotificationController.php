@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 /**
- * The participant's inbox: announcements and reminders that reached them.
+ * The participant's inbox: draw reminders and in-draw notices (AddedToDraw,
+ * RemovedFromDraw).
  */
 class NotificationController extends Controller
 {
@@ -15,14 +14,7 @@ class NotificationController extends Controller
     {
         $notifications = $request->user()->notifications()->latest()->paginate(15);
 
-        // Banners and files live on the announcement, not in the notification's
-        // data — loaded once for the page rather than per row.
-        $announcements = Announcement::whereIn(
-            'id',
-            $notifications->getCollection()->pluck('data.announcement_id')->filter()->unique()
-        )->get()->keyBy('id');
-
-        return view('notifications.index', compact('notifications', 'announcements'));
+        return view('notifications.index', compact('notifications'));
     }
 
     public function read(Request $request, string $id)
@@ -44,28 +36,4 @@ class NotificationController extends Controller
         return back();
     }
 
-    /**
-     * An announcement's banner or attachment, from the private disk, to whoever
-     * it reached — a participant it was sent to, or an admin allowed to see it.
-     */
-    public function file(Request $request, Announcement $announcement, string $kind)
-    {
-        $path = match ($kind) {
-            'banner' => $announcement->banner,
-            'attachment' => $announcement->attachment,
-            default => null,
-        };
-
-        abort_unless($path && Storage::disk('local')->exists($path), 404);
-
-        $admin = $request->user('admin');
-        $user = $request->user('web');
-
-        abort_unless(
-            ($admin && $announcement->visibleToAdmin($admin)) || ($user && $announcement->reached($user)),
-            403
-        );
-
-        return Storage::disk('local')->response($path);
-    }
 }
