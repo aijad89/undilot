@@ -53,6 +53,12 @@
             </select>
         </div>
 
+        <div class="col-md-6">
+            <label class="mac-label" for="registration_no">Registration no. <span class="mac-muted">(optional)</span></label>
+            <input type="text" id="registration_no" name="registration_no" class="mac-form-control"
+                   value="{{ $value('registration_no') }}" maxlength="100">
+        </div>
+
         <div class="col-md-6 d-flex align-items-end">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1"
@@ -73,6 +79,12 @@
     </p>
 
     <div class="row g-3">
+        <div class="col-md-2">
+            <label class="mac-label" for="salutation">Salutation</label>
+            <input type="text" id="salutation" name="salutation" class="mac-form-control"
+                   value="{{ $owner('salutation', 'salutation') }}" maxlength="50" placeholder="Puan">
+        </div>
+
         <div class="col-md-6">
             <label class="mac-label" for="owner_name">Owner's name</label>
             <input type="text" id="owner_name" name="owner_name" class="mac-form-control"
@@ -101,6 +113,18 @@
             <label class="mac-label" for="address">Address</label>
             <textarea id="address" name="address" class="mac-form-control" rows="3" maxlength="500"
                       autocomplete="street-address">{{ $owner('address', 'address') }}</textarea>
+        </div>
+
+        <div class="col-md-4">
+            <label class="mac-label" for="postcode">Postcode</label>
+            <input type="text" id="postcode" name="postcode" class="mac-form-control"
+                   value="{{ $owner('postcode', 'postcode') }}" maxlength="20" autocomplete="postal-code">
+        </div>
+
+        <div class="col-md-8">
+            <label class="mac-label" for="district">District</label>
+            <input type="text" id="district" name="district" class="mac-form-control"
+                   value="{{ $owner('district', 'district') }}" maxlength="100">
         </div>
     </div>
 

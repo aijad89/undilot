@@ -766,8 +766,8 @@ pelayan** (`--fresh` sahaja ditolak dalam production).
   setiap baris lain dipaut. `comid` `'TIADA'` jadi null.
 - **Medan profil lama dibawa**: Gelaran → `users.salutation`, Poskod →
   `postcode`, Daerah (`region`) → `district`, Alamat → `address`, No. Daftar →
-  `companies.registration_no`. Borang belum memaparkannya — tunggu pejabat
-  sahkan medan mana yang masih diguna.
+  `companies.registration_no`. Disunting pejabat di borang syarikat admin,
+  dipaparkan baca sahaja di profil peserta (keputusan pemilik 2026-11-20).
 - **Penanda ialah `legacy_id`** = `source_table:id` (`usahawan:204`,
   `upengawai:5`, `fileuser:1`), diisi hanya oleh arahan ini. `--fresh` memadam
   ikut lajur itu, bukan domain emel — sekali dahulu penanda dikongsi dengan

@@ -97,6 +97,7 @@ class CompanyController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'state' => ['required', Rule::in($this->zonesFor($admin))],
             'entrepreneur_category' => ['nullable', EntrepreneurCategories::rule()],
+            'registration_no' => ['nullable', 'string', 'max:100'],
             'is_active' => ['nullable', 'boolean'],
 
             'owner_name' => ['required', 'string', 'max:255'],
@@ -104,6 +105,9 @@ class CompanyController extends Controller
             'ic_number' => ['required', 'string', 'regex:/^\d{6}-\d{2}-\d{4}$/', 'unique:users,ic_number'],
             'community_id' => ['required', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:500'],
+            'salutation' => ['nullable', 'string', 'max:50'],
+            'postcode' => ['nullable', 'string', 'max:20'],
+            'district' => ['nullable', 'string', 'max:100'],
             // Optional and normally blank: participants sign in with community
             // ID + IC, so the password is never used (owner, 2026-11-17).
             'password' => ['nullable', 'confirmed', Password::defaults()],
@@ -119,6 +123,9 @@ class CompanyController extends Controller
                 'ic_number' => $data['ic_number'] ?? null,
                 'community_id' => $data['community_id'] ?? null,
                 'address' => $data['address'] ?? null,
+                'salutation' => $data['salutation'] ?? null,
+                'postcode' => $data['postcode'] ?? null,
+                'district' => $data['district'] ?? null,
                 'is_active' => $request->boolean('account_active', true),
                 // A random password when none was typed, NOT a default one: a
                 // fallback password in tracked code is a password in git history
@@ -130,6 +137,7 @@ class CompanyController extends Controller
                 'name' => $data['name'],
                 'state' => $data['state'],
                 'entrepreneur_category' => $data['entrepreneur_category'] ?? null,
+                'registration_no' => $data['registration_no'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
             ]);
         });
@@ -165,6 +173,7 @@ class CompanyController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'state' => ['required', Rule::in($this->zonesFor($request->user('admin')))],
             'entrepreneur_category' => ['nullable', EntrepreneurCategories::rule()],
+            'registration_no' => ['nullable', 'string', 'max:100'],
 
             'owner_name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
@@ -174,6 +183,9 @@ class CompanyController extends Controller
             ],
             'community_id' => ['required', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:500'],
+            'salutation' => ['nullable', 'string', 'max:50'],
+            'postcode' => ['nullable', 'string', 'max:20'],
+            'district' => ['nullable', 'string', 'max:100'],
             // Left blank on every save: participants sign in with community ID
             // + IC, so the password is never used.
             'password' => ['nullable', 'confirmed', Password::defaults()],
@@ -186,6 +198,9 @@ class CompanyController extends Controller
                 'ic_number' => $data['ic_number'] ?? null,
                 'community_id' => $data['community_id'] ?? null,
                 'address' => $data['address'] ?? null,
+                'salutation' => $data['salutation'] ?? null,
+                'postcode' => $data['postcode'] ?? null,
+                'district' => $data['district'] ?? null,
                 // Two switches, two facts. A company switched off is off the
                 // books; an account switched off cannot sign in, and
                 // EnforceUserIsActive ends the session of anyone already in.
@@ -200,6 +215,7 @@ class CompanyController extends Controller
                 'name' => $data['name'],
                 'state' => $data['state'],
                 'entrepreneur_category' => $data['entrepreneur_category'] ?? null,
+                'registration_no' => $data['registration_no'] ?? null,
                 'is_active' => $request->boolean('is_active'),
             ]);
         });

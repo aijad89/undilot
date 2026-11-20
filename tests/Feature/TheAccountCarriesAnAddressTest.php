@@ -81,3 +81,42 @@ it('puts the password fields side by side, under one note', function () {
     expect(strpos($html, 'id="password"'))->toBeLessThan(strpos($html, 'id="password_confirmation"'))
         ->and(strpos($html, 'id="password_confirmation"'))->toBeLessThan(strpos($html, 'Leave both empty to keep the current password.'));
 });
+
+it('edits the old profile fields the import brought in, and the participant sees them read-only', function () {
+    $company = addressedCompany();
+    $fields = ['salutation' => 'Puan', 'postcode' => '31400', 'district' => 'Kinta', 'registration_no' => 'SA0123456-X'];
+
+    $this->actingAs(superAdmin(), 'admin')
+        ->put(route('admin.companies.update', $company), companyPut($company, $fields))
+        ->assertSessionHas('success');
+
+    expect($company->user->fresh()->only('salutation', 'postcode', 'district'))
+        ->toBe(['salutation' => 'Puan', 'postcode' => '31400', 'district' => 'Kinta'])
+        ->and($company->fresh()->registration_no)->toBe('SA0123456-X');
+    $this->get(route('admin.companies.edit', $company))
+        ->assertSee('value="Puan"', false)->assertSee('value="31400"', false)
+        ->assertSee('value="Kinta"', false)->assertSee('value="SA0123456-X"', false);
+
+    $user = $company->user->fresh();
+    $this->actingAs($user, 'web')->get(route('profile'))
+        ->assertSeeInOrder(['Puan '.$user->name, 'Postcode', '31400', 'District', 'Kinta', 'Registration no.', 'SA0123456-X'])
+        ->assertDontSee('name="postcode"', false)->assertDontSee('name="registration_no"', false);
+
+    // Emptied: cleared, as the address is.
+    $this->actingAs(superAdmin(), 'admin')
+        ->put(route('admin.companies.update', $company), companyPut($company, array_fill_keys(array_keys($fields), '')));
+    expect($company->fresh()->registration_no)->toBeNull()
+        ->and($company->user->fresh()->district)->toBeNull();
+});
+
+it('takes the old profile fields when the company is created', function () {
+    $this->actingAs(superAdmin(), 'admin')->post(route('admin.companies.store'), [
+        'name' => 'Baru Lengkap', 'state' => 'Perak', 'owner_name' => 'Siti',
+        'ic_number' => '900101-08-2222', 'community_id' => 'KOM-0003',
+        'salutation' => 'Cik', 'postcode' => '33000', 'district' => 'Kuala Kangsar', 'registration_no' => 'JM0999',
+    ])->assertSessionHasNoErrors();
+
+    $user = User::where('community_id', 'KOM-0003')->first();
+    expect($user->only('salutation', 'postcode', 'district'))->toBe(['salutation' => 'Cik', 'postcode' => '33000', 'district' => 'Kuala Kangsar'])
+        ->and($user->company->registration_no)->toBe('JM0999');
+});

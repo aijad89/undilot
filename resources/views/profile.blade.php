@@ -53,7 +53,7 @@
             <h2 class="ap-section-title">Your account</h2>
             <dl class="ap-facts">
                 <dt>Name</dt>
-                <dd>{{ $user->name }}</dd>
+                <dd>{{ trim(($user->salutation ? $user->salutation.' ' : '').$user->name) }}</dd>
                 <dt>Community ID</dt>
                 {{-- With the IC below, what they sign in with. --}}
                 <dd class="ap-tabular">{{ $user->community_id ?: '—' }}</dd>
@@ -65,9 +65,15 @@
                 <dt>Company address</dt>
                 {{-- Line breaks kept as the office typed them. --}}
                 <dd style="white-space:pre-line;">{{ $user->address ?: '—' }}</dd>
+                <dt>Postcode</dt>
+                <dd class="ap-tabular">{{ $user->postcode ?: '—' }}</dd>
+                <dt>District</dt>
+                <dd>{{ $user->district ?: '—' }}</dd>
                 @if($company)
                     <dt>Company</dt>
                     <dd>{{ $company->name }}</dd>
+                    <dt>Registration no.</dt>
+                    <dd class="ap-tabular">{{ $company->registration_no ?: '—' }}</dd>
                     <dt>Zone</dt>
                     <dd>{{ $company->state ?: '—' }}</dd>
                     <dt>Usual booth size</dt>
