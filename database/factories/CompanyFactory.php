@@ -34,8 +34,25 @@ class CompanyFactory extends Factory
             'entrepreneur_category' => 'Pengeluar atau Pedagang',
             'kraf_code' => null,
             'plot_size' => null,
+            'credentials' => null,
+            'workshop_address' => null,
+            'office_phone' => null,
+            'fax' => null,
+            'facebook' => null,
+            'instagram' => null,
+            'website' => null,
             'is_active' => true,
         ];
+    }
+
+    /** A profile complete enough to join: no recognition or certificate, one staff member to contact. */
+    public function withProfile(): static
+    {
+        return $this->state(fn () => ['credentials' => [
+            'recognition' => 'none', 'classification' => 'no', 'classification_cert' => null,
+            'quality' => null, 'quality_cert' => null,
+            'staff' => [['name' => 'Siti Aminah', 'phone' => '012-345 6789']], 'product_images' => [],
+        ]]);
     }
 
     public function inactive(): static

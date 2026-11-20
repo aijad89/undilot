@@ -6,11 +6,13 @@ use App\Models\Admin;
 use App\Models\BidangAllocation;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\EventJoinRequest;
 use App\Models\EventRegistration;
 use App\Models\KrafBidang;
 use App\Models\Plot;
 use App\Models\PlotSize;
 use App\Services\LotAllocator;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * DEMO DATA for the manual test sheet (docs/testing/undilot-test-manual.xlsx)
@@ -320,7 +322,7 @@ class DemoScenarioSeeder extends LocalOnlySeeder
      */
     private function drawList(): void
     {
-        $e = $this->event('Uji: Senarai Cabutan', 'TC-090 to TC-107, TC-110, TC-153: verified, waiting-for-HQ and returned rows.', [
+        $e = $this->event('Uji: Senarai Cabutan', 'TC-090 to TC-107, TC-110, TC-153, TC-160: verified, waiting-for-HQ and returned rows; two pending Johor requests (approve one, reject one).', [
             'polling_status' => 'draft',
         ]);
         if (! $e) {
@@ -338,6 +340,40 @@ class DemoScenarioSeeder extends LocalOnlySeeder
         $this->row($e, 'waiting3', verified: false);
         // Returned by HQ with a note.
         $this->row($e, 'returned', verified: false, hqNote: 'Resit bayaran tidak jelas. Sila muat naik semula.');
+        // Asked to join, waiting for the Johor zone: TC-086/087, TC-102.
+        $this->request($e, 'pending1');
+        $this->request($e, 'pending2');
+    }
+
+    /** A pending join request with a receipt, as a participant would send it. */
+    private function request(Event $event, string $key): void
+    {
+        $company = $this->co[$key];
+        $path = "join-requests/{$event->id}/resit-{$company->id}.png";
+        // A 1x1 PNG: enough for the receipt preview to open.
+        Storage::disk('local')->put($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+        EventJoinRequest::create([
+            'event_id' => $event->id,
+            'company_id' => $company->id,
+            'user_id' => $company->user_id,
+            'payment_method' => 'transfer',
+            'waiver_category' => null,
+            'documents' => [['name' => 'Payment receipt', 'path' => $path, 'original' => 'resit.png']],
+            'answers' => [
+                'recognition' => 'none',
+                'classification' => 'no',
+                'classification_cert' => null,
+                'quality' => null,
+                'quality_cert' => null,
+                'staff' => [['name' => $company->user->name, 'phone' => $company->user->phone]],
+                'product_images' => [],
+            ],
+            'status' => 'pending',
+            'reject_reason' => null,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
+        ]);
     }
 
     /** TC-065: Maximum participants 2, already 2 on the list. */

@@ -215,9 +215,8 @@ return new class extends Migration
             $table->string('registration_no', 100)->nullable();
 
             // The office zone this company is administered under — what a state
-            // admin is scoped to. There is no address here and no premises table:
-            // the draw needs to know which zone a company belongs to, not where
-            // its workshop is.
+            // admin is scoped to. The draw needs to know which zone a company
+            // belongs to; the workshop address below is contact detail only.
             $table->string('state')->nullable();
 
             // One of EntrepreneurCategories: 'Pengeluar atau Pedagang' or
@@ -234,6 +233,20 @@ return new class extends Migration
             // suggestion: copied to event_registrations.plot_size when the
             // company is added to a draw list, where it can still be changed.
             $table->string('plot_size')->nullable();
+
+            // What the participant last said about the company's recognition and
+            // certificates, filled into the next join request so a returning
+            // company only confirms it. Company::answersFor() names the keys.
+            $table->json('credentials')->nullable();
+
+            // How to reach the company, as the MICF entry form asks it. Kept by
+            // the participant on their profile; the draw reads none of it.
+            $table->text('workshop_address')->nullable();
+            $table->string('office_phone', 30)->nullable();
+            $table->string('fax', 30)->nullable();
+            $table->string('facebook')->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('website')->nullable();
 
             $table->boolean('is_active')->default(true);
             $table->timestamps();
@@ -455,8 +468,8 @@ return new class extends Migration
             $table->text('hq_note')->nullable();
 
             // How the company paid — receipt number, date, how — written by the
-            // zone for HQ to check. The office enters every company, so this is
-            // the only record of payment there is.
+            // zone for HQ to check. A row approved from a join request gets a
+            // short note here; the receipt itself stays on the request.
             $table->string('payment_note', 500)->nullable();
 
             // Paid or not, chosen by the officer beside the note: a key of
@@ -484,6 +497,47 @@ return new class extends Migration
              * touches could change that, for a query that runs once when an admin
              * asks whether a draw may open.
              */
+            $table->unique(['event_id', 'company_id']);
+        });
+
+        /**
+         * A participant asking to join an event's draw. Approving it is what
+         * puts the company on the draw list; the request stays as the record.
+         * draft | pending | approved | rejected — EventJoinRequest::STATUSES.
+         * A draft is the participant's own, unsent; the office sees pending on.
+         */
+        Schema::create('event_join_requests', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+
+            // cash | cheque | transfer | waiver — EventJoinRequest::PAYMENT_METHODS.
+            $table->string('payment_method', 20)->nullable();
+            // Set only for a waiver — EventJoinRequest::WAIVER_CATEGORIES.
+            $table->string('waiver_category', 20)->nullable();
+
+            // [{name, path, original}]: the payment receipt first, then any
+            // supporting documents. Files on the `local` disk, served through a
+            // controller that asks who is reading.
+            $table->json('documents')->nullable();
+
+            // The company's credentials as they were sent with this request: a
+            // copy, so a later renewal does not rewrite what the office reviewed.
+            $table->json('answers')->nullable();
+
+            $table->string('status', 20)->default('pending');
+            $table->text('reject_reason')->nullable();
+            // Why HQ took the company off the draw list after it was told it is
+            // in. On the request because the row itself is gone; shown with
+            // "taken off" until the company asks again.
+            $table->text('removed_reason')->nullable();
+            $table->foreignId('reviewed_by')->nullable()->constrained('admins')->nullOnDelete();
+            $table->timestamp('reviewed_at')->nullable();
+            $table->timestamps();
+
+            // One request per company per event; asking again after a rejection
+            // reuses it.
             $table->unique(['event_id', 'company_id']);
         });
 
@@ -795,6 +849,7 @@ return new class extends Migration
             'notifications',
             'preset_allocations',
             'polls',
+            'event_join_requests',
             'event_registrations',
             'plots',
             'bidang_allocations',

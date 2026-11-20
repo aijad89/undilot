@@ -15,9 +15,10 @@ diterbitkan semula dengan membaca kod.
 **undilot2026** ialah pecahan daripada **`undilotlook`** (2026-11-13): hanya
 log masuk peserta, log masuk admin (super, HQ dan negeri pada satu `/admin/login`,
 peranan menentukan akses), acara dan cabutan lot. Pengumuman, halaman footer,
-pautan sosial, skrin audit trail, laporan CSV dan permohonan sertai dibuang —
-pejabat memasukkan setiap syarikat ke senarai cabutan sendiri; peserta tidak
-pernah memohon, mereka log masuk dan mengesahkan lot. Jejak audit (`Auditable`)
+pautan sosial, skrin audit trail dan laporan CSV dibuang. Pejabat memasukkan
+syarikat ke senarai cabutan sendiri, **atau** peserta memohon sertai (dibuang
+dalam `ae1411f`, dipulihkan 2026-11-19 — lihat *Permohonan sertai* di bawah);
+kedua-duanya melalui `EntRegistrationController::addToList()`. Jejak audit (`Auditable`)
 masih direkod; cuma skrinnya tiada. Data sebenar akan dimuatkan dari CSV.
 
 `undilotlook` pula dipisahkan daripada **`daftar`** (`f:\herd\daftar`) pada 2026-10-13. `daftar`
@@ -35,15 +36,15 @@ disalin.
 
 | | |
 |---|---|
-| Laluan | `f:\herd\undilotlook` |
-| URL | `http://undilotlook.test` (Herd) |
-| DB | `undilotlook` pada `127.0.0.1` — sendiri |
+| Laluan | `f:\herd\undilot` |
+| URL | `http://undilot.test` (Herd) |
+| DB | `undilot` pada `127.0.0.1` — sendiri |
 | PHP CLI | `/c/Users/ALOY/.config/herd/bin/php84.bat` |
 | MySQL CLI | `/c/Program Files/MySQL/MySQL Server 9.5/bin/mysql.exe` |
 | Admin pertama | dari `.env` — `ADMIN_SEED_USERNAME` / `ADMIN_SEED_PASSWORD` |
-| Log masuk pantas | `http://undilotlook.test/auto` — sebarang akaun, tanpa kata laluan, plus butang *Work the queue* |
-| DB suite pelayar | `undilotlook_e2e`, dicipta dan ditetapkan semula oleh `tests/e2e/serve.js` |
-| Git | `https://github.com/aijad89/undilotlook` (peribadi), cawangan `main` |
+| Log masuk pantas | `http://undilot.test/auto` — sebarang akaun, tanpa kata laluan, plus butang *Work the queue* |
+| DB suite pelayar | `undilot_e2e`, dicipta dan ditetapkan semula oleh `tests/e2e/serve.js` |
+| Git | `https://github.com/aijad89/undilot` (peribadi), cawangan `main` |
 
 `artisan tinker <fail>` **tergantung** pada mesin ini. Guna klien MySQL untuk
 menanya pangkalan data, atau skrip PHP yang memuat `bootstrap/app.php`.
@@ -293,8 +294,8 @@ lubang; jangan "betulkan".
   `verified_at`: syarikat yang sudah diberitahu tidak hilang dari portalnya
   sendiri bila zon menyunting dan HQ menyemak semula. Pengesahan HQ yang
   pertama menghantar `AddedToDraw` — satu-satunya pemberitahuan "anda dalam
-  cabutan ini", kerana syarikat tidak pernah memohon untuk tahu bila ditolak
-  sebelum itu.
+  cabutan ini", sama ada syarikat dimasukkan pejabat atau memohon sendiri.
+  Permohonan yang zon tolak menghantar `JoinRequestRejected` dengan sebabnya.
 - `PollingGuard` menahan cabutan selagi ada baris belum disahkan.
 - Perubahan kod atau saiz oleh admin negeri — dari mana-mana pintu, termasuk
   halaman syarikat melalui `syncBoothSize()` — **mengosongkan** `verified_at`.
@@ -308,9 +309,10 @@ lubang; jangan "betulkan".
 - Admin negeri hanya membuang baris yang **belum** diberitahu kepada syarikat
   (`first_verified_at` null). Mengeluarkan syarikat daripada cabutan yang ia
   sudah diberitahu ialah keputusan HQ (`zoneMayRemove()`). HQ mesti memberi
-  sebab; syarikat menerima `RemovedFromDraw`, dan sebab itu hidup **hanya**
-  dalam mesej notifikasi itu sendiri, kekal dalam jadual `notifications` —
-  baris pendaftaran yang dibuang tidak menyimpan apa-apa.
+  sebab; syarikat menerima `RemovedFromDraw`. Baris pendaftaran yang dibuang
+  tidak menyimpan apa-apa; sebab itu kekal dalam jadual `notifications`, dan
+  juga pada `event_join_requests.removed_reason` bila syarikat itu masuk
+  melalui permohonan (ditunjuk sehingga ia memohon lagi).
 - Sebaik cabutan bermula, admin negeri **tidak menambah atau meluluskan**
   sesiapa (`zoneLocked()`); hanya HQ, dan baris HQ disahkan serta-merta. Tiada
   baris menunggu HQ boleh wujud semasa cabutan berjalan. **Undo juga menambah
@@ -418,7 +420,7 @@ from information_schema.REFERENTIAL_CONSTRAINTS rc
 join information_schema.KEY_COLUMN_USAGE kcu
   on kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
  and kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
-where rc.CONSTRAINT_SCHEMA = 'undilotlook' and rc.DELETE_RULE = 'CASCADE';
+where rc.CONSTRAINT_SCHEMA = 'undilot' and rc.DELETE_RULE = 'CASCADE';
 ```
 
 ### Tiada langkah bina
@@ -447,10 +449,54 @@ Sebab asalnya — reset kata laluan mengusir peranti lain dengan memadam baris
 `database` kerana jadual `sessions` ada dalam skema dan deploy menjangkakannya;
 jangan tukar tanpa sebab baharu.
 
-### Satu-satunya muat naik ialah sepanduk acara, ke cakera `public`
+### Permohonan sertai: fail peserta ke cakera `local`, sepanduk ke `public`
 
-`EventController::storeBanner()` ialah satu-satunya laluan muat naik dalam
-aplikasi ini — tiada apa lagi menulis ke cakera `local`. Pengesahan
+Permohonan sertai (`JoinRequestController`) menyimpan resit, dokumen pengecualian,
+sijil dan lima foto produk ke cakera **`local`** (`join-requests/`,
+`certificates/`, `products/`) dan menghidangnya **hanya** melalui
+`JoinRequestController::serve()` — syarikat itu sendiri, atau admin zonnya
+(super/hq semua). Draf tidak dilihat pejabat. `'serve'` cakera `local` kekal
+`false`.
+
+Zon meluluskan (`approve()` → `addToList()`, menunggu HQ; HQ meluluskan → terus
+disahkan) atau menolak dengan sebab (`JoinRequestRejected`, dalam aplikasi
+sahaja). Lulus menulis `payment_status` = `paid` bila resit dihantar (null
+untuk pengecualian) dan `payment_note` ringkas. `zoneLocked()` terpakai: zon
+tidak meluluskan sebaik cabutan bermula.
+
+### Profil syarikat ialah separuh borang MICF yang sama untuk setiap acara
+
+Keputusan pemilik 2026-11-19: borang penyertaan MICF diisi **sekali** di
+`/profile`, dan setiap permohonan sertai bermula daripadanya. Profil
+(`ProfileController`) menyunting:
+
+- hubungan syarikat — lajur `companies.workshop_address`, `office_phone`,
+  `fax`, `facebook`, `instagram`, `website` (`Company::CONTACT_FIELDS`);
+- pengiktirafan (Adiguru/Tokoh wajib fail bukti, `recognition_cert`), sijil
+  klasifikasi, sijil kualiti (Batik/Songket/Tenun sahaja) dan **senarai
+  kakitangan untuk dihubungi** (`staff`: nama + telefon, sekurang-kurangnya
+  satu; pemilik menambah kakitangannya, baris kosong dibuang — keputusan
+  pemilik 2026-11-20; disimpan dengan kad General information melalui
+  `profile.contact`, **bukan** *Save details* — setiap kad menyimpan
+  bahagiannya sahaja) — dalam `companies.credentials`, peraturannya dalam
+  `App\Support\CompanyCredentials` (satu tempat; borang sertai tidak lagi
+  bertanya);
+- kraf yang dibuat — `KrafSelections`, kod yang sama dengan halaman syarikat
+  admin; skrip pemilih dalam `partials/kraf-picker-script`.
+
+Akaun (nama, ID Komuniti, IC, telefon, alamat), nama syarikat, zon,
+`kraf_code` dan `plot_size` **kekal milik pejabat** — dua daripadanya ialah
+cara peserta log masuk. Permohonan sertai kini hanya meminta pengakuan,
+pengesahan butiran (langkah 2 memaparkan seluruh profil; `details_confirmed`
+wajib ditanda, disemak pelayan juga), lima foto produk dan bayaran; `CompanyCredentials::missing()` menolak menghantar
+(draf masih boleh) selagi profil belum lengkap atau sijil tamat tempoh. Setiap
+permohonan menyimpan **salinan** profil dalam `answers`, supaya perubahan
+kemudian tidak menulis semula apa yang pejabat semak. Fail sijil yang diganti
+dipadam hanya bila tiada permohonan lagi menunjuk kepadanya
+(`CompanyCredentials::deleteUnused()`).
+
+`EventController::storeBanner()` ialah satu-satunya muat naik ke cakera
+`public`. Pengesahan
 (`'mimes:jpeg,png,jpg,webp'`) **sengaja** tidak menyenaraikan `svg`: pada
 origin ini SVG boleh membawa skrip, dan sepanduk dihidang terus dari cakera
 `public`.
@@ -504,7 +550,7 @@ tanpa keputusan pemilik.**
 Akibatnya: borang syarikat **mewajibkan** ID Komuniti dan IC. Import memberi
 amaran untuk baris tanpa `no_komuniti` — orang itu tidak boleh log masuk. Kad
 "Change password" di profil dan route `profile.password` dibuang; profil
-memaparkan ID Komuniti.
+memaparkan ID Komuniti dan IC, baca sahaja.
 
 ### Pegawai log masuk dengan nama pengguna + kata laluan
 
@@ -526,7 +572,7 @@ seeder mengenal pasti baris mereka dengan ID Komuniti (`KOM-…`, `BATIK-…`,
 `E2E-…`) atau nama pengguna (`demo.hq`, `e2e-super`), bukan domain emel.
 `legacy:emails` dibuang.
 
-Setiap notifikasi (`AddedToDraw`, `RemovedFromDraw`, `VotingCloseReminder`)
+Setiap notifikasi (`AddedToDraw`, `JoinRequestRejected`, `RemovedFromDraw`, `VotingCloseReminder`)
 ialah **dalam aplikasi sahaja** — `via()` = `['database']`, tiada `toMail()`.
 Aliran lupa/reset kata laluan (satu-satunya lagi yang menghantar mel) dibuang
 bersama controller dan view-nya. Jadi pelayan mel yang dikonfigurasi kemudian
@@ -848,7 +894,7 @@ Empat perkara menggigit setiap kali:
 
 ```
 vendor/pestphp/pest/bin/pest              # SQLite dalam-memori
-DB_CONNECTION=mysql DB_DATABASE=undilotlook_test vendor/pestphp/pest/bin/pest   # MySQL, pangkalan data sendiri
+DB_CONNECTION=mysql DB_DATABASE=undilot_test vendor/pestphp/pest/bin/pest   # MySQL, pangkalan data sendiri
 npx playwright test                        # MySQL undilotlook_e2e, melalui tests/e2e/serve.js
 ```
 

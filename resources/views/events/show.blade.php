@@ -46,6 +46,11 @@
     .evd-waivers .evd-pay-option input, .evd-declare input { margin-top: 4px; }
     .evd-pay-option { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-r); font-size: 1rem; color: var(--ui-text); cursor: pointer; }
     .evd-pay-option:has(input:checked) { border-color: var(--ui-blue); background: var(--ui-blue-tint); color: var(--ui-blue-text); }
+    .evd-facts { display: grid; grid-template-columns: minmax(140px, 32%) 1fr; gap: 6px 16px; margin: 4px 0 8px; font-size: 0.9375rem; }
+    .evd-facts dt { font-weight: 600; color: var(--ui-muted); }
+    .evd-facts dd { margin: 0; color: var(--ui-text); overflow-wrap: anywhere; }
+    .evd-facts-head { grid-column: 1 / -1; margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--ui-border); font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ui-muted); }
+    @media (max-width: 640px) { .evd-facts { grid-template-columns: 1fr; gap: 0; } .evd-facts dd { margin-bottom: 8px; } }
     .evd-optional { font-weight: 400; color: var(--ui-muted); }
     .evd-step-count { margin: 0 0 6px; font-size: 0.875rem; font-weight: 600; color: var(--ui-muted); }
     .evd-step legend.evd-join-title { margin-bottom: 12px; }
@@ -55,8 +60,6 @@
     .evd-join-card [hidden], [data-join-submit][hidden] { display: none !important; }
     .evd-cta:disabled { opacity: 0.5; cursor: not-allowed; }
     .evd-input { min-height: 44px; padding: 0 12px; border: 1px solid var(--ui-border); border-radius: var(--ui-r); background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 1rem; }
-    .evd-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .evd-dates > div { display: flex; flex-direction: column; gap: 6px; }
     @media (max-width: 860px) { .evd-grid { grid-template-columns: 1fr; gap: 24px; } }
     @media (max-width: 640px) {
         .ev-page { padding-top: 16px; }
@@ -68,9 +71,29 @@
 @endpush
 
 @php
-    // Whether a signed-in participant may confirm a lot right now: the draw is
-    // open and its deadline has not passed.
-    $drawOpen = $event->polling_status === 'polling' && $event->polling_deadline && ! $event->polling_deadline->isPast();
+    // Whether this participant may still ask to join; the steps are in the form.
+    $canJoin = $company && ! $onList && ! $beingAdded && $joinRequest?->status !== 'pending' && $event->acceptsJoinRequests();
+    // Recognition, certificates and staff to contact are kept on the profile;
+    // the form below asks only for this event's photos and payment.
+    $profileMissing = $canJoin ? \App\Support\CompanyCredentials::missing($company) : [];
+    // Back after an error: open on the first step that has one. Each step is
+    // found by the start of its fields' names; anything else is payment.
+    $stepPrefixes = ['declaration' => 'declaration', 'details' => 'profile', 'product' => 'photos'];
+    $stepOrder = [...array_values($stepPrefixes), 'payment'];
+    $stepOf = fn ($key) => array_search(
+        collect($stepPrefixes)->first(fn ($step, $prefix) => str_starts_with($key, $prefix)) ?? 'payment',
+        $stepOrder
+    );
+    // After Save draft: back on the step it was saved from.
+    $startStep = $errors->any()
+        ? $stepOrder[min(array_map($stepOf, $errors->keys()))]
+        : (in_array(session('step'), $stepOrder, true) ? session('step') : 'declaration');
+    // The participant's own unsent answers for this event, if they saved some.
+    $draft = $joinRequest?->status === 'draft' ? $joinRequest : null;
+    $draftFiles = $draft ? collect($draft->documents ?? [])->filter(fn ($doc) => str_starts_with($doc['path'], 'join-requests/'))->values() : collect();
+    $draftPaid = $draftFiles->isNotEmpty() && $draft->payment_method !== 'waiver';
+    $draftWaived = $draftFiles->isNotEmpty() && $draft->payment_method === 'waiver';
+    $drawOpen =$event->polling_status === 'polling' && $event->polling_deadline && ! $event->polling_deadline->isPast();
 @endphp
 
 @section('content')
@@ -108,6 +131,292 @@
                 <p class="evd-about" style="color:var(--ui-muted);">The office has not added a description for this event.</p>
             @endif
 
+            {{-- Joining happens under the description, one question at a time
+                 with Previous / Next. One form, because a picked file cannot
+                 survive a page load; the script only shows one step at a time.
+                 Without it every step shows at once and the form still sends.
+                 The Join button is in the side card and shows on the last step.
+                 A new question is one more [data-step] block. --}}
+            @if($canJoin && $profileMissing)
+                <div class="evd-card evd-join-card" data-profile-first>
+                    <h2 class="evd-join-title">Complete your profile first</h2>
+                    <p class="evd-note">To join, your profile needs: {{ implode(', ', $profileMissing) }}. You fill it in once; every request to join starts from it.</p>
+                    <a href="{{ route('profile') }}" class="evd-cta">Go to my profile</a>
+                </div>
+            @elseif($canJoin)
+                <form method="POST" action="{{ route('events.join', $event) }}" enctype="multipart/form-data"
+                      class="evd-card evd-join-card" id="join-form"
+                      data-start="{{ $startStep }}">
+                    @csrf
+                    <input type="hidden" name="at" value="{{ $startStep }}">
+                    <p class="evd-step-count" data-step-count hidden></p>
+
+                    <div class="evd-join" data-step="declaration">
+                        <h2 class="evd-join-title" id="join-heading">Declaration</h2>
+                        <label class="evd-pay-option evd-declare">
+                            <input type="checkbox" name="declaration" value="1" @checked(old('declaration')) required>
+                            I want to join this event, and I declare that the information and documents I submit are true.
+                        </label>
+                        @error('declaration')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                    </div>
+
+                    {{-- The rest of the entry form is the profile, as it stands now;
+                         the request keeps a copy for the office. --}}
+                    @php $held = $company->answersFor($joinRequest); @endphp
+                    <div class="evd-join" data-step="profile">
+                        <h2 class="evd-join-title">Check your company details</h2>
+                        <p class="evd-note" style="margin-top:0;">
+                            This is what the office receives with your request, from your profile.
+                            If anything is wrong, <a href="{{ route('profile') }}">change it on your profile</a> before you send.
+                        </p>
+                        @php
+                            $certLine = fn (?array $c) => collect([
+                                $c['number'] ?? null,
+                                ! empty($c['start']) && ! empty($c['end']) ? \Illuminate\Support\Carbon::parse($c['start'])->format('d M Y').' – '.\Illuminate\Support\Carbon::parse($c['end'])->format('d M Y') : null,
+                                ! empty($c['original']) ? 'file: '.$c['original'] : 'no file',
+                            ])->filter()->join(' · ');
+                        @endphp
+                        <dl class="evd-facts" data-company-details>
+                            <dt class="evd-facts-head">Company</dt>
+                            <dt>Company name</dt><dd>{{ $company->name }}</dd>
+                            <dt>Zone</dt><dd>{{ $company->state ?: '—' }}</dd>
+                            <dt>Craft code</dt><dd>{{ $company->kraf_code ?: '—' }}</dd>
+                            <dt>Booth size</dt><dd>{{ $company->plot_size ?: '—' }}</dd>
+
+                            <dt class="evd-facts-head">General information</dt>
+                            <dt>Staff to contact</dt>
+                            <dd>
+                                @forelse($held['staff'] ?? [] as $s)
+                                    {{ $s['name'] }} <span class="ap-tabular">({{ $s['phone'] }})</span>@unless($loop->last)<br>@endunless
+                                @empty
+                                    —
+                                @endforelse
+                            </dd>
+                            <dt>Workshop / factory address</dt><dd style="white-space:pre-line">{{ $company->workshop_address ?: '—' }}</dd>
+                            @foreach(['office_phone', 'fax', 'facebook', 'instagram', 'website'] as $field)
+                                <dt>{{ \App\Models\Company::CONTACT_FIELDS[$field] }}</dt><dd>{{ $company->$field ?: '—' }}</dd>
+                            @endforeach
+
+                            <dt class="evd-facts-head">Recognition and certificates</dt>
+                            <dt>Recognition</dt>
+                            <dd>
+                                {{ \App\Models\Company::RECOGNITIONS[$held['recognition'] ?? ''] ?? '—' }}
+                                @if(! empty($held['recognition_cert']['original'])) · file: {{ $held['recognition_cert']['original'] }}@endif
+                            </dd>
+                            <dt>Classification certificate</dt>
+                            <dd>{{ ($held['classification'] ?? null) === 'yes' ? $certLine($held['classification_cert'] ?? null) : 'None' }}</dd>
+                            @if(! empty($held['quality']))
+                                <dt>Quality compliance</dt>
+                                <dd>{{ $held['quality'] === 'none' ? 'Not applicable' : (\App\Models\Company::QUALITY_STANDARDS[$held['quality']] ?? $held['quality']).' · '.$certLine($held['quality_cert'] ?? null) }}</dd>
+                            @endif
+
+                            <dt class="evd-facts-head">What you make</dt>
+                            @forelse($company->krafSelections()->with('bidang', 'subBidang', 'pengelasan', 'produks')->get() as $selection)
+                                <dt>{{ $selection->bidang?->name ?? '—' }}@if($selection->is_primary) (main)@endif</dt>
+                                <dd>
+                                    {{ $selection->subBidang?->name ?? '—' }}
+                                    @if($selection->pengelasan->isNotEmpty())<br>{{ $selection->pengelasan->pluck('name')->join(', ') }}@endif
+                                    @if($selection->produks->isNotEmpty())<br>{{ $selection->produks->pluck('name')->join(', ') }}@endif
+                                </dd>
+                            @empty
+                                <dt>Crafts</dt><dd>—</dd>
+                            @endforelse
+                        </dl>
+                        <label class="evd-pay-option evd-declare">
+                            <input type="checkbox" name="details_confirmed" value="1" @checked(old('details_confirmed')) required>
+                            I have checked these details and they are correct.
+                        </label>
+                        @error('details_confirmed')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="evd-join" data-step="photos">
+                        <h2 class="evd-join-title"><label for="product_images">Product photos</label></h2>
+                        <input type="file" id="product_images" name="product_images[]" accept=".jpg,.jpeg,.png" multiple
+                               data-count="5" @empty($held['product_images']) required @endempty>
+                        <p class="evd-note" style="margin-top:0;">
+                            @if(! empty($held['product_images']))
+                                5 photos on file. Leave empty to keep them, or pick 5 new ones to replace them.
+                            @else
+                                Pick 5 photos, JPG, JPEG or PNG, up to 5 MB each; hold Ctrl to pick several.
+                            @endif
+                        </p>
+                        @error('product_images')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                        @foreach($errors->get('product_images.*') as $messages)
+                            <p class="evd-msg evd-msg-bad">{{ $messages[0] }}</p>
+                        @endforeach
+                    </div>
+
+                    <div class="evd-join" data-step="payment">
+                        <fieldset class="evd-step">
+                            <legend class="evd-join-title">How did you pay?</legend>
+                            <div class="evd-pay">
+                                @foreach(\App\Models\EventJoinRequest::PAYMENT_METHODS as $key => $label)
+                                    <label class="evd-pay-option">
+                                        <input type="radio" name="payment_method" value="{{ $key }}" @checked(old('payment_method', $draft?->payment_method) === $key) required>
+                                        {{ $label }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('payment_method')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                        </fieldset>
+
+                        {{-- Paid: the receipt only. Waiver: which category, and Supporting documents for any proof.
+                             The script shows the one that applies and switches the other off. --}}
+                        <div class="evd-join" data-if="payment_method:cash cheque transfer">
+                            <label class="evd-question" for="receipt">Payment receipt</label>
+                            <input type="file" id="receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png" @unless($draftPaid) data-required @endunless>
+                            @if($draftPaid)
+                                <p class="evd-note" style="margin-top:0;">Saved with your draft: {{ $draftFiles->first()['original'] }}. Leave empty to keep it.</p>
+                            @endif
+                            @error('receipt')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div class="evd-join" data-if="payment_method:waiver">
+                            <fieldset class="evd-step">
+                                <legend class="evd-question">Which waiver applies to you?</legend>
+                                <div class="evd-waivers">
+                                    @foreach(\App\Models\EventJoinRequest::WAIVER_CATEGORIES as $key => $label)
+                                        <label class="evd-pay-option">
+                                            <input type="radio" name="waiver_category" value="{{ $key }}" @checked(old('waiver_category', $draft?->waiver_category) === $key)
+                                                   data-required>
+                                            {{ $label }}
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @error('waiver_category')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                            </fieldset>
+
+                            <label class="evd-question" for="documents">Supporting documents</label>
+                            <input type="file" id="documents" name="documents[]" accept=".pdf,.jpg,.jpeg,.png" multiple @unless($draftWaived) data-required @endunless>
+                            @if($draftWaived)
+                                <p class="evd-note" style="margin-top:0;">Saved with your draft: {{ $draftFiles->pluck('original')->join(', ') }}. Leave empty to keep them, or pick new ones to replace them.</p>
+                            @endif
+                            @error('documents')<p class="evd-msg evd-msg-bad">{{ $message }}</p>@enderror
+                            @foreach($errors->get('documents.*') as $messages)
+                                <p class="evd-msg evd-msg-bad">{{ $messages[0] }}</p>
+                            @endforeach
+                            <p class="evd-note" style="margin-top:0;">PDF or image, up to 5 MB each, at most 10; hold Ctrl to pick several.</p>
+                        </div>
+                    </div>
+
+                    <div class="evd-wizard-nav" data-nav hidden>
+                        <button type="button" class="evd-cta evd-cta-btn evd-cta-quiet" data-prev>Previous</button>
+                        <button type="button" class="evd-cta evd-cta-btn" data-next>Next</button>
+                    </div>
+                    {{-- Keeps what is filled in so far, unchecked for completeness;
+                         nothing goes to the office until Join. --}}
+                    <button type="submit" name="draft" value="1" formnovalidate class="evd-cta evd-cta-btn evd-cta-quiet">
+                        <i class="bi bi-floppy" aria-hidden="true"></i> Save draft
+                    </button>
+                </form>
+
+                <script>
+                // After the page has loaded: the Join button is in the side card, further down.
+                document.addEventListener('DOMContentLoaded', function () {
+                    var form = document.getElementById('join-form');
+                    // One question per step, in page order; current is a position (1…).
+                    var steps = Array.prototype.slice.call(form.querySelectorAll('[data-step]'));
+                    var count = form.querySelector('[data-step-count]');
+                    var prev = form.querySelector('[data-prev]');
+                    var next = form.querySelector('[data-next]');
+                    var submit = document.querySelector('[data-join-submit]');
+                    var declaration = form.querySelector('input[name=declaration]');
+                    var current = 1 + Math.max(0, steps.findIndex(function (s) { return s.dataset.step === form.dataset.start; }));
+
+                    // Step 1 not declared: nowhere to go next.
+                    function blocked() {
+                        return current === 1 && !declaration.checked;
+                    }
+
+                    function show(n) {
+                        current = n;
+                        steps.forEach(function (s, i) { s.hidden = i + 1 !== n; });
+                        form.elements.at.value = steps[n - 1].dataset.step;
+                        count.textContent = 'Step ' + n + ' of ' + steps.length;
+                        prev.disabled = n === 1;
+                        next.hidden = n === steps.length;
+                        next.disabled = blocked();
+                        if (submit) submit.hidden = n !== steps.length;
+                    }
+
+                    // Join with something missing on another step: the browser
+                    // cannot point at a hidden field, so it sends nothing and says
+                    // nothing. Open that step and point there instead.
+                    if (submit) submit.addEventListener('click', function (e) {
+                        var fields = form.querySelectorAll('input, select, textarea');
+                        for (var i = 0; i < fields.length; i++) {
+                            if (fields[i].willValidate && !fields[i].checkValidity()) {
+                                e.preventDefault();
+                                show(steps.indexOf(fields[i].closest('[data-step]')) + 1);
+                                fields[i].reportValidity();
+                                return;
+                            }
+                        }
+                    });
+
+                    // Next only past a step whose own fields are filled in.
+                    next.addEventListener('click', function () {
+                        var fields = steps[current - 1].querySelectorAll('input');
+                        for (var i = 0; i < fields.length; i++) {
+                            if (!fields[i].reportValidity()) return;
+                        }
+                        show(current + 1);
+                        form.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                    });
+                    prev.addEventListener('click', function () { show(current - 1); });
+
+                    // Enter in a field means Next, as on any step-by-step form. Left
+                    // alone it would press the form's only submit button, Save draft.
+                    form.addEventListener('keydown', function (e) {
+                        if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+                        e.preventDefault();
+                        if (!next.hidden && !next.disabled) next.click();
+                    });
+
+                    // Sent once: a second press while the first is on its way would
+                    // arrive after it and be told the request is already in.
+                    var sending = false;
+                    form.addEventListener('submit', function (e) {
+                        if (sending) e.preventDefault();
+                        sending = true;
+                    });
+                    // Back to this page from the browser's history: free to send again.
+                    window.addEventListener('pageshow', function () { sending = false; });
+
+                    // A block marked data-if="field:a b" shows only while that radio
+                    // is on a or b. A hidden block is switched off, so it is neither
+                    // checked nor sent; in a shown one, what is marked data-required
+                    // becomes required.
+                    function toggle() {
+                        form.querySelectorAll('[data-if]').forEach(function (block) {
+                            var rule = block.dataset.if.split(':');
+                            var picked = form.querySelector('input[name="' + rule[0] + '"]:checked');
+                            var on = !!picked && rule[1].split(' ').indexOf(picked.value) !== -1;
+                            block.hidden = !on;
+                            block.querySelectorAll('input').forEach(function (input) {
+                                input.disabled = !on;
+                                input.required = on && input.hasAttribute('data-required');
+                            });
+                        });
+                    }
+
+                    form.addEventListener('change', function (e) {
+                        toggle();
+                        if (e.target === declaration) next.disabled = blocked();
+                        // A set of photos is exactly data-count, or none to keep those on file.
+                        if (e.target.dataset.count) {
+                            var n = e.target.files.length, want = Number(e.target.dataset.count);
+                            e.target.setCustomValidity(n && n !== want ? 'Pick exactly ' + want + ' photos (you picked ' + n + ').' : '');
+                        }
+                    });
+                    toggle();
+
+                    count.hidden = false;
+                    form.querySelector('[data-nav]').hidden = false;
+                    show(current);
+                });
+                </script>
+            @endif
         </div>
 
         <aside class="evd-card" aria-label="Event details">
@@ -153,7 +462,8 @@
                 </div>
             @endif
 
-            @if(session('success'))
+            {{-- After a send, the pending box below already says it. --}}
+            @if(session('success') && $joinRequest?->status !== 'pending')
                 <p class="evd-msg evd-msg-ok" role="status">{{ session('success') }}</p>
             @endif
             @if(session('error'))
@@ -163,11 +473,30 @@
             @if($onList)
                 <p class="evd-msg evd-msg-ok">Your company is in this event's draw.</p>
                 <a href="{{ route('dashboard') }}" class="evd-cta"><i class="bi bi-check-circle" aria-hidden="true"></i> Go to my dashboard</a>
+            @elseif($joinRequest?->status === 'pending')
+                <p class="evd-msg evd-msg-wait">Your request to join was sent {{ $joinRequest->updated_at->format('d M Y') }}. The office is reviewing your documents.</p>
             @elseif($beingAdded)
-                {{-- The office put the company on the list and HQ has not confirmed
-                     it yet. The only waiting state left, and the one that matters:
-                     there is nothing for the participant to do but wait. --}}
                 <p class="evd-msg evd-msg-wait">The office is adding your company to this draw. You will be told once HQ confirms it.</p>
+            @elseif($event->acceptsJoinRequests())
+                @if($draft && ! session('success'))
+                    <p class="evd-msg evd-msg-wait">You saved a draft on {{ $draft->updated_at->format('d M Y') }}. It has not been sent: finish the steps and press Join this event.</p>
+                @endif
+                {{-- Still shown on a draft made after a rejection, until it is sent again. --}}
+                @if($joinRequest?->reject_reason && in_array($joinRequest->status, ['rejected', 'draft'], true))
+                    <p class="evd-msg evd-msg-bad"><strong>The office did not accept your request:</strong> {{ $joinRequest->reject_reason }} You may send it again.</p>
+                @endif
+                @if($joinRequest?->status === 'approved')
+                    <p class="evd-msg evd-msg-bad">The office took your company off this event's draw list.@if($joinRequest->removed_reason) <strong>Reason:</strong> {{ $joinRequest->removed_reason }}@endif You may ask to join again.</p>
+                @endif
+
+                @guest('web')
+                    <a href="{{ route('login') }}" class="evd-cta"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Sign in to join</a>
+                @else
+                    @if($canJoin && ! $profileMissing)
+                        {{-- Sends the form under the description; shown on its last step. --}}
+                        <button type="submit" form="join-form" class="evd-cta evd-cta-btn" data-join-submit><i class="bi bi-person-plus" aria-hidden="true"></i> Join this event</button>
+                    @endif
+                @endguest
             @elseif($drawOpen)
                 @auth('web')
                     <a href="{{ route('dashboard') }}" class="evd-cta"><i class="bi bi-check-circle" aria-hidden="true"></i> Go to my dashboard</a>
@@ -176,7 +505,7 @@
                 @endauth
             @endif
             @guest('web')
-                <p class="evd-note">Your login is created by the office. The office adds your company to an event's draw; sign in to confirm your lot once it is open.</p>
+                <p class="evd-note">Your login is created by the office. Sign in to join an event; the office reviews your documents before adding you to the draw.</p>
             @endguest
         </aside>
     </div>

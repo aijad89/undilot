@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Auth\Admin\LoginController as AdminLoginController;
 use App\Http\Controllers\DevAutoLoginController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\JoinRequestController;
 use App\Http\Controllers\LotDrawController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -46,19 +47,38 @@ Route::middleware(['auth:web', 'user.active'])->group(function () {
     Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
     Route::get('/past-events', [HomeController::class, 'pastEvents'])->name('past-events');
     Route::get('/past-events/{event}', [HomeController::class, 'pastEvent'])->name('past-events.show');
+    Route::get('/join-requests/{joinRequest}/photos', [JoinRequestController::class, 'photos'])->name('join-requests.photos');
 
     Route::get('/events/{event}/lot', [LotDrawController::class, 'show'])->name('zvote.index');
     Route::post('/events/{event}/lot', [LotDrawController::class, 'submit'])->name('zvote.submit');
     Route::get('/events/{event}/lot/slip', [LotDrawController::class, 'slip'])->name('zvote.slip');
+    Route::post('/events/{event}/join', [JoinRequestController::class, 'store'])->name('events.join');
 
-    // Read-only account facts. No password change: participants sign in with
+    // The account facts are the office's and read-only; the company's contact,
+    // certificates and crafts are the participant's to keep — every request to
+    // join starts from them. No password change: participants sign in with
     // community ID + IC and never hold a password (owner, 2026-11-17).
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/contact', [ProfileController::class, 'updateContact'])->name('profile.contact');
+    Route::post('/profile/kraf', [ProfileController::class, 'storeKraf'])->name('profile.kraf.store');
+    Route::put('/profile/kraf/{selection}/primary', [ProfileController::class, 'makeKrafPrimary'])->name('profile.kraf.primary');
+    Route::delete('/profile/kraf/{selection}', [ProfileController::class, 'destroyKraf'])->name('profile.kraf.destroy');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read'])->name('notifications.read');
 });
+
+/* A join request's document: for its own company, or an admin of that zone. */
+Route::get('/join-requests/{joinRequest}/documents/{index}', [JoinRequestController::class, 'document'])
+    ->middleware('auth:web,admin')
+    ->whereNumber('index')
+    ->name('join-requests.document');
+Route::get('/join-requests/{joinRequest}/photos/{index}', [JoinRequestController::class, 'photo'])
+    ->middleware('auth:web,admin')
+    ->whereNumber('index')
+    ->name('join-requests.photo');
 
 /* ── Dev: click-to-login ─────────────────────────────────────────────────── */
 
@@ -123,6 +143,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('{registration}/payment-note', [EntRegistrationController::class, 'paymentNote'])->name('payment-note');
                 Route::post('{registration}/return', [EntRegistrationController::class, 'returnToZone'])->middleware('can:verify-draw-list')->name('return');
                 Route::delete('{registration}', [EntRegistrationController::class, 'destroy'])->name('destroy');
+                Route::post('join/{joinRequest}/approve', [EntRegistrationController::class, 'approve'])->name('approve');
+                Route::post('join/{joinRequest}/reject', [EntRegistrationController::class, 'reject'])->name('reject');
             });
 
         /*

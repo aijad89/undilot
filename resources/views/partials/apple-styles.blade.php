@@ -240,12 +240,10 @@ a.ap-todo-row:hover { border-color: currentColor; color: inherit; }
 a.ap-todo-bad:hover { color: var(--ui-bad-text); }
 a.ap-todo-warn:hover { color: var(--ui-warn-text); }
 a.ap-todo-info:hover { color: var(--ui-blue-text); }
+.ap-requests { margin-top: 28px; }
 .ap-dash-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; align-items: start; margin-top: 28px; }
-/* The dashboard's draws section is full width now (its side column of events
-   still open to join is gone), so it keeps the page's own auto-fill columns
-   instead of the single-column override that used to fit it into a 3/5
-   share of the page. */
-.ap-dash-main { display: grid; gap: 36px; min-width: 0; margin-top: 28px; }
+.ap-dash-main { display: grid; gap: 36px; min-width: 0; }
+.ap-dash-main .ap-draw-grid { grid-template-columns: minmax(0, 1fr); }
 .ap-dash-side { display: grid; gap: 16px; min-width: 0; }
 .ap-open-row { display: grid; gap: 6px; justify-items: start; padding: 14px 0; border-top: 1px solid var(--ui-sep); }
 .ap-open-row:first-of-type { padding-top: 0; border-top: 0; }

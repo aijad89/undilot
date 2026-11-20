@@ -29,11 +29,73 @@ class Company extends Model
         'state',
         'entrepreneur_category',
         'is_active',
+        'credentials',
+        'workshop_address',
+        'office_phone',
+        'fax',
+        'facebook',
+        'instagram',
+        'website',
+    ];
+
+    /** The contact fields the participant keeps on their profile. */
+    public const CONTACT_FIELDS = [
+        'workshop_address' => 'Workshop / factory address',
+        'office_phone' => 'Office phone',
+        'fax' => 'Fax',
+        'facebook' => 'Facebook',
+        'instagram' => 'Instagram',
+        'website' => 'Website',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'credentials' => 'array',
     ];
+
+    /** Recognition received — one at most. */
+    public const RECOGNITIONS = [
+        'adiguru' => 'Adiguru Kraf',
+        'tokoh' => 'Tokoh Kraf Negara',
+        'none' => 'Not applicable',
+    ];
+
+    /** Quality compliance standards, by the craft (pecahan_bidang) they apply to. */
+    public const QUALITY_STANDARDS = [
+        'batik' => 'Batik Standard entrepreneur',
+        'songket_tenun' => 'Songket / Tenunan Standard entrepreneur',
+    ];
+
+    private const QUALITY_CRAFTS = ['BATIK' => 'batik', 'SONGKET' => 'songket_tenun', 'TENUN' => 'songket_tenun'];
+
+    /**
+     * The answers to fill the join form with: what the company last sent, with
+     * this event's own draft over it where there is one. A draft stays inside
+     * its event; only a sent request becomes the company's answers.
+     */
+    public function answersFor(?EventJoinRequest $joinRequest): array
+    {
+        $draft = $joinRequest?->status === 'draft'
+            ? array_filter($joinRequest->answers ?? [], fn ($answer) => $answer !== null && $answer !== [])
+            : [];
+
+        return array_merge($this->credentials ?? [], $draft);
+    }
+
+    /**
+     * The quality standard this company's craft is held to, or null when it has
+     * none (Tekatan and every non-textile craft). Read from the craft code the
+     * office set, through the coding sheet's own pecahan_bidang — the participant
+     * is never asked what they make.
+     */
+    public function qualityStandard(): ?string
+    {
+        $craft = $this->kraf_code
+            ? KrafBidang::codes()->where('code', $this->kraf_code)->value('pecahan_bidang')
+            : null;
+
+        return self::QUALITY_CRAFTS[strtoupper(trim((string) $craft))] ?? null;
+    }
 
     public function user()
     {

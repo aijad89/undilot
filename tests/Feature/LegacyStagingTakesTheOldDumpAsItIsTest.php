@@ -178,13 +178,3 @@ it('points no foreign key out of staging, so an orphan row still lands', functio
     expect(DB::table('legacy_usahawan')->where('byuser', '4242')->exists())->toBeTrue();
     expect(DB::table('legacy_ukhemah')->where('usahawanid', '4242')->exists())->toBeTrue();
 });
-
-it('carries no join-request table and no credentials column', function () {
-    // The office enters every company, so there is nothing for a participant to
-    // request. `companies.credentials` held the answers a request carried:
-    // recognition, two certificates, contact person, five product photos. It was
-    // written by exactly one place — the join form — and measured empty on every
-    // row in this installation before it was dropped.
-    expect(Schema::hasTable('event_join_requests'))->toBeFalse();
-    expect(Schema::hasColumn('companies', 'credentials'))->toBeFalse();
-});

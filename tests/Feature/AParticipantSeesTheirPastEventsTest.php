@@ -5,7 +5,6 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\Plot;
 use App\Models\Poll;
-use App\Models\User;
 
 /**
  * Past events: the events a company took part in that have ended, as a table,
@@ -20,40 +19,6 @@ function endedEvent(string $title, int $daysAgo, array $attributes = []): Event
         'end_date' => now()->subDays($daysAgo),
     ] + $attributes);
 }
-
-it('shows a participant their draws and nothing about requesting to join', function () {
-    $user = User::factory()->create();
-    $company = Company::factory()->create(['user_id' => $user->id, 'state' => 'Johor']);
-
-    $event = Event::factory()->create([
-        'title' => 'Pesta Kraf Johor',
-        'status' => 'open',
-        'polling_status' => 'draft',
-        'start_date' => now()->addMonth(),
-        'end_date' => now()->addMonth()->addDay(),
-    ]);
-
-    EventRegistration::factory()->create([
-        'event_id' => $event->id,
-        'company_id' => $company->id,
-        'user_id' => $user->id,
-        'verified_at' => now(),
-        'first_verified_at' => now(),
-    ]);
-
-    $page = $this->actingAs($user, 'web')->get(route('dashboard'))->assertOk();
-    $body = $page->getContent();
-
-    expect(str_contains($body, 'Pesta Kraf Johor'))
-        ->toBeTrue('The draw the office put them in has to be on the dashboard.');
-
-    // The dashboard used to carry two more sections: requests the company sent,
-    // and events still open to join. Neither can exist now.
-    foreach (['Requests to join', 'Ask to join', 'Finish and send'] as $gone) {
-        expect(str_contains($body, $gone))
-            ->toBeFalse("The dashboard still shows '{$gone}'.");
-    }
-});
 
 it('lists the ended events the company was in, latest first, with the lot and its slip', function () {
     $company = Company::factory()->create();
@@ -82,7 +47,8 @@ it('lists the ended events the company was in, latest first, with the lot and it
         ->assertSeeInOrder(['Karnival Semalam', '3x6', 'B-TTK2', route('zvote.slip', $recent), 'Pesta Lama', 'A-OFIS', 'Tanpa Lot', 'No lot'], false)
         ->assertDontSee('Yang Dibatalkan')
         ->assertDontSee('Ekspo Akan Datang')
-        ->assertDontSee('Bukan Kami');
+        ->assertDontSee('Bukan Kami')
+        ->assertSee('Your company on record');
 
     // The slip opens in a new tab, as it does from the lot page.
     $this->get(route('past-events'))->assertSee('<a href="'.route('zvote.slip', $recent).'" target="_blank" rel="noopener">Slip', false);
@@ -140,4 +106,97 @@ it('says so when there is no past event yet, and is for a signed-in participant 
     // carries what a participant has to act on, and a finished event is not that.
     expect(str_contains($this->get(route('dashboard'))->getContent(), 'href="'.route('past-events').'"'))
         ->toBeFalse('Past events is back on the nav.');
+});
+
+it('carries what the company answered for each past event, as it was then, not as it is now', function () {
+    $company = Company::factory()->create(['credentials' => [
+        'recognition' => 'tokoh', 'classification' => 'no', 'staff' => [['name' => 'Ahmad Baharu', 'phone' => '019-111 2222']], 'product_images' => [],
+    ]]);
+    $asked = endedEvent('Karnival Dulu', 20);
+    $added = endedEvent('Ditambah Pejabat', 40);
+    EventRegistration::factory()->create(['event_id' => $asked->id, 'company_id' => $company->id]);
+    EventRegistration::factory()->create(['event_id' => $added->id, 'company_id' => $company->id]);
+    \App\Models\EventJoinRequest::factory()->create(['event_id' => $asked->id, 'company_id' => $company->id, 'status' => 'approved', 'answers' => [
+        'recognition' => 'adiguru', 'classification' => 'yes',
+        'classification_cert' => ['number' => 'PKT-OLD', 'start' => '2025-01-01', 'end' => '2026-01-01'],
+        'quality' => 'batik', 'quality_cert' => ['number' => 'QB-9', 'start' => '2025-01-01', 'end' => '2026-06-30'],
+        'staff' => [['name' => 'Siti Lama', 'phone' => '012-000 1111']],
+        'product_images' => array_fill(0, 5, ['path' => 'x', 'original' => 'x.jpg']),
+    ]]);
+
+    $this->actingAs($company->user, 'web')->get(route('past-events'))
+        ->assertSeeInOrder(['Staff to contact', 'Recognition', 'Certificates', 'Photos'])
+        // Then: the event's own copy.
+        ->assertSeeInOrder(['Karnival Dulu', 'Siti Lama', '012-000 1111', 'Adiguru Kraf', 'Classification: PKT-OLD, until 01 Jan 2026', 'Quality: QB-9, until 30 Jun 2026', '5'])
+        // An event the office added: nothing was answered.
+        ->assertSeeInOrder(['Ditambah Pejabat', 'Added by the office, no answers sent'])
+        // Now: the record card, from the company's current answers.
+        ->assertSeeInOrder(['Your company on record', 'Ahmad Baharu', 'Tokoh Kraf Negara']);
+});
+
+it('opens the photos a past event was asked with on a page of their own, in a new tab, for that company and its zone office only', function () {
+    Illuminate\Support\Facades\Storage::fake('local');
+    $company = Company::factory()->create(['state' => 'Johor']);
+    $event = endedEvent('Karnival Bergambar', 15);
+    EventRegistration::factory()->create(['event_id' => $event->id, 'company_id' => $company->id]);
+    foreach (range(1, 5) as $i) {
+        Illuminate\Support\Facades\Storage::disk('local')->put("products/{$company->id}/p{$i}.jpg", "jpeg {$i}");
+    }
+    $request = \App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $company->id, 'status' => 'approved', 'answers' => [
+        'recognition' => 'none', 'classification' => 'no', 'staff' => [['name' => 'Siti', 'phone' => '012-000 1111']],
+        'product_images' => array_map(fn ($i) => ['path' => "products/{$company->id}/p{$i}.jpg", 'original' => "gerai{$i}.jpg"], range(1, 5)),
+    ]]);
+
+    // The count on Past events links to the page, in a new tab.
+    $this->actingAs($company->user, 'web')->get(route('past-events'))
+        ->assertSee('<a href="'.route('join-requests.photos', $request).'" target="_blank" rel="noopener">5', false);
+
+    // The page: five tiles, each opening full size in a new tab.
+    $page = $this->get(route('join-requests.photos', $request))
+        ->assertOk()
+        ->assertSee('Karnival Bergambar')
+        ->assertSee('alt="Product photo 5"', false);
+    expect(substr_count($page->getContent(), 'target="_blank"'))->toBe(5);
+
+    // Each photo is served, by its place in the request.
+    $this->get(route('join-requests.photo', [$request, 2]))->assertOk();
+    expect($this->get(route('join-requests.photo', [$request, 2]))->streamedContent())->toBe('jpeg 3');
+    $this->get(route('join-requests.photo', [$request, 9]))->assertNotFound();
+
+    // Another company: neither the page nor a photo.
+    auth()->forgetGuards();
+    $other = Company::factory()->create(['state' => 'Johor']);
+    // Not even whether it exists: the same 404 as an id that does not.
+    $this->actingAs($other->user, 'web')->get(route('join-requests.photos', $request))->assertNotFound();
+    $this->actingAs($other->user, 'web')->get(route('join-requests.photo', [$request, 0]))->assertNotFound();
+
+    // The office: its own zone may look, another zone may not.
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Johor'), 'admin')->get(route('join-requests.photo', [$request, 0]))->assertOk();
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Kedah'), 'admin')->get(route('join-requests.photo', [$request, 0]))->assertNotFound();
+});
+
+it('shows the answers of the request that got the company in, not a rejected or draft one', function () {
+    $company = Company::factory()->create();
+    $event = endedEvent('Ditolak Dahulu', 20);
+    // Rejected, then put on the list by the office.
+    EventRegistration::factory()->create(['event_id' => $event->id, 'company_id' => $company->id]);
+    \App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $company->id, 'status' => 'rejected', 'answers' => [
+        'recognition' => 'none', 'classification' => 'no', 'staff' => [['name' => 'Jawapan Ditolak', 'phone' => '012-000 1111']], 'product_images' => [],
+    ]]);
+
+    $this->actingAs($company->user, 'web')->get(route('past-events'))
+        ->assertSeeInOrder(['Ditolak Dahulu', 'Added by the office, no answers sent'])
+        ->assertDontSee('Jawapan Ditolak');
+});
+
+it('takes a request off the dashboard once its event has ended', function () {
+    $company = Company::factory()->create();
+    $event = endedEvent('Lama Ditolak', 30);
+    \App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $company->id, 'status' => 'rejected']);
+
+    $this->actingAs($company->user, 'web')->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('Lama Ditolak');
 });

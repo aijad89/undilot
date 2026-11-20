@@ -10,10 +10,9 @@ class HomeController extends Controller
     /**
      * The public landing page: every published event, upcoming first.
      *
-     * Read-only for everyone. The office enters every company into an event's
-     * draw list; there is nothing here for a participant to do but look. How
-     * many lots an event holds stays off it, as it does everywhere a
-     * participant looks.
+     * Read-only for everyone. A participant asks to join from the event's own
+     * page; the office approves. How many lots an event holds stays off it, as
+     * it does everywhere a participant looks.
      */
     public function index(Request $request)
     {
@@ -57,18 +56,17 @@ class HomeController extends Controller
         abort_if($adminPreview && ! auth('admin')->check(), 404);
 
         // What a signed-in participant's company has to do with this event: on
-        // the draw list, being added to it, or neither. There is no third state:
-        // a participant cannot ask to join.
+        // the draw list, a join request in flight, or neither.
         $company = auth('web')->user()?->company;
 
         return view('events.show', [
             'event' => $event,
+            'company' => $company,
             'adminPreview' => $adminPreview,
             'onList' => $company && $event->registrations()->announced()->where('company_id', $company->id)->exists(),
-            // Put on the list by the office, waiting for HQ to verify. The only
-            // waiting state there is: a participant cannot ask to join, so
-            // this is the whole of "something is happening, sit tight".
+            // Put on the list by the office, waiting for HQ: no form to fill in.
             'beingAdded' => $company && $event->registrations()->whereNull('first_verified_at')->where('company_id', $company->id)->exists(),
+            'joinRequest' => $company ? $event->joinRequests()->where('company_id', $company->id)->first() : null,
         ]);
     }
 
@@ -85,6 +83,7 @@ class HomeController extends Controller
     {
         $user = $request->user();
         $company = $user->company;
+        $onList = $user->registrations()->announced()->pluck('event_registrations.event_id');
 
         $entries = $user->registrations()->announced()
             ->with(['event', 'plot.plotSize'])
@@ -96,20 +95,53 @@ class HomeController extends Controller
             ->sortBy([fn ($a, $b) => [$b->event->start_date->timestamp, $b->event_id] <=> [$a->event->start_date->timestamp, $a->event_id]])
             ->values();
 
+        // Requests not yet in a draw: what was sent, and where it stands. An
+        // event the company is already in (approved, or added by the office) is
+        // a draw entry above, and is not repeated; an approved request left over
+        // means the office took the company off the list since. A called-off
+        // event (draw cancelled, or back to draft) drops out while its
+        // registration is still running; after it closed, the request stays to
+        // say the event was called off.
+        $requests = \App\Models\EventJoinRequest::with('event')
+            ->where('company_id', $company?->id)
+            ->whereIn('status', ['draft', 'pending', 'rejected', 'approved'])
+            ->whereNotIn('event_id', $onList)
+            ->latest('updated_at')
+            ->get()
+            ->reject(fn ($jr) => $jr->event->isCalledOff() && ! $jr->event->registration_close_at?->isPast())
+            // An ended event is done with, as for the draw entries above.
+            ->reject(fn ($jr) => $jr->event->end_date->isPast())
+            ->values();
+
         $drawn = \App\Models\Poll::where('user_id', $user->id)->pluck('event_id')->flip();
+
+        // Open for registration and not yet touched: no request of any kind, and
+        // not on the list. Soonest to close first.
+        $openEvents = $company
+            ? Event::where('status', 'open')->where('polling_status', 'draft')
+                ->where('registration_open_at', '<=', now())->where('registration_close_at', '>=', now())
+                // Any row, verified or not: one waiting for HQ is not open to join either.
+                ->whereNotIn('id', $company->eventRegistrations()->pluck('event_id'))
+                ->whereNotIn('id', \App\Models\EventJoinRequest::where('company_id', $company->id)->pluck('event_id'))
+                ->orderBy('registration_close_at')
+                ->get()
+            : collect();
 
         return view('dashboard', [
             'user' => $user,
             'company' => $company,
             'entries' => $entries,
+            'requests' => $requests,
             'drawn' => $drawn,
-            'todo' => $this->todo($entries, $drawn),
+            'openEvents' => $openEvents,
+            'todo' => $this->todo($entries, $requests, $drawn, $company),
         ]);
     }
 
     /**
      * The events the company took part in that have ended, latest first: the
-     * lot it had.
+     * lot it had, and what it answered when it asked to join each; then the
+     * answers its next request starts from.
      */
     public function pastEvents(Request $request)
     {
@@ -122,8 +154,20 @@ class HomeController extends Controller
             ->sortByDesc(fn ($r) => $r->event->start_date->timestamp)
             ->values();
 
+        // What the company answered for each, as it stood when it asked to join:
+        // the request keeps its own copy. Only an approved request put the
+        // company on the list; a rejected or draft one did not, and none
+        // approved means the office added it.
+        $requests = \App\Models\EventJoinRequest::where('company_id', $user->company?->id)
+            ->where('status', 'approved')
+            ->whereIn('event_id', $entries->pluck('event_id'))
+            ->get()
+            ->keyBy('event_id');
+
         return view('past-events', [
             'entries' => $entries,
+            'requests' => $requests,
+            'company' => $user->company,
             // A slip is printed only for a lot the participant confirmed.
             'drawn' => \App\Models\Poll::where('user_id', $user->id)->pluck('event_id')->flip(),
         ]);
@@ -147,13 +191,11 @@ class HomeController extends Controller
     }
 
     /**
-     * What is left to do, most pressing first.
-     *
-     * One thing only: confirm a lot while the draw is open. A participant does
-     * not ask to join and does not keep certificates here, so there is nothing
-     * else they can act on.
+     * What is waiting on the participant, most pressing first: a lot to
+     * confirm, a request to finish or send again, a certificate running out.
+     * Each item is [tone, sentence, link or null, link words].
      */
-    private function todo($entries, $drawn): array
+    private function todo($entries, $requests, $drawn, $company): array
     {
         $todo = [];
 
@@ -164,6 +206,38 @@ class HomeController extends Controller
             }
         }
 
-        return $todo;
+        foreach ($requests as $jr) {
+            if (! $jr->event->acceptsJoinRequests()) {
+                continue;
+            }
+            $closes = $jr->event->registration_close_at->format('d M Y');
+            $todo[] = match ($jr->status) {
+                'draft' => ['warn', "Finish your request to join {$jr->event->title}. Registration closes {$closes}.", route('events.show', $jr->event), 'Finish and send'],
+                'rejected' => ['warn', "The office did not approve your request to join {$jr->event->title}. Change it and send it again by {$closes}.", route('events.show', $jr->event), 'Change and send again'],
+                'approved' => ['warn', "Your company was taken off the draw list for {$jr->event->title}."
+                    .($jr->removed_reason ? " Reason: {$jr->removed_reason}" : '')
+                    ." You may ask to join again by {$closes}.", route('events.show', $jr->event), 'Ask to join again'],
+                default => null,
+            };
+        }
+
+        // A certificate on record: expired, or within two months of it.
+        foreach (['classification_cert' => 'classification certificate', 'quality_cert' => 'quality compliance certificate'] as $key => $name) {
+            $end = $company?->credentials[$key]['end'] ?? null;
+            if (! $end) {
+                continue;
+            }
+            $end = \Illuminate\Support\Carbon::parse($end)->endOfDay();
+            if ($end->isPast()) {
+                $todo[] = ['bad', "Your {$name} expired on {$end->format('d M Y')}. Renew it before you next ask to join an event.", null, null];
+            } elseif ($end->lte(now()->addMonths(2))) {
+                $todo[] = ['warn', "Your {$name} expires on {$end->format('d M Y')}. Renew it in time for your next event.", null, null];
+            }
+        }
+
+        // Most pressing first; the order within a tone is kept.
+        $rank = ['bad' => 0, 'warn' => 1, 'info' => 2];
+
+        return collect(array_filter($todo))->sortBy(fn ($item) => $rank[$item[0]])->values()->all();
     }
 }

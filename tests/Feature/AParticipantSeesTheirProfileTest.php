@@ -6,8 +6,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
 /**
- * A participant's profile: their account and company as the office keeps them,
- * read-only. No password: they sign in with community ID + IC.
+ * A participant's profile: the account as the office keeps it, read-only, and
+ * the company's contact, certificates and crafts, theirs to keep. No password:
+ * they sign in with community ID + IC.
  */
 function profileOwner(): Company
 {
@@ -25,7 +26,7 @@ it('shows the account and company as the office keeps them, the IC number in ful
     $this->actingAs($company->user, 'web')->get(route('profile'))
         ->assertOk()
         ->assertSeeInOrder(['Your account', 'Siti Aminah', '012-345 6789', '800101-14-5678'])
-        ->assertSeeInOrder(['Your company', 'Seramik Klang Studio', 'Selangor', '3x6'])
+        ->assertSeeInOrder(['800101-14-5678', 'Seramik Klang Studio', 'Selangor', '3x6'])
         ->assertDontSee('Your company on record')
         // The craft code is the office's, never shown to the participant.
         ->assertDontSee('TTK');
@@ -63,9 +64,9 @@ it('shows the community ID they sign in with', function () {
         ->assertDontSee('<dt>Email</dt>', false);
 });
 
-it('stacks its two cards down one column: account, company', function () {
+it('stacks its cards down one column: account, contact, certificates, crafts', function () {
     $this->actingAs(profileOwner()->user, 'web')->get(route('profile'))->assertOk()
-        ->assertSeeInOrder(['class="ap-profile-stack"', 'Your account', 'Your company'], false)
+        ->assertSeeInOrder(['class="ap-profile-stack"', 'Your account', 'General information', 'Recognition and certificates', 'What you make'], false)
         // The two side-by-side columns are gone, not just restyled.
         ->assertDontSee('class="ap-dash-side"', false)
         ->assertDontSee('ap-dash-grid ap-profile-grid', false);
@@ -76,12 +77,12 @@ it('shows the address the office keeps, its line breaks kept, or a dash when the
     $company->user->update(['address' => "No. 3, Jalan Seramik,\n41000 Klang"]);
 
     $this->actingAs($company->user, 'web')->get(route('profile'))->assertOk()
-        ->assertSeeInOrder(['Your account', 'IC number', 'Address', "No. 3, Jalan Seramik,\n41000 Klang", 'Your company'], false);
+        ->assertSeeInOrder(['Your account', 'IC number', 'Company address', "No. 3, Jalan Seramik,\n41000 Klang", 'Staff to contact'], false);
 
     $company->user->update(['address' => null]);
 
     $this->get(route('profile'))
-        ->assertSeeInOrder(['<dt>Address</dt>', '—', 'Your company'], false);
+        ->assertSeeInOrder(['<dt>Company address</dt>', '—', 'Staff to contact'], false);
 });
 
 it('is as wide as every other portal page: the column sets no width of its own', function () {

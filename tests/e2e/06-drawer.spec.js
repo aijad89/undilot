@@ -64,7 +64,7 @@ test('on a desk the menu is a rail that stays, and the button hides and shows it
     await Promise.all([page.waitForNavigation(), rail.getByRole('link', { name: 'Profile' }).click()]);
     await expect(page).toHaveURL(/\/profile$/);
     await expect(rail.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('heading', { name: 'Your company' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
     expect(errors).toEqual([]);
 });
 

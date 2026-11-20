@@ -6,25 +6,12 @@ use App\Models\EventRegistration;
 use App\Models\KrafBidang;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Route;
 
 /**
  * Putting a company on an event's draw list IS the approval — there is no status
  * to set afterwards. What the office still has to say is the craft code it draws
  * under and the booth size it needs, because the plan is built from those two.
  */
-it('has no approve or reject route, because there is nothing to approve', function () {
-    // The draw list IS the approval: the zone puts a company on it and HQ
-    // verifies the row. A separate approve step belonged to join requests.
-    expect(Route::has('admin.events.registrations.approve'))->toBeFalse()
-        ->and(Route::has('admin.events.registrations.reject'))->toBeFalse();
-
-    expect(method_exists(App\Http\Controllers\Admin\EntRegistrationController::class, 'approve'))
-        ->toBeFalse('approve() is still on the controller.');
-    expect(method_exists(App\Http\Controllers\Admin\EntRegistrationController::class, 'reject'))
-        ->toBeFalse('reject() is still on the controller.');
-});
-
 it('adds companies to the draw, with the account the draw keys on', function () {
     $event = Event::factory()->create();
     $a = Company::factory()->create(['state' => 'Johor']);
@@ -442,14 +429,19 @@ it('lets a zone admin remove only a row the company has not been told of; HQ rem
 
 it('lets only HQ add a company once the draw has started, verified at once', function () {
     $event = Event::factory()->create(['polling_status' => 'polling']);
-    [$a, $b] = Company::factory()->count(2)->create(['state' => 'Johor']);
+    [$a, $b, $c] = Company::factory()->count(3)->create(['state' => 'Johor']);
+    $request = App\Models\EventJoinRequest::factory()->create(['event_id' => $event->id, 'company_id' => $c->id]);
     $zone = stateAdmin('Johor');
 
+    $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.index', $event))
+        ->assertSee('The draw has started: only HQ can approve now.');
     $this->actingAs($zone, 'admin')->get(route('admin.events.registrations.companies', $event))
         ->assertSee('The draw has started: only HQ can add companies now.');
     $this->post(route('admin.events.registrations.store', $event), ['company_id' => [$a->id]])
         ->assertSessionHas('error', 'The draw has started: only HQ can add companies now.');
-    expect(EventRegistration::count())->toBe(0);
+    $this->post(route('admin.events.registrations.approve', [$event, $request]), ['plot_size' => '3x3'])
+        ->assertSessionHas('error');
+    expect(EventRegistration::count())->toBe(0)->and($request->fresh()->status)->toBe('pending');
 
     $this->actingAs(superAdmin(), 'admin')->post(route('admin.events.registrations.store', $event), ['company_id' => [$b->id]])
         ->assertSessionHas('success');

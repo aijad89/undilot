@@ -41,7 +41,7 @@ it('gives each public event one stage, the event dates winning over the draw', f
     expect($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay()])->publicStage())->toBe('open')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->subMinute()])->publicStage())->toBe('closed')
         ->and($make(['polling_status' => 'completed'])->publicStage())->toBe('closed')
-        ->and($make(['polling_status' => 'draft'])->publicStage())->toBe('soon')
+        ->and($make(['polling_status' => 'draft'])->publicStage())->toBe('register')
         ->and($make(['polling_status' => 'draft', 'registration_open_at' => now()->addDay(), 'registration_close_at' => now()->addDays(2)])->publicStage())->toBe('soon')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay(), 'start_date' => now()->subDay()])->publicStage())->toBe('now')
         ->and($make(['polling_status' => 'polling', 'polling_deadline' => now()->addDay(), 'start_date' => now()->subWeek(), 'end_date' => now()->subDay()])->publicStage())->toBe('ended');
@@ -69,29 +69,4 @@ it('gives a signed-in participant the same portal bar on the public pages too', 
             ->assertSee(route('dashboard'))
             ->assertSee('apTextSizeToggle', false);
     }
-});
-
-it('never invites a visitor to register, because the office enters every company', function () {
-    $event = Event::factory()->create([
-        'status' => 'open',
-        'polling_status' => 'draft',
-        'registration_open_at' => now()->subDay(),
-        'registration_close_at' => now()->addWeek(),
-        'start_date' => now()->addMonth(),
-        'end_date' => now()->addMonth()->addDay(),
-    ]);
-
-    // An event inside its registration window used to read "Register now" and
-    // link to a multi-step form. There is no such form: the office adds every
-    // company, so inviting a visitor to register promises something nobody can
-    // deliver.
-    expect($event->publicStage())->toBe('soon');
-
-    $list = $this->get(route('home'))->assertOk();
-    expect(str_contains($list->getContent(), 'Register now'))
-        ->toBeFalse('The public list still offers to register.');
-
-    $page = $this->get(route('events.show', $event))->assertOk();
-    expect(str_contains($page->getContent(), 'Register now'))
-        ->toBeFalse('The event page still offers to register.');
 });

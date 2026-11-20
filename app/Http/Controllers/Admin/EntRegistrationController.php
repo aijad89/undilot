@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Event;
+use App\Models\EventJoinRequest;
 use App\Models\EventRegistration;
 use App\Notifications\AddedToDraw;
+use App\Notifications\JoinRequestRejected;
 use App\Notifications\RemovedFromDraw;
 use App\Support\AdminZones;
 use App\Support\EventVisibility;
@@ -20,8 +22,9 @@ use Illuminate\Validation\Rule;
  * The draw list: which companies are in one event's lot draw.
  *
  * PUTTING A COMPANY HERE IS THE APPROVAL. The row exists, so the company is in
- * the draw — the office adds it, through addToList(). What the office still
- * has to say is the craft CODE it draws under and the booth SIZE it needs,
+ * the draw. It gets here two ways — the office adds it, or the office approves
+ * the company's own join request — and both go through addToList(). What the
+ * office still has to say is the craft CODE it draws under and the booth SIZE it needs,
  * because the plan is built from those two numbers.
  *
  * THE CODE IS A STRING, NOT A REFERENCE, and that is deliberate: the allocator
@@ -86,11 +89,34 @@ class EntRegistrationController extends Controller
             $registrations->each(fn ($r) => $r->plot && ! $r->plot->is_allocated && $r->setRelation('plot', null));
         }
 
+        // The request each row came in by, for the payment proof it carries —
+        // still pending while the row waits for HQ. A row the office added has none.
+        $proofs = $event->joinRequests()
+            ->whereIn('company_id', $registrations->pluck('company_id'))
+            ->whereIn('status', ['pending', 'approved'])
+            ->get()
+            ->keyBy('company_id');
+
+        // Join requests waiting on the zone, in this admin's zone. One the zone
+        // has approved is on the list below, waiting for HQ, and not repeated.
+        $joinRequests = $scoped($event->joinRequests()->with('company')->where('status', 'pending'))
+            ->whereNotIn('company_id', $event->registrations()->select('company_id'))
+            ->oldest()
+            ->get();
+
         return view('admin.events.registrations.index', [
             'event' => $event,
+            'joinRequests' => $joinRequests,
+            // HQ looks back over what the zones turned away: a rejection goes to
+            // the participant at once and HQ is not asked, so it is shown here.
+            'rejected' => $admin->can('verify-draw-list')
+                ? $event->joinRequests()->rejectedByZone()->with(['company', 'reviewer'])->latest('reviewed_at')->get()
+                : collect(),
             'registrations' => $registrations,
+            'proofs' => $proofs,
             'isHq' => $admin->can('verify-draw-list'),
             'codeFrozen' => $this->codeFrozen($event),
+            'zoneLocked' => $this->zoneLocked($request, $event),
             // "12 / 200" beside the filter: rows matching it, of the rows this
             // admin's list holds. filled(), not has(): the form posts every
             // field, blank ones included, and blank is no filter.
@@ -211,8 +237,9 @@ class EntRegistrationController extends Controller
     }
 
     /**
-     * Put one company on the draw list. The one way a company enters a draw:
-     * the office adds it, and HQ's verification is what tells the participant.
+     * Put one company on the draw list. Shared by the office's own add and by
+     * approving a join request, so both write the same row; HQ's verification
+     * is what tells the participant.
      *
      * A company cannot be in the same draw twice — there is a unique index
      * saying so. firstOrCreate makes a double submit harmless rather than a 500.
@@ -220,9 +247,13 @@ class EntRegistrationController extends Controller
      * size likewise, 3x3 when neither says. Added by HQ, the row is verified
      * at once; added by a zone, it waits for HQ.
      *
+     * `$extra` is written only on a new row: the payment an approved join
+     * request brings. Set at creation, it is not a change that would clear
+     * HQ's check.
+     *
      * Returns whether a row was added.
      */
-    private function addToList(Event $event, Company $company, ?string $code, ?string $size): bool
+    private function addToList(Event $event, Company $company, ?string $code, ?string $size, array $extra = []): bool
     {
         $code ??= $company->kraf_code;
 
@@ -233,7 +264,7 @@ class EntRegistrationController extends Controller
                 'code' => $code,
                 'code_updated_at' => $code ? now() : null,
                 'plot_size' => $size ?? $company->plot_size ?? '3x3',
-            ]
+            ] + $extra
         );
 
         // A size picked here becomes the company's own too.
@@ -251,7 +282,8 @@ class EntRegistrationController extends Controller
     /**
      * HQ's check: the row counts, and the participant is told — once: a row
      * HQ verified before, changed by a zone and verified again, says nothing
-     * new.
+     * new. The company's pending join request is settled here, not at the
+     * zone's approval.
      */
     private function verify(EventRegistration $registration): void
     {
@@ -263,6 +295,11 @@ class EntRegistrationController extends Controller
             'verified_by' => auth('admin')->id(),
             'hq_note' => null,
         ]);
+
+        // One at a time, not a mass update, so each is audited.
+        $registration->event->joinRequests()
+            ->where('company_id', $registration->company_id)->where('status', 'pending')->get()
+            ->each->update(['status' => 'approved', 'reviewed_by' => auth('admin')->id(), 'reviewed_at' => now()]);
 
         // Told once, on the first verification. A row HQ verified before,
         // edited by a zone and verified again, says nothing new.
@@ -311,7 +348,8 @@ class EntRegistrationController extends Controller
 
     /**
      * Take one row off the list. A company that was told it is in hears that it
-     * is out, and why. One never told hears nothing.
+     * is out, and why; the reason stays on its join request, if it came by one,
+     * for its dashboard and event page. One never told hears nothing.
      */
     private function removeFromList(EventRegistration $registration, ?string $reason): void
     {
@@ -321,12 +359,74 @@ class EntRegistrationController extends Controller
             return;
         }
 
+        $registration->event->joinRequests()
+            ->where('company_id', $registration->company_id)->where('status', 'approved')
+            ->get()->each->update(['removed_reason' => $reason]);
+
         $registration->company->user?->notify(new RemovedFromDraw($registration->event, $reason));
     }
 
     private function isHq(Request $request): bool
     {
         return $request->user('admin')->can('verify-draw-list');
+    }
+
+    /**
+     * Approve a join request: the company goes on the draw list with this code
+     * and size, and with the payment the request brought — paid when a receipt
+     * was sent, left for the officer to say on a waiver.
+     */
+    public function approve(Request $request, Event $event, EventJoinRequest $joinRequest)
+    {
+        EventVisibility::authorize($event);
+        abort_unless((int) $joinRequest->event_id === (int) $event->id, 404);
+        $this->authorizeCompany($request, $joinRequest->company);
+        abort_unless($joinRequest->status === 'pending', 409, 'That request has already been answered.');
+        if ($event->isCalledOff()) {
+            return back()->with('error', 'This event was cancelled or put back to draft. Its requests cannot be answered.');
+        }
+        if ($this->zoneLocked($request, $event)) {
+            return back()->with('error', self::HQ_ONLY_NOW);
+        }
+
+        $data = $request->validate([
+            'code' => ['nullable', 'string', 'max:50'],
+            'plot_size' => ['nullable', Rule::in(PlotSizes::all())],
+        ]);
+
+        $payment = $joinRequest->payment_method === 'waiver'
+            ? ['payment_status' => null, 'payment_note' => str('Waiver: '.(EventJoinRequest::WAIVER_CATEGORIES[$joinRequest->waiver_category] ?? $joinRequest->waiver_category))->limit(490)->toString()]
+            : ['payment_status' => 'paid', 'payment_note' => (EventJoinRequest::PAYMENT_METHODS[$joinRequest->payment_method] ?? $joinRequest->payment_method).', receipt uploaded with the join request'];
+
+        DB::transaction(fn () => $this->addToList($event, $joinRequest->company, $data['code'] ?? null, $data['plot_size'] ?? null, $payment));
+
+        return back()->with('success', ($this->isHq($request)
+            ? "{$joinRequest->company->name} added to the draw list."
+            : "{$joinRequest->company->name} added to the draw list. HQ will verify before the company is told.")
+            .Company::boothMovedNote($this->moved, $this->isHq($request)));
+    }
+
+    /** Reject a join request. The reason is shown to the participant, who may ask again. */
+    public function reject(Request $request, Event $event, EventJoinRequest $joinRequest)
+    {
+        EventVisibility::authorize($event);
+        abort_unless((int) $joinRequest->event_id === (int) $event->id, 404);
+        $this->authorizeCompany($request, $joinRequest->company);
+        abort_unless($joinRequest->status === 'pending', 409, 'That request has already been answered.');
+        if ($event->isCalledOff()) {
+            return back()->with('error', 'This event was cancelled or put back to draft. Its requests cannot be answered.');
+        }
+
+        $data = $request->validate(['reject_reason' => ['required', 'string', 'max:1000']]);
+
+        $joinRequest->update($data + [
+            'status' => 'rejected',
+            'reviewed_by' => $request->user('admin')->id,
+            'reviewed_at' => now(),
+        ]);
+        $joinRequest->company->user?->notify(new JoinRequestRejected($event, $data['reject_reason']));
+
+        return back()->with('success', "Request from {$joinRequest->company->name} rejected.");
     }
 
     /**
