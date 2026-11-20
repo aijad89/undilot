@@ -99,8 +99,9 @@ it('edits the old profile fields the import brought in, and the participant sees
 
     $user = $company->user->fresh();
     $this->actingAs($user, 'web')->get(route('profile'))
-        ->assertSeeInOrder(['Puan '.$user->name, 'Postcode', '31400', 'District', 'Kinta', 'Registration no.', 'SA0123456-X'])
-        ->assertDontSee('name="postcode"', false)->assertDontSee('name="registration_no"', false);
+        ->assertSeeInOrder(['Registration no.', 'SA0123456-X', 'Salutation', 'Puan', $user->name, 'Postcode', '31400', 'District', 'Kinta'])
+        // Now the participant's to change too (owner, 2026-11-20).
+        ->assertSee('name="postcode"', false)->assertSee('name="registration_no"', false);
 
     // Emptied: cleared, as the address is.
     $this->actingAs(superAdmin(), 'admin')

@@ -61,6 +61,7 @@ Route::middleware(['auth:web', 'user.active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/contact', [ProfileController::class, 'updateContact'])->name('profile.contact');
+    Route::put('/profile/account', [ProfileController::class, 'updateAccount'])->name('profile.account');
     Route::post('/profile/kraf', [ProfileController::class, 'storeKraf'])->name('profile.kraf.store');
     Route::put('/profile/kraf/{selection}/primary', [ProfileController::class, 'makeKrafPrimary'])->name('profile.kraf.primary');
     Route::delete('/profile/kraf/{selection}', [ProfileController::class, 'destroyKraf'])->name('profile.kraf.destroy');

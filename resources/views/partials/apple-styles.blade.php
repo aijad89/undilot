@@ -105,6 +105,7 @@
 }
 .ap-input:hover, .ap-select:hover, .ap-textarea:hover { border-color: var(--ui-border-hover); }
 .ap-input:focus, .ap-select:focus, .ap-textarea:focus { border-color: var(--ui-blue); box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.18); }
+.ap-input:disabled, .ap-select:disabled, .ap-textarea:disabled { background: var(--ui-sep); color: var(--ui-muted); border-color: var(--ui-border); cursor: not-allowed; }
 .ap-input::placeholder, .ap-textarea::placeholder { color: var(--ui-muted); }
 .ap-label { display: block; margin-bottom: 6px; font-size: 1rem; font-weight: 600; color: var(--ui-text-2); }
 .ap-form-group { margin-bottom: 18px; }
@@ -256,6 +257,8 @@ a.ap-todo-info:hover { color: var(--ui-blue-text); }
 .ap-facts dt { font-size: 0.875rem; font-weight: 600; color: var(--ui-muted); }
 .ap-facts dd { margin: 2px 0 12px; font-size: 1rem; color: var(--ui-text); }
 .ap-facts dd:last-child { margin-bottom: 0; }
+.ap-facts-group { margin: 0 0 10px; padding-top: 4px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ui-muted); }
+.ap-facts + .ap-facts-group { padding-top: 14px; border-top: 1px solid var(--ui-sep); }
 .ap-tabular { font-variant-numeric: tabular-nums; }
 .ap-side-note { font-size: 0.875rem; line-height: 1.5; color: var(--ui-muted); }
 /* Past events: a table on a desk; on a phone each row is a block of

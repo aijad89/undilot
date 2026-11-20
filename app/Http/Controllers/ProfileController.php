@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * The participant's own profile.
  *
- * The account (name, community ID, IC, phone, address) is the office's and is
- * read-only here: the office creates it, and two of its fields are how the
+ * The account card follows the office's company form, and the participant
+ * changes all of it except the zone, IC and community ID — the office's: the
+ * zone decides who handles the company, the other two are how the
  * participant signs in. The COMPANY's contact details, recognition,
  * certificates, staff to contact and crafts are the participant's to keep — the
  * part of the MICF entry form that is the same for every event, filled in once
@@ -35,6 +36,43 @@ class ProfileController extends Controller
             'missing' => $company ? CompanyCredentials::missing($company) : [],
             'picker' => $company ? KrafPicker::data($company) : null,
         ]);
+    }
+
+    /**
+     * The account card: the company's name and registration no., the owner's
+     * name, salutation, phone and address. Zone, IC and Community ID are not
+     * read from the request at all — the office's (owner, 2026-11-20).
+     */
+    public function updateAccount(Request $request)
+    {
+        $company = $this->company($request);
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'registration_no' => ['nullable', 'string', 'max:100'],
+            // The list, or the value already on record (old data).
+            'salutation' => ['nullable', \Illuminate\Validation\Rule::in(array_filter([...\App\Models\User::SALUTATIONS, $user->salutation]))],
+            'owner_name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'postcode' => ['nullable', 'string', 'max:20'],
+            'district' => ['nullable', 'string', 'max:100'],
+        ], [], ['name' => 'company name', 'owner_name' => "owner's name"]);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($company, $user, $data) {
+            $company->update(['name' => $data['name'], 'registration_no' => $data['registration_no'] ?? null]);
+            $user->update([
+                'name' => $data['owner_name'],
+                'salutation' => $data['salutation'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'address' => $data['address'] ?? null,
+                'postcode' => $data['postcode'] ?? null,
+                'district' => $data['district'] ?? null,
+            ]);
+        });
+
+        return redirect()->route('profile')->with('success', 'Account saved.');
     }
 
     /** The contact card: the company's contact details and the staff to contact. */

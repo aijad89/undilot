@@ -496,9 +496,13 @@ Keputusan pemilik 2026-11-19: borang penyertaan MICF diisi **sekali** di
 - kraf yang dibuat — `KrafSelections`, kod yang sama dengan halaman syarikat
   admin; skrip pemilih dalam `partials/kraf-picker-script`.
 
-Akaun (nama, ID Komuniti, IC, telefon, alamat), nama syarikat, zon,
-`kraf_code` dan `plot_size` **kekal milik pejabat** — dua daripadanya ialah
-cara peserta log masuk. Permohonan sertai kini hanya meminta pengakuan,
+Kad *Your account* (`profile.account`) mengikut susunan dan medan borang
+syarikat admin. Peserta menyunting nama syarikat, no. daftar, gelaran, nama
+pemilik, telefon, alamat, poskod dan daerah (keputusan pemilik 2026-11-20).
+**Zon, IC dan ID Komuniti kekal milik pejabat** — dipaparkan tetapi tidak
+dibaca daripada permintaan: zon menentukan siapa mengendalikan syarikat, dua
+lagi cara peserta log masuk. `kraf_code` dan `plot_size` milik pejabat dan
+tidak dipaparkan kepada peserta langsung. Permohonan sertai kini hanya meminta pengakuan,
 pengesahan butiran (langkah 2 memaparkan seluruh profil; `details_confirmed`
 wajib ditanda, disemak pelayan juga), lima foto produk dan bayaran; `CompanyCredentials::missing()` menolak menghantar
 (draf masih boleh) selagi profil belum lengkap atau sijil tamat tempoh. Setiap
@@ -791,7 +795,7 @@ pelayan** (`--fresh` sahaja ditolak dalam production).
 - **Medan profil lama dibawa**: Gelaran → `users.salutation`, Poskod →
   `postcode`, Daerah (`region`) → `district`, Alamat → `address`, No. Daftar →
   `companies.registration_no`. Disunting pejabat di borang syarikat admin,
-  dipaparkan baca sahaja di profil peserta (keputusan pemilik 2026-11-20).
+  dan peserta di kad *Your account* profil (keputusan pemilik 2026-11-20).
 - **Penanda ialah `legacy_id`** = `source_table:id` (`usahawan:204`,
   `upengawai:5`, `fileuser:1`), diisi hanya oleh arahan ini. `--fresh` memadam
   ikut lajur itu, bukan domain emel — sekali dahulu penanda dikongsi dengan

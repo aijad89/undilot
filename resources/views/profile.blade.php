@@ -10,6 +10,9 @@
     .pf-choice { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-r); font-size: 1rem; color: var(--ui-text); cursor: pointer; }
     .pf-choice:has(input:checked) { border-color: var(--ui-blue); background: var(--ui-blue-tint); color: var(--ui-blue-text); }
     .pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    /* Salutation | Owner's name | Phone, as on the office's form. */
+    .pf-grid-3 { display: grid; grid-template-columns: 9rem 1fr 1fr; gap: 0 16px; }
+    .pf-group-split { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--ui-sep); }
     .pf-cert { margin-top: 12px; padding: 14px; border: 1px solid var(--ui-sep); border-radius: var(--ui-r); }
     .pf-cert[hidden] { display: none; }
     .pf-staff-phone { display: flex; gap: 8px; }
@@ -20,7 +23,7 @@
     .pf-crafts td { padding: 10px 8px 10px 0; border-bottom: 1px solid var(--ui-sep); vertical-align: top; }
     .pf-crafts form { display: inline; }
     .pf-ticks { display: grid; gap: 4px; margin-top: 6px; }
-    @media (max-width: 640px) { .pf-grid { grid-template-columns: 1fr; } .pf-crafts td { display: block; border: 0; padding: 4px 0; } .pf-crafts tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--ui-sep); } }
+    @media (max-width: 640px) { .pf-grid, .pf-grid-3 { grid-template-columns: 1fr; } .pf-crafts td { display: block; border: 0; padding: 4px 0; } .pf-crafts tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--ui-sep); } }
 </style>
 
 <div class="ap-page ap-dash">
@@ -51,37 +54,98 @@
     <div class="ap-profile-stack">
         <section class="ap-card ap-card-padded">
             <h2 class="ap-section-title">Your account</h2>
-            <dl class="ap-facts">
-                <dt>Name</dt>
-                <dd>{{ trim(($user->salutation ? $user->salutation.' ' : '').$user->name) }}</dd>
-                <dt>Community ID</dt>
-                {{-- With the IC below, what they sign in with. --}}
-                <dd class="ap-tabular">{{ $user->community_id ?: '—' }}</dd>
-                <dt>Mobile phone</dt>
-                <dd class="ap-tabular">{{ $user->phone ?: '—' }}</dd>
-                <dt>IC number</dt>
-                {{-- In full: it is the participant's own, on their own page. --}}
-                <dd class="ap-tabular">{{ $user->ic_number ?: '—' }}</dd>
-                <dt>Company address</dt>
-                {{-- Line breaks kept as the office typed them. --}}
-                <dd style="white-space:pre-line;">{{ $user->address ?: '—' }}</dd>
-                <dt>Postcode</dt>
-                <dd class="ap-tabular">{{ $user->postcode ?: '—' }}</dd>
-                <dt>District</dt>
-                <dd>{{ $user->district ?: '—' }}</dd>
-                @if($company)
-                    <dt>Company</dt>
-                    <dd>{{ $company->name }}</dd>
-                    <dt>Registration no.</dt>
-                    <dd class="ap-tabular">{{ $company->registration_no ?: '—' }}</dd>
-                    <dt>Zone</dt>
-                    <dd>{{ $company->state ?: '—' }}</dd>
-                    <dt>Usual booth size</dt>
-                    <dd class="ap-tabular">{{ $company->plot_size ?: '3x3' }}</dd>
-                @endif
-            </dl>
-            <p class="ap-side-note mb-0">The office keeps these. You sign in with your Community ID and IC, so if any is wrong, contact the Kraftangan office to change it.</p>
+            @if($company)
+                {{-- The same groups, fields and order as the office's company
+                     form. Zone, IC and Community ID are the office's: the zone
+                     scopes who handles the company, and the other two are how
+                     the participant signs in. --}}
+                <form method="POST" action="{{ route('profile.account') }}" data-inline-errors>
+                    @csrf
+                    @method('PUT')
+                    @php $salutation = old('salutation', $user->salutation); @endphp
+
+                    <h3 class="ap-facts-group">The company</h3>
+                    <div class="pf-grid">
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_name">Name</label>
+                            <input class="ap-input" id="acc_name" name="name" required maxlength="255" value="{{ old('name', $company->name) }}">
+                            @error('name')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_zone">Zone</label>
+                            <input class="ap-input" id="acc_zone" value="{{ $company->state }}" disabled>
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_registration_no">Registration no. <span class="ap-muted">(optional)</span></label>
+                            <input class="ap-input" id="acc_registration_no" name="registration_no" maxlength="100" value="{{ old('registration_no', $company->registration_no) }}">
+                            @error('registration_no')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <h3 class="ap-facts-group pf-group-split">The account</h3>
+                    <div class="pf-grid-3">
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_salutation">Salutation</label>
+                            <select class="ap-select" id="acc_salutation" name="salutation">
+                                <option value="">—</option>
+                                {{-- A value from the old data not on the list stays selectable. --}}
+                                @foreach(array_unique(array_filter([...\App\Models\User::SALUTATIONS, $user->salutation])) as $option)
+                                    <option value="{{ $option }}" @selected($salutation === $option)>{{ $option }}</option>
+                                @endforeach
+                            </select>
+                            @error('salutation')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_owner_name">Owner's name</label>
+                            <input class="ap-input" id="acc_owner_name" name="owner_name" required maxlength="255" value="{{ old('owner_name', $user->name) }}">
+                            @error('owner_name')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_phone">Phone</label>
+                            <input class="ap-input" type="tel" id="acc_phone" name="phone" maxlength="30" value="{{ old('phone', $user->phone) }}">
+                            @error('phone')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div class="pf-grid">
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_ic">IC number</label>
+                            <input class="ap-input ap-tabular" id="acc_ic" value="{{ $user->ic_number }}" disabled>
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_community_id">Community ID</label>
+                            <input class="ap-input ap-tabular" id="acc_community_id" value="{{ $user->community_id }}" disabled>
+                        </div>
+                    </div>
+                    <div class="ap-field">
+                        <label class="ap-label" for="acc_address">Address</label>
+                        <textarea class="ap-textarea" id="acc_address" name="address" rows="3" maxlength="500" autocomplete="street-address">{{ old('address', $user->address) }}</textarea>
+                        @error('address')<p class="ap-field-error">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="pf-grid">
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_postcode">Postcode</label>
+                            <input class="ap-input" id="acc_postcode" name="postcode" maxlength="20" autocomplete="postal-code" value="{{ old('postcode', $user->postcode) }}">
+                            @error('postcode')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="ap-field">
+                            <label class="ap-label" for="acc_district">District</label>
+                            <input class="ap-input" id="acc_district" name="district" maxlength="100" value="{{ old('district', $user->district) }}">
+                            @error('district')<p class="ap-field-error">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <p class="ap-side-note">Zone, IC number and Community ID are kept by the office. You sign in with your Community ID and IC, so if either is wrong, contact the Kraftangan office.</p>
+                    <button type="submit" class="ap-btn ap-btn-primary">Save account</button>
+                </form>
+            @else
+                <dl class="ap-facts">
+                    <dt>Owner's name</dt><dd>{{ $user->name }}</dd>
+                    <dt>IC number</dt><dd class="ap-tabular">{{ $user->ic_number ?: '—' }}</dd>
+                    <dt>Community ID</dt><dd class="ap-tabular">{{ $user->community_id ?: '—' }}</dd>
+                </dl>
+            @endif
         </section>
+
 
         @if(! $company)
             <section class="ap-card ap-card-padded">
