@@ -86,10 +86,12 @@ final class CompanyCredentials
             $rules += self::certificateRules($request, 'classification', $held['classification_cert'] ?? null);
         }
 
-        if ($standard = $company->qualityStandard()) {
-            $rules['quality'] = ['required', Rule::in([$standard, 'none'])];
-            if ($request->input('quality') === $standard) {
-                $rules += self::certificateRules($request, 'quality', $held['quality_cert'] ?? null);
+        if ($standards = $company->qualityStandards()) {
+            $rules['quality'] = ['required', Rule::in([...$standards, 'none'])];
+            if (in_array($request->input('quality'), $standards, true)) {
+                // A certificate on file counts only for the standard it was given for:
+                // a Batik one is no Songket / Tenunan one, whatever its number.
+                $rules += self::certificateRules($request, 'quality', self::certOnFile($held, 'quality', $request->input('quality')));
             }
         }
 
@@ -154,7 +156,7 @@ final class CompanyCredentials
         // A certificate keeps the file on record unless a new one was sent, and
         // only while it is the same certificate (same number, same end date).
         $certificate = function (string $field) use ($data, $request, $held, $company) {
-            $onFile = $held["{$field}_cert"] ?? [];
+            $onFile = self::certOnFile($held, $field, $data[$field] ?? null) ?? [];
             $cert = [
                 'number' => $data["{$field}_number"] ?? null,
                 'start' => $data["{$field}_start"] ?? null,
@@ -218,10 +220,10 @@ final class CompanyCredentials
             || ($held['classification'] === 'yes' && ! $valid($held['classification_cert'] ?? null))) {
             $missing[] = 'classification certificate';
         }
-        if ($standard = $company->qualityStandard()) {
+        if ($standards = $company->qualityStandards()) {
             $quality = $held['quality'] ?? null;
-            if (! in_array($quality, [$standard, 'none'], true)
-                || ($quality === $standard && ! $valid($held['quality_cert'] ?? null))) {
+            if (! in_array($quality, [...$standards, 'none'], true)
+                || ($quality !== 'none' && ! $valid($held['quality_cert'] ?? null))) {
                 $missing[] = 'quality compliance';
             }
         }
@@ -265,6 +267,19 @@ final class CompanyCredentials
         }
 
         Storage::disk('local')->delete(array_values(array_diff(array_unique($before), $inUse)));
+    }
+
+    /**
+     * The certificate on file for this answer: the quality one only while the
+     * answer is the standard it was given for.
+     */
+    public static function certOnFile(array $held, string $field, ?string $answer): ?array
+    {
+        if ($field === 'quality' && ($held['quality'] ?? null) !== $answer) {
+            return null;
+        }
+
+        return $held["{$field}_cert"] ?? null;
     }
 
     /**

@@ -9,8 +9,12 @@
 use App\Models\Company;
 use App\Models\Event;
 
-// The tenun maker carries its craft code, so its profile asks the quality question.
-Company::where('name', 'Tenun E2E')->firstOrFail()->forceFill(['kraf_code' => 'TTN', 'credentials' => null])->save();
+// The tenun maker makes TEKSTIL › Tenunan, so its profile asks the quality question.
+$tenun = Company::where('name', 'Tenun E2E')->firstOrFail();
+$tenun->forceFill(['kraf_code' => 'TTN', 'credentials' => null])->save();
+$tekstil = \App\Models\KrafBidang::firstOrCreate(['name' => 'TEKSTIL', 'code' => null]);
+$tenunan = \App\Models\KrafSubBidang::firstOrCreate(['bidang_id' => $tekstil->id, 'name' => 'Tenunan']);
+\App\Models\CompanyKraf::firstOrCreate(['company_id' => $tenun->id, 'bidang_id' => $tekstil->id, 'sub_bidang_id' => $tenunan->id], ['is_primary' => true]);
 
 foreach (['Logam E2E', 'Kayu E2E'] as $name) {
     Company::where('name', $name)->firstOrFail()->forceFill(['credentials' => [

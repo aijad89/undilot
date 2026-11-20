@@ -188,102 +188,6 @@
                 </section>
             </form>
 
-            <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" data-inline-errors>
-                @csrf
-                @method('PUT')
-
-                <section class="ap-card ap-card-padded">
-                    <h2 class="ap-section-title">Recognition and certificates</h2>
-
-                    <fieldset class="ap-field">
-                        <legend class="ap-label">Recognition you have received</legend>
-                        <div class="pf-choices">
-                            @foreach(\App\Models\Company::RECOGNITIONS as $key => $label)
-                                <label class="pf-choice">
-                                    <input type="radio" name="recognition" value="{{ $key }}" required @checked(old('recognition', $held['recognition'] ?? null) === $key)>
-                                    {{ $label }}
-                                </label>
-                            @endforeach
-                        </div>
-                        @error('recognition')<p class="ap-field-error">{{ $message }}</p>@enderror
-
-                        {{-- One file input per recognition; the hidden one is disabled, so only one is sent. --}}
-                        @php $recOnFile = $held['recognition_cert'] ?? null; @endphp
-                        @foreach(\App\Support\CompanyCredentials::RECOGNISED as $key)
-                            @php $kept = ! empty($recOnFile['path']) && ($held['recognition'] ?? null) === $key; @endphp
-                            <div class="pf-cert" data-if="recognition:{{ $key }}">
-                                <div class="ap-field mb-0">
-                                    <label class="ap-label" for="recognition_file_{{ $key }}">Proof of recognition <span class="ap-muted">(PDF, JPG or PNG, 5 MB)</span></label>
-                                    <input type="file" id="recognition_file_{{ $key }}" name="recognition_file" accept=".pdf,.jpg,.jpeg,.png" @unless($kept) data-required @endunless>
-                                    @if($kept)
-                                        <p class="ap-field-hint">On file: {{ $recOnFile['original'] }}. Leave empty to keep it.</p>
-                                    @endif
-                                    @error('recognition_file')<p class="ap-field-error">{{ $message }}</p>@enderror
-                                </div>
-                            </div>
-                        @endforeach
-                    </fieldset>
-
-                    {{-- Each certificate: a yes/no (or standard/none), then its
-                         number, dates and file while the answer is yes. --}}
-                    @php
-                        $certs = [['classification', 'Kraftangan Malaysia classification certificate (Standard 1:2022)', ['yes' => 'Yes, I hold one', 'no' => 'No']]];
-                        if ($standard) {
-                            $certs[] = ['quality', 'Quality compliance', [$standard => \App\Models\Company::QUALITY_STANDARDS[$standard], 'none' => 'Not applicable']];
-                        }
-                    @endphp
-                    @foreach($certs as [$field, $question, $choices])
-                        @php $onFile = $held[$field.'_cert'] ?? null; @endphp
-                        <fieldset class="ap-field">
-                            <legend class="ap-label">{{ $question }}</legend>
-                            <div class="pf-choices">
-                                @foreach($choices as $key => $label)
-                                    <label class="pf-choice">
-                                        <input type="radio" name="{{ $field }}" value="{{ $key }}" required @checked(old($field, $held[$field] ?? null) === $key)>
-                                        {{ $label }}
-                                    </label>
-                                @endforeach
-                            </div>
-                            @error($field)<p class="ap-field-error">{{ $message }}</p>@enderror
-
-                            <div class="pf-cert" data-if="{{ $field }}:{{ array_key_first($choices) }}">
-                                <div class="ap-field">
-                                    <label class="ap-label" for="{{ $field }}_number">Certificate number</label>
-                                    <input class="ap-input" id="{{ $field }}_number" name="{{ $field }}_number" maxlength="100" data-required
-                                           value="{{ old($field.'_number', $onFile['number'] ?? '') }}">
-                                    @error($field.'_number')<p class="ap-field-error">{{ $message }}</p>@enderror
-                                </div>
-                                <div class="pf-grid">
-                                    <div class="ap-field">
-                                        <label class="ap-label" for="{{ $field }}_start">Valid from</label>
-                                        <input class="ap-input" type="date" id="{{ $field }}_start" name="{{ $field }}_start" data-required
-                                               value="{{ old($field.'_start', $onFile['start'] ?? '') }}">
-                                        @error($field.'_start')<p class="ap-field-error">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div class="ap-field">
-                                        <label class="ap-label" for="{{ $field }}_end">Valid until</label>
-                                        <input class="ap-input" type="date" id="{{ $field }}_end" name="{{ $field }}_end" min="{{ now()->toDateString() }}" data-required
-                                               value="{{ old($field.'_end', $onFile['end'] ?? '') }}">
-                                        @error($field.'_end')<p class="ap-field-error">{{ $message }}</p>@enderror
-                                    </div>
-                                </div>
-                                <div class="ap-field mb-0">
-                                    <label class="ap-label" for="{{ $field }}_file">Certificate file <span class="ap-muted">(PDF, JPG or PNG, 5 MB)</span></label>
-                                    <input type="file" id="{{ $field }}_file" name="{{ $field }}_file" accept=".pdf,.jpg,.jpeg,.png" @if(empty($onFile['path'])) data-required @endif>
-                                    @if(! empty($onFile['path']))
-                                        <p class="ap-field-hint">On file: {{ $onFile['original'] }}. Leave empty to keep it; a renewed certificate needs its new file.</p>
-                                    @endif
-                                    @error($field.'_file')<p class="ap-field-error">{{ $message }}</p>@enderror
-                                </div>
-                            </div>
-                        </fieldset>
-                    @endforeach
-
-                    <button type="submit" class="ap-btn ap-btn-primary">Save details</button>
-                </section>
-            </form>
-            </div>
-
             <section class="ap-card ap-card-padded" id="crafts" style="scroll-margin-top: 80px">
                 <h2 class="ap-section-title">What you make</h2>
                 <p class="ap-side-note">Your craft categories, with the classifications and products you sell. The first one added is your main craft.</p>
@@ -350,6 +254,104 @@
                     <button type="submit" class="ap-btn ap-btn-secondary">Add craft</button>
                 </form>
             </section>
+
+            <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" data-inline-errors>
+                @csrf
+                @method('PUT')
+
+                <section class="ap-card ap-card-padded">
+                    <h2 class="ap-section-title">Recognition and certificates</h2>
+
+                    <fieldset class="ap-field">
+                        <legend class="ap-label">Recognition you have received</legend>
+                        <div class="pf-choices">
+                            @foreach(\App\Models\Company::RECOGNITIONS as $key => $label)
+                                <label class="pf-choice">
+                                    <input type="radio" name="recognition" value="{{ $key }}" required @checked(old('recognition', $held['recognition'] ?? null) === $key)>
+                                    {{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('recognition')<p class="ap-field-error">{{ $message }}</p>@enderror
+
+                        {{-- One file input per recognition; the hidden one is disabled, so only one is sent. --}}
+                        @php $recOnFile = $held['recognition_cert'] ?? null; @endphp
+                        @foreach(\App\Support\CompanyCredentials::RECOGNISED as $key)
+                            @php $kept = ! empty($recOnFile['path']) && ($held['recognition'] ?? null) === $key; @endphp
+                            <div class="pf-cert" data-if="recognition:{{ $key }}">
+                                <div class="ap-field mb-0">
+                                    <label class="ap-label" for="recognition_file_{{ $key }}">Proof of recognition <span class="ap-muted">(PDF, JPG or PNG, 5 MB)</span></label>
+                                    <input type="file" id="recognition_file_{{ $key }}" name="recognition_file" accept=".pdf,.jpg,.jpeg,.png" @unless($kept) data-required @endunless>
+                                    @if($kept)
+                                        <p class="ap-field-hint">On file: {{ $recOnFile['original'] }}. Leave empty to keep it.</p>
+                                    @endif
+                                    @error('recognition_file')<p class="ap-field-error">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        @endforeach
+                    </fieldset>
+
+                    {{-- Each certificate: a yes/no (or standard/none), then its
+                         number, dates and file while the answer is yes. --}}
+                    @php
+                        $certs = [['classification', 'Kraftangan Malaysia classification certificate (Standard 1:2022)', ['yes' => 'Yes, I hold one', 'no' => 'No']]];
+                        // Asked only of TEKSTIL › Batik, Songket or Tenunan, from What you make.
+                        if ($standards) {
+                            $certs[] = ['quality', 'Quality compliance', array_intersect_key(\App\Models\Company::QUALITY_STANDARDS, array_flip($standards)) + ['none' => 'Not applicable']];
+                        }
+                    @endphp
+                    @foreach($certs as [$field, $question, $choices])
+                        {{-- A quality certificate prefills only under the standard it was given for. --}}
+                        @php $onFile = $field !== 'quality' || isset($choices[$held['quality'] ?? '']) ? ($held[$field.'_cert'] ?? null) : null; @endphp
+                        <fieldset class="ap-field">
+                            <legend class="ap-label">{{ $question }}</legend>
+                            <div class="pf-choices">
+                                @foreach($choices as $key => $label)
+                                    <label class="pf-choice">
+                                        <input type="radio" name="{{ $field }}" value="{{ $key }}" required @checked(old($field, $held[$field] ?? null) === $key)>
+                                        {{ $label }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error($field)<p class="ap-field-error">{{ $message }}</p>@enderror
+
+                            <div class="pf-cert" data-if="{{ $field }}:{{ implode('|', array_diff(array_keys($choices), ['no', 'none'])) }}">
+                                <div class="ap-field">
+                                    <label class="ap-label" for="{{ $field }}_number">Certificate number</label>
+                                    <input class="ap-input" id="{{ $field }}_number" name="{{ $field }}_number" maxlength="100" data-required
+                                           value="{{ old($field.'_number', $onFile['number'] ?? '') }}">
+                                    @error($field.'_number')<p class="ap-field-error">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="pf-grid">
+                                    <div class="ap-field">
+                                        <label class="ap-label" for="{{ $field }}_start">Valid from</label>
+                                        <input class="ap-input" type="date" id="{{ $field }}_start" name="{{ $field }}_start" data-required
+                                               value="{{ old($field.'_start', $onFile['start'] ?? '') }}">
+                                        @error($field.'_start')<p class="ap-field-error">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="ap-field">
+                                        <label class="ap-label" for="{{ $field }}_end">Valid until</label>
+                                        <input class="ap-input" type="date" id="{{ $field }}_end" name="{{ $field }}_end" min="{{ now()->toDateString() }}" data-required
+                                               value="{{ old($field.'_end', $onFile['end'] ?? '') }}">
+                                        @error($field.'_end')<p class="ap-field-error">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                                <div class="ap-field mb-0">
+                                    <label class="ap-label" for="{{ $field }}_file">Certificate file <span class="ap-muted">(PDF, JPG or PNG, 5 MB)</span></label>
+                                    <input type="file" id="{{ $field }}_file" name="{{ $field }}_file" accept=".pdf,.jpg,.jpeg,.png" @if(empty($onFile['path'])) data-required @endif>
+                                    @if(! empty($onFile['path']))
+                                        <p class="ap-field-hint">On file: {{ $onFile['original'] }}. Leave empty to keep it; a renewed certificate needs its new file.</p>
+                                    @endif
+                                    @error($field.'_file')<p class="ap-field-error">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </fieldset>
+                    @endforeach
+
+                    <button type="submit" class="ap-btn ap-btn-primary">Save details</button>
+                </section>
+            </form>
+            </div>
         @endif
     </div>
 </div>
@@ -367,7 +369,7 @@
             form.querySelectorAll('[data-if]').forEach(function (block) {
                 var rule = block.dataset.if.split(':');
                 var picked = form.querySelector('input[name="' + rule[0] + '"]:checked');
-                var on = !! picked && picked.value === rule[1];
+                var on = !! picked && rule[1].split('|').indexOf(picked.value) !== -1;
                 block.hidden = ! on;
                 block.querySelectorAll('input').forEach(function (input) {
                     input.disabled = ! on;

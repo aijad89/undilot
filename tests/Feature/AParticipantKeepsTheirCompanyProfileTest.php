@@ -176,12 +176,18 @@ it('keeps the certificate file while it is the same certificate, and wants a new
     expect($company->fresh()->credentials['classification_cert'])->toBeNull();
 });
 
-it('asks the quality question of Batik, Songket and Tenun only, offering their own standard', function () {
-    KrafBidang::factory()->code('TTN')->create(['pecahan_bidang' => 'TENUN']);
-    KrafBidang::factory()->code('TTH')->create(['pecahan_bidang' => 'TEKATAN']);
+it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or Tenunan only', function () {
+    $tekstil = KrafBidang::factory()->create(['name' => 'TEKSTIL']);
+    $sub = fn (string $name) => KrafSubBidang::factory()->create(['bidang_id' => $tekstil->id, 'name' => $name]);
+    [$batik, $tenunan, $tekatan] = [$sub('Batik'), $sub('Tenunan'), $sub('Tekatan')];
+    $makes = fn (Company $c, KrafSubBidang $s, bool $main = true) => CompanyKraf::create(['company_id' => $c->id, 'bidang_id' => $tekstil->id, 'sub_bidang_id' => $s->id, 'is_primary' => $main]);
 
+    // Nothing picked yet, whatever the office's craft code: not asked.
     $tenun = Company::factory()->create(['kraf_code' => 'TTN']);
     $this->actingAs($tenun->user, 'web');
+    $this->get(route('profile'))->assertDontSee('Quality compliance');
+
+    $makes($tenun, $tenunan);
     $this->get(route('profile'))
         ->assertSee('Quality compliance')
         ->assertSee('Songket / Tenunan Standard entrepreneur')
@@ -194,9 +200,31 @@ it('asks the quality question of Batik, Songket and Tenun only, offering their o
         ->assertSessionHasNoErrors();
     expect($tenun->fresh()->credentials['quality_cert']['number'])->toBe('SPK-9');
 
+    // Batik as a second craft: not the main one, so its standard is not offered.
+    $second = $makes($tenun, $batik, false);
+    $this->get(route('profile'))->assertDontSee('Batik Standard entrepreneur');
+    $this->put(route('profile.update'), profileForm(['quality' => 'batik'] + profileCert('quality', 'SPB-1')))->assertSessionHasErrors('quality');
+
+    // Made the main craft: now Batik is the one asked.
+    \App\Support\KrafSelections::makePrimary($tenun, $second);
+    $this->get(route('profile'))->assertSee('Batik Standard entrepreneur')->assertDontSee('Songket / Tenunan Standard entrepreneur')
+        ->assertDontSee('value="SPK-9"', false);
+
+    // The Songket / Tenunan answer stays on record, now counted as missing...
+    $kept = $tenun->fresh()->credentials;
+    expect($kept['quality'])->toBe('songket_tenun')->and($kept['quality_cert']['number'])->toBe('SPK-9')
+        ->and(\App\Support\CompanyCredentials::missing($tenun->fresh()))->toContain('quality compliance');
+    // ...and its certificate is no Batik one, even sent back with the same number and dates.
+    $this->put(route('profile.update'), profileForm(['quality' => 'batik'] + profileCert('quality', 'SPK-9', file: false)))
+        ->assertSessionHasErrors('quality_file');
+
+    $this->put(route('profile.update'), profileForm(['quality' => 'batik'] + profileCert('quality', 'SPB-1')))->assertSessionHasNoErrors();
+    expect($tenun->fresh()->credentials['quality_cert']['path'])->not->toBe($kept['quality_cert']['path']);
+
     // Tekatan has no standard: not asked, and not missing.
     auth()->forgetGuards();
     $tekat = Company::factory()->create(['kraf_code' => 'TTH']);
+    $makes($tekat, $tekatan);
     $this->actingAs($tekat->user, 'web');
     $this->get(route('profile'))->assertDontSee('Quality compliance');
     $this->put(route('profile.contact'), profileForm())->assertSessionHasNoErrors();

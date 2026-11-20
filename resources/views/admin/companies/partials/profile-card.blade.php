@@ -9,7 +9,7 @@
 @php
     $held = $company->credentials ?? [];
     $missing = \App\Support\CompanyCredentials::missing($company);
-    $standard = $company->qualityStandard();
+    $standards = $company->qualityStandards();
     $date = fn (?string $d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '—';
     $file = fn (string $key) => ! empty($held["{$key}_cert"]['path'])
         ? '<a href="'.e(route('companies.certificate', [$company, $key])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($held["{$key}_cert"]['original'] ?? 'File').'</a>'
@@ -71,11 +71,11 @@
                 {{ ($held['classification'] ?? null) === 'no' ? 'None' : '—' }}
             @endif
         </dd>
-        @if($standard)
+        @if($standards)
             <dt>Quality compliance</dt>
             <dd>
-                @if(($held['quality'] ?? null) === $standard)
-                    {{ \App\Models\Company::QUALITY_STANDARDS[$standard] }} · {{ $held['quality_cert']['number'] ?? '—' }} · {{ $date($held['quality_cert']['start'] ?? null) }} – {{ $date($held['quality_cert']['end'] ?? null) }} · {!! $file('quality') !!}
+                @if(in_array($held['quality'] ?? null, $standards, true))
+                    {{ \App\Models\Company::QUALITY_STANDARDS[$held['quality']] }} · {{ $held['quality_cert']['number'] ?? '—' }} · {{ $date($held['quality_cert']['start'] ?? null) }} – {{ $date($held['quality_cert']['end'] ?? null) }} · {!! $file('quality') !!}
                 @else
                     {{ ($held['quality'] ?? null) === 'none' ? 'Not applicable' : '—' }}
                 @endif

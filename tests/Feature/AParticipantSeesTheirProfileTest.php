@@ -64,9 +64,9 @@ it('shows the community ID they sign in with', function () {
         ->assertDontSee('<dt>Email</dt>', false);
 });
 
-it('stacks its cards down one column: account, contact, certificates, crafts', function () {
+it('stacks its cards down one column: account, general information, crafts, certificates', function () {
     $this->actingAs(profileOwner()->user, 'web')->get(route('profile'))->assertOk()
-        ->assertSeeInOrder(['class="ap-profile-stack"', 'Your account', 'General information', 'Recognition and certificates', 'What you make'], false)
+        ->assertSeeInOrder(['class="ap-profile-stack"', 'Your account', 'General information', 'What you make', 'Recognition and certificates'], false)
         // The two side-by-side columns are gone, not just restyled.
         ->assertDontSee('class="ap-dash-side"', false)
         ->assertDontSee('ap-dash-grid ap-profile-grid', false);

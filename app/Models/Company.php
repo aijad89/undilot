@@ -66,7 +66,8 @@ class Company extends Model
         'songket_tenun' => 'Songket / Tenunan Standard entrepreneur',
     ];
 
-    private const QUALITY_CRAFTS = ['BATIK' => 'batik', 'SONGKET' => 'songket_tenun', 'TENUN' => 'songket_tenun'];
+    /** TEKSTIL sub-categories that have a quality standard. */
+    private const QUALITY_CRAFTS = ['BATIK' => 'batik', 'SONGKET' => 'songket_tenun', 'TENUN' => 'songket_tenun', 'TENUNAN' => 'songket_tenun'];
 
     /**
      * The answers to fill the join form with: what the company last sent, with
@@ -83,18 +84,22 @@ class Company extends Model
     }
 
     /**
-     * The quality standard this company's craft is held to, or null when it has
-     * none (Tekatan and every non-textile craft). Read from the craft code the
-     * office set, through the coding sheet's own pecahan_bidang — the participant
-     * is never asked what they make.
+     * The quality standard this company may hold, from its MAIN craft in What
+     * you make (owner, 2026-11-20): TEKSTIL › Batik gives the Batik standard,
+     * TEKSTIL › Songket or Tenunan the Songket / Tenunan one. Empty for every
+     * other main craft — the question is not asked. Not the office's craft
+     * code, so the participant sees the question as soon as they add the craft.
+     *
+     * @return array<int, string> keys of QUALITY_STANDARDS, in its order
      */
-    public function qualityStandard(): ?string
+    public function qualityStandards(): array
     {
-        $craft = $this->kraf_code
-            ? KrafBidang::codes()->where('code', $this->kraf_code)->value('pecahan_bidang')
-            : null;
+        $found = $this->krafSelections()->where('is_primary', true)->with('bidang', 'subBidang')->get()
+            ->filter(fn ($s) => strtoupper(trim((string) $s->bidang?->name)) === 'TEKSTIL')
+            ->map(fn ($s) => self::QUALITY_CRAFTS[strtoupper(trim((string) $s->subBidang?->name))] ?? null)
+            ->filter()->unique()->all();
 
-        return self::QUALITY_CRAFTS[strtoupper(trim((string) $craft))] ?? null;
+        return array_values(array_intersect(array_keys(self::QUALITY_STANDARDS), $found));
     }
 
     public function user()

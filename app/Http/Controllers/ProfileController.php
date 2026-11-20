@@ -31,7 +31,7 @@ class ProfileController extends Controller
             'user' => $user,
             'company' => $company,
             'held' => $company?->credentials ?? [],
-            'standard' => $company?->qualityStandard(),
+            'standards' => $company?->qualityStandards() ?? [],
             'missing' => $company ? CompanyCredentials::missing($company) : [],
             'picker' => $company ? KrafPicker::data($company) : null,
         ]);

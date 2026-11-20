@@ -485,7 +485,7 @@ Keputusan pemilik 2026-11-19: borang penyertaan MICF diisi **sekali** di
 - hubungan syarikat — lajur `companies.workshop_address`, `office_phone`,
   `fax`, `facebook`, `instagram`, `website` (`Company::CONTACT_FIELDS`);
 - pengiktirafan (Adiguru/Tokoh wajib fail bukti, `recognition_cert`), sijil
-  klasifikasi, sijil kualiti (Batik/Songket/Tenun sahaja) dan **senarai
+  klasifikasi, sijil kualiti (hanya bila kraf **utama** dalam *What you make* ialah TEKSTIL › Batik, Songket atau Tenunan — `Company::qualityStandards()`, bukan kod kraf pejabat; keputusan pemilik 2026-11-20, kad itu kini sebelum *Recognition and certificates*) dan **senarai
   kakitangan untuk dihubungi** (`staff`: nama + telefon, sekurang-kurangnya
   satu; pemilik menambah kakitangannya, baris kosong dibuang — keputusan
   pemilik 2026-11-20; disimpan dengan kad General information melalui
