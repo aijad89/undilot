@@ -7,7 +7,7 @@ use App\Models\CompanyKraf;
 use App\Models\KrafSubBidang;
 use App\Models\User;
 use App\Support\AdminZones;
-use App\Support\EntrepreneurCategories;
+use App\Support\BusinessTypes;
 use Illuminate\Support\Str;
 
 /**
@@ -87,7 +87,7 @@ class DemoUserSeeder extends LocalOnlySeeder
             $company = Company::firstOrCreate(['user_id' => $user->id], [
                 'name' => $name,
                 'state' => $zone,
-                'entrepreneur_category' => EntrepreneurCategories::DEFAULTS[1],
+                'business_type' => BusinessTypes::DEFAULTS[1],
                 'is_active' => true,
             ]);
             $company->kraf_code = $code; // not fillable: admin only

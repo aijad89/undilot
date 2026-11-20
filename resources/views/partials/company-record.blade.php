@@ -17,6 +17,10 @@
     <h2 class="ap-section-title">Your company on record</h2>
     @if($held)
         <dl class="ap-facts">
+            <dt>Entrepreneur category</dt>
+            <dd>{{ $held['entrepreneur_category'] ?? '—' }}</dd>
+            <dt>OKU status</dt>
+            <dd>{{ \App\Support\CompanyCredentials::OKU[$held['oku'] ?? ''] ?? '—' }}@if(! empty($held['oku_cert']['number'])), card {{ $held['oku_cert']['number'] }}@endif</dd>
             <dt>Staff to contact</dt>
             <dd>{{ \App\Support\CompanyCredentials::staffLine($held) }}</dd>
             <dt>Recognition</dt>

@@ -31,7 +31,7 @@ class CompanyFactory extends Factory
             'name' => fake()->company(),
             'registration_no' => null,
             'state' => 'Johor',
-            'entrepreneur_category' => 'Pengeluar atau Pedagang',
+            'business_type' => 'Pengeluar atau Pedagang',
             'kraf_code' => null,
             'plot_size' => null,
             'credentials' => null,
@@ -51,6 +51,7 @@ class CompanyFactory extends Factory
         return $this->state(fn () => ['credentials' => [
             'recognition' => 'none', 'classification' => 'no', 'classification_cert' => null,
             'quality' => null, 'quality_cert' => null,
+            'entrepreneur_category' => 'Mikro, Kecil & Sederhana (MKS)', 'oku' => 'no',
             'staff' => [['name' => 'Siti Aminah', 'phone' => '012-345 6789']], 'product_images' => [],
         ]]);
     }

@@ -39,6 +39,14 @@ test('a participant fills in the profile first, then walks the join steps and se
     await page.getByRole('link', { name: 'Go to my profile' }).click();
 
     const profile = page.locator('[data-profile-form]');
+    // Saved empty: every missing answer says so under itself, and nothing is sent.
+    await page.getByRole('button', { name: 'Save information' }).click();
+    await expect(profile.locator('[data-client-error="entrepreneur_category"]')).toHaveText('Choose one.');
+    await expect(profile.locator('[data-client-error="oku"]')).toHaveText('Choose one.');
+    await expect(profile.locator('[data-client-error="staff[0][phone]"]')).toHaveText('Fill in this field.');
+    await expect(page).toHaveURL(/\/profile$/);
+    await profile.getByLabel('Entrepreneur category').selectOption('Mikro, Kecil & Sederhana (MKS)');
+    await profile.getByLabel('No', { exact: true }).first().check();
     await profile.getByLabel('Staff name', { exact: true }).fill('Siti Aminah');
     await profile.getByLabel('Mobile', { exact: true }).fill('012-345 6789');
     // More staff: a new empty row; one removed is not sent.

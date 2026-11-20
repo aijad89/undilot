@@ -470,6 +470,18 @@ Keputusan pemilik 2026-11-19: borang penyertaan MICF diisi **sekali** di
 `/profile`, dan setiap permohonan sertai bermula daripadanya. Profil
 (`ProfileController`) menyunting:
 
+- **kategori usahawan** ("Sila pilih salah satu kategori anda" borang MICF) —
+  `credentials.entrepreneur_category`, wajib, salah satu
+  `CompanyCredentials::ENTREPRENEUR_CATEGORIES` (enam pilihan borang Google).
+  Pejabat boleh membetulkannya di borang syarikat admin. **Bukan** jenis
+  perniagaan (`business_type`), yang milik pejabat;
+- **status OKU** — `credentials.oku` (`yes`/`no`); bila `yes`, nombor kad dan
+  salinan kad (`oku_cert`, fail sama seperti sijil — hilang bila jawapan jadi
+  `no`; tanpa salinan, `missing()` menyekat permohonan). Pejabat juga boleh
+  menetapkannya di borang syarikat admin (`okuRules`/`okuCert`, dikongsi; bagi
+  pejabat ia boleh dibiarkan tidak dijawab). Wajib bila kad General
+  information disimpan, tetapi tidak menyekat permohonan (syarikat lama belum
+  menjawabnya);
 - hubungan syarikat — lajur `companies.workshop_address`, `office_phone`,
   `fax`, `facebook`, `instagram`, `website` (`Company::CONTACT_FIELDS`);
 - pengiktirafan (Adiguru/Tokoh wajib fail bukti, `recognition_cert`), sijil
@@ -592,13 +604,25 @@ bersambung (`TBPS01`–`02` di Dewan A, `TBPS03`–`04` di Dewan B), atau dua ge
 memegang `TBPS01`. `doGeneratePlots()` dan `PlotPainterController::renumber()`
 kedua-duanya mengunci pada kod sahaja; jangan tambah lokasi semula pada kunci.
 
-### Kategori usahawan: dua nilai sahaja
+### Jenis perniagaan (`business_type`): dua nilai sahaja
 
-`EntrepreneurCategories::DEFAULTS` = `Pengeluar atau Pedagang`, `Pemborong`
+**Dua medan, dua soalan** (keputusan pemilik 2026-11-20). *Kategori usahawan*
+ialah pilihan MICF peserta, dalam profil (lihat di atas). *Jenis perniagaan*
+ialah medan pejabat ini — dahulu bernama `entrepreneur_category` /
+`EntrepreneurCategories`, dinamakan semula bila kedua-duanya muncul di halaman
+admin dengan label yang sama dan nilai berbeza.
+
+`BusinessTypes::DEFAULTS` = `Pengeluar atau Pedagang`, `Pemborong`
 (keputusan pemilik 2026-11-17). Senarai lama (ODOI, MSM, agensi kerajaan, NGO…)
 dan peraturan `isExternalEntity()` yang membacanya dibuang — tiada pemanggil.
 Ia `ManagedList`: baris `settings` yang tersimpan menang atas lalai, jadi
 pelayan yang sudah menyimpan senarai lama perlu dikemas kini di Settings.
+
+**Pejabat sahaja** menetapkannya, di borang syarikat admin — peserta tidak
+melihat atau menyuntingnya di profil atau borang sertai (keputusan pemilik
+2026-11-20). Nilai lama yang tiada dalam senarai (import: `Pentahapan 2 (…)`)
+**kekal** — dropdown menawarkannya, dan `ManagedList::rule($keep)` menerima nilai semasa rekod itu
+sahaja. Tanpanya dropdown memilih *None* dan simpanan memadamnya senyap.
 
 ### Status bayaran ialah pilihan, catatan bayaran ialah teks
 
@@ -666,9 +690,9 @@ daripada baris sebenar:
 |---|---|---|
 | `bidang` | **kategori** kraf | `Tekstil`, `Hasil Rimba`, `Hasil Tanah`, `Aneka Kraf` |
 | `crafttype` | **kod** kraf + saiz plot | `Batik-TBA-3x3`, `Buluh/Rotan-RBH-3x3` |
-| `category` | **bukan kraf** — kategori usahawan | `Pentahapan 2 (Pengilang/Pedagang,Pengeluar,Agensi)` |
+| `category` | **bukan kraf** — jenis perniagaan | `Pentahapan 2 (Pengilang/Pedagang,Pengeluar,Agensi)` |
 
-Jadi lajur bernama `category` pergi ke `companies.entrepreneur_category`, bukan
+Jadi lajur bernama `category` pergi ke `companies.business_type`, bukan
 ke mana-mana senarai kraf. `bidang` ke kategori (`code` NULL), `crafttype` ke kod
 (`code` berisi).
 

@@ -19,6 +19,15 @@ class User extends Authenticatable
 
     protected array $auditExclude = ['password', 'remember_token'];
 
+    /**
+     * The salutations the company form offers. Not enforced: an imported value
+     * outside the list is kept, and the form offers it as its own option.
+     */
+    public const SALUTATIONS = [
+        'Encik', 'Puan', 'Cik', 'Tuan', 'Haji', 'Hajah', 'Dr.',
+        'Dato\'', 'Datin', 'Datuk', 'Dato\' Sri', 'Datin Sri', 'Tan Sri', 'Puan Sri',
+    ];
+
     /** @var list<string> */
     protected $fillable = [
         'name',

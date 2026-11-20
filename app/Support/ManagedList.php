@@ -130,9 +130,13 @@ abstract class ManagedList
      * takes effect immediately. Previously the list lived in the Blade select
      * *and* in the controller's `in:` rule, so a new option was offered by the
      * form and then rejected on submit.
+     *
+     * $keep is the record's current value: one from old data that is not on the
+     * list still saves unchanged, so the form can offer it without the record
+     * becoming unsaveable.
      */
-    public static function rule(): \Illuminate\Validation\Rules\In
+    public static function rule(?string $keep = null): \Illuminate\Validation\Rules\In
     {
-        return \Illuminate\Validation\Rule::in(static::all());
+        return \Illuminate\Validation\Rule::in(array_values(array_filter([...static::all(), $keep])));
     }
 }

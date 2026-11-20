@@ -159,7 +159,7 @@ class JoinRequestController extends Controller
 
         // The certificates and photos sit with the other files, so the office
         // opens them from the same list. A draft holds its payment files only.
-        foreach (['recognition_cert' => 'Recognition', 'classification_cert' => 'Classification certificate', 'quality_cert' => 'Quality compliance certificate'] as $key => $name) {
+        foreach (['oku_cert' => 'OKU card', 'recognition_cert' => 'Recognition', 'classification_cert' => 'Classification certificate', 'quality_cert' => 'Quality compliance certificate'] as $key => $name) {
             if (! $isDraft && ! empty($answers[$key]['path'])) {
                 $documents[] = ['name' => $name, 'path' => $answers[$key]['path'], 'original' => $answers[$key]['original']];
             }

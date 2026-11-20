@@ -42,16 +42,85 @@
         </div>
 
         <div class="col-md-6">
-            <label class="mac-label" for="entrepreneur_category">Entrepreneur category</label>
-            <select id="entrepreneur_category" name="entrepreneur_category" class="mac-select">
+            <label class="mac-label" for="business_type">Business type</label>
+            <select id="business_type" name="business_type" class="mac-select">
                 <option value="">— None —</option>
-                @foreach(\App\Support\EntrepreneurCategories::all() as $category)
-                    <option value="{{ $category }}" @selected($value('entrepreneur_category') === $category)>
+                {{-- A value from the old data not on the list stays selectable. --}}
+                @foreach(array_unique(array_filter([...\App\Support\BusinessTypes::all(), $company->business_type])) as $category)
+                    <option value="{{ $category }}" @selected($value('business_type') === $category)>
                         {{ $category }}
                     </option>
                 @endforeach
             </select>
         </div>
+
+        <div class="col-md-6">
+            {{-- The participant's own answer on the profile; the office may correct it. --}}
+            <label class="mac-label" for="entrepreneur_category">Entrepreneur category</label>
+            @php $entrepreneur = old('entrepreneur_category', $company->credentials['entrepreneur_category'] ?? null); @endphp
+            <select id="entrepreneur_category" name="entrepreneur_category" class="mac-select">
+                <option value="">— Not chosen —</option>
+                @foreach(\App\Support\CompanyCredentials::ENTREPRENEUR_CATEGORIES as $category)
+                    <option value="{{ $category }}" @selected($entrepreneur === $category)>{{ $category }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        @if($editing)
+            {{-- The participant's own answer on the profile; the office may correct it.
+                 Edit only: the card file needs the company's folder. --}}
+            @php
+                $oku = old('oku', $company->credentials['oku'] ?? null);
+                $okuCard = $company->credentials['oku_cert'] ?? null;
+            @endphp
+            <div class="col-md-6">
+                <span class="mac-label d-block">OKU status</span>
+                <div class="d-flex gap-3 mt-1" data-choices>
+                    <label class="mac-text-sm"><input type="radio" name="oku" value="" @checked(! $oku)> Not answered</label>
+                    @foreach(\App\Support\CompanyCredentials::OKU as $key => $label)
+                        <label class="mac-text-sm"><input type="radio" name="oku" value="{{ $key }}" @checked($oku === $key)> {{ $label }}</label>
+                    @endforeach
+                </div>
+                @error('oku')<small class="text-danger d-block">{{ $message }}</small>@enderror
+            </div>
+
+            <div class="col-12" data-oku-card @unless($oku === 'yes') hidden @endunless>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="mac-label" for="oku_number">OKU card number</label>
+                        <input type="text" id="oku_number" name="oku_number" class="mac-form-control" maxlength="50"
+                               value="{{ old('oku_number', $okuCard['number'] ?? '') }}">
+                        @error('oku_number')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                    </div>
+                    <div class="col-md-6">
+                        <label class="mac-label" for="oku_file">OKU card <span class="mac-muted">(PDF, JPG or PNG, 5 MB)</span></label>
+                        <input type="file" id="oku_file" name="oku_file" class="mac-form-control" accept=".pdf,.jpg,.jpeg,.png">
+                        @if(! empty($okuCard['path']))
+                            <small class="mac-muted d-block">
+                                On file: <a href="{{ route('companies.certificate', [$company, 'oku']) }}" target="_blank" rel="noopener">{{ $okuCard['original'] }}</a>.
+                                Leave empty to keep it; a new card number needs a new copy.
+                            </small>
+                        @endif
+                        @error('oku_file')<small class="text-danger d-block">{{ $message }}</small>@enderror
+                    </div>
+                </div>
+            </div>
+            <script>
+                // The card's fields show, and are needed, only while the answer is yes.
+                (function () {
+                    var card = document.querySelector('[data-oku-card]');
+                    var hasCopy = @json(! empty($okuCard['path']));
+                    function sync() {
+                        var yes = (document.querySelector('input[name="oku"]:checked') || {}).value === 'yes';
+                        card.hidden = ! yes;
+                        document.getElementById('oku_number').required = yes;
+                        document.getElementById('oku_file').required = yes && ! hasCopy;
+                    }
+                    document.querySelectorAll('input[name="oku"]').forEach(function (r) { r.addEventListener('change', sync); });
+                    sync();
+                })();
+            </script>
+        @endif
 
         <div class="col-md-6">
             <label class="mac-label" for="registration_no">Registration no. <span class="mac-muted">(optional)</span></label>
@@ -81,8 +150,15 @@
     <div class="row g-3">
         <div class="col-md-2">
             <label class="mac-label" for="salutation">Salutation</label>
-            <input type="text" id="salutation" name="salutation" class="mac-form-control"
-                   value="{{ $owner('salutation', 'salutation') }}" maxlength="50" placeholder="Puan">
+            @php $salutation = $owner('salutation', 'salutation'); @endphp
+            <select id="salutation" name="salutation" class="mac-select">
+                <option value="">—</option>
+                {{-- A value from the old data not on the list stays selectable,
+                     or saving would quietly change it. --}}
+                @foreach(array_unique(array_filter([...\App\Models\User::SALUTATIONS, $salutation])) as $option)
+                    <option value="{{ $option }}" @selected($salutation === $option)>{{ $option }}</option>
+                @endforeach
+            </select>
         </div>
 
         <div class="col-md-6">
@@ -170,3 +246,5 @@
     <button type="submit" class="mac-btn-primary">Save</button>
     <a href="{{ route('admin.companies.index') }}" class="mac-btn-secondary">Cancel</a>
 </div>
+
+@include('partials.inline-errors', ['class' => 'text-danger small d-block mt-1'])

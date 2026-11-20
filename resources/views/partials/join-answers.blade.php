@@ -1,5 +1,7 @@
 {{-- A join request's answers as the company gave them: read by the office
      and by the participant, so one wording serves both. --}}
+<div>Entrepreneur category: {{ $a['entrepreneur_category'] ?? '—' }}</div>
+<div>OKU status: {{ \App\Support\CompanyCredentials::OKU[$a['oku'] ?? ''] ?? '—' }}@if(! empty($a['oku_cert']['number'])), card {{ $a['oku_cert']['number'] }}@endif</div>
 <div>Staff to contact: {{ \App\Support\CompanyCredentials::staffLine($a) }}</div>
 <div>Recognition: {{ \App\Models\Company::RECOGNITIONS[$a['recognition'] ?? ''] ?? '—' }}</div>
 <div>Classification certificate:

@@ -270,7 +270,7 @@ it('sends a participant whose profile is not complete to fill it in first', func
 
     // Refused on the far side too, with nothing kept.
     $this->post(route('events.join', $event), payment())
-        ->assertSessionHas('error', 'Complete your profile first: recognition, classification certificate, staff to contact.');
+        ->assertSessionHas('error', 'Complete your profile first: entrepreneur category, recognition, classification certificate, staff to contact.');
     expect(EventJoinRequest::count())->toBe(0);
 
     // An expired certificate on the profile counts as missing.

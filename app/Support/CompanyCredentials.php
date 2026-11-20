@@ -22,6 +22,19 @@ final class CompanyCredentials
     /** Allowed per file: PDF or an image, 5 MB. */
     public const FILE_RULE = ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'];
 
+    /** The MICF form's "Sila pilih salah satu kategori anda": the participant picks one. */
+    public const ENTREPRENEUR_CATEGORIES = [
+        'Satu Daerah Satu Industri - Produk Kraf',
+        'Mikro, Kecil & Sederhana (MKS)',
+        'Skim Pengeluaran Inkubator Kraf',
+        'Agensi Kerajaan (*Pendaftaran atas nama agensi luar)',
+        'Badan Bukan Kerajaan (NGO)',
+        'Agensi Swasta',
+    ];
+
+    /** OKU (orang kurang upaya): is the owner a person with disabilities? */
+    public const OKU = ['yes' => 'Yes, OKU', 'no' => 'No'];
+
     /** The recognitions that need proof on file. */
     public const RECOGNISED = ['adiguru', 'tokoh'];
 
@@ -34,6 +47,10 @@ final class CompanyCredentials
         'recognition_file.required' => 'Upload proof of the recognition.',
         'classification_file.required' => 'Upload the certificate.',
         'quality_file.required' => 'Upload the certificate.',
+        'oku.required' => 'Say whether you are OKU.',
+        'oku_number.required' => 'Enter your OKU card number.',
+        'oku_file.required' => 'Upload your OKU card.',
+        'entrepreneur_category.required' => 'Choose your entrepreneur category.',
         'staff.required' => 'Add at least one staff member to contact.',
         'staff.*.phone.regex' => 'Enter a Malaysian mobile number, e.g. 012-345 6789.',
     ];
@@ -42,6 +59,7 @@ final class CompanyCredentials
         'classification_number' => 'certificate number', 'quality_number' => 'certificate number',
         'classification_start' => 'valid from', 'quality_start' => 'valid from',
         'classification_end' => 'valid until', 'quality_end' => 'valid until',
+        'oku_number' => 'OKU card number', 'oku_file' => 'OKU card',
         'staff.*.name' => 'staff name', 'staff.*.phone' => 'mobile number',
     ];
 
@@ -78,14 +96,51 @@ final class CompanyCredentials
         return $rules;
     }
 
-    /** The staff to contact, saved with the contact details on their own. */
-    public static function staffRules(): array
+    /**
+     * The General information card: category, OKU status (with the card's
+     * number and a copy while the answer is yes) and the staff to contact.
+     * The card on file counts while its number is unchanged.
+     */
+    public static function staffRules(?Request $request = null, ?Company $company = null): array
     {
-        return [
+        return self::okuRules($request, $company, required: true) + [
+            'entrepreneur_category' => ['required', Rule::in(self::ENTREPRENEUR_CATEGORIES)],
             'staff' => ['required', 'array', 'max:20'],
             'staff.*.name' => ['required', 'string', 'max:100'],
             'staff.*.phone' => ['required', 'regex:/^\+?6?01\d[- ]?\d{3,4}[- ]?\d{4}$/'],
         ];
+    }
+
+    /**
+     * OKU status, and the card's number and a copy while the answer is yes.
+     * The copy on file counts while its number is unchanged. The office may
+     * leave the status unanswered; the participant may not.
+     */
+    public static function okuRules(?Request $request, ?Company $company, bool $required): array
+    {
+        $onFile = $company?->credentials['oku_cert'] ?? null;
+        $kept = ! empty($onFile['path']) && $request?->input('oku_number') === ($onFile['number'] ?? null);
+
+        return ['oku' => [$required ? 'required' : 'nullable', Rule::in(array_keys(self::OKU))]]
+            + ($request?->input('oku') === 'yes' ? [
+                'oku_number' => ['required', 'string', 'max:50'],
+                'oku_file' => $kept ? ['nullable', ...array_slice(self::FILE_RULE, 1)] : self::FILE_RULE,
+            ] : []);
+    }
+
+    /** The OKU card to keep: a new copy, else the one on file while the number is the same. */
+    public static function okuCert(Request $request, array $data, Company $company): ?array
+    {
+        return match (true) {
+            ($data['oku'] ?? null) !== 'yes' => null,
+            $request->hasFile('oku_file') => [
+                'number' => $data['oku_number'],
+                'path' => $request->file('oku_file')->store("certificates/{$company->id}", 'local'),
+                'original' => $request->file('oku_file')->getClientOriginalName(),
+            ],
+            default => ['number' => $data['oku_number']]
+                + array_intersect_key($company->credentials['oku_cert'] ?? [], array_flip(['path', 'original'])),
+        };
     }
 
     /**
@@ -133,6 +188,9 @@ final class CompanyCredentials
             'classification_cert' => $data['classification'] === 'yes' ? $certificate('classification') : null,
             'quality' => $data['quality'] ?? null,
             'quality_cert' => in_array($data['quality'] ?? null, [null, 'none'], true) ? null : $certificate('quality'),
+            'entrepreneur_category' => $held['entrepreneur_category'] ?? null,
+            'oku' => $held['oku'] ?? null,
+            'oku_cert' => $held['oku_cert'] ?? null,
             'staff' => $held['staff'] ?? [],
             'product_images' => $held['product_images'] ?? [],
         ];
@@ -150,7 +208,7 @@ final class CompanyCredentials
             && ! empty($cert['end'])
             && ! Carbon::parse($cert['end'])->endOfDay()->isPast();
 
-        $missing = [];
+        $missing = in_array($held['entrepreneur_category'] ?? null, self::ENTREPRENEUR_CATEGORIES, true) ? [] : ['entrepreneur category'];
 
         if (! isset(Company::RECOGNITIONS[$held['recognition'] ?? ''])
             || (in_array($held['recognition'], self::RECOGNISED, true) && empty($held['recognition_cert']['path']))) {
@@ -166,6 +224,9 @@ final class CompanyCredentials
                 || ($quality === $standard && ! $valid($held['quality_cert'] ?? null))) {
                 $missing[] = 'quality compliance';
             }
+        }
+        if (($held['oku'] ?? null) === 'yes' && empty($held['oku_cert']['path'])) {
+            $missing[] = 'OKU card';
         }
         if (empty($held['staff'])) {
             $missing[] = 'staff to contact';
@@ -185,6 +246,7 @@ final class CompanyCredentials
     {
         return array_values(array_filter([
             $answers['recognition_cert']['path'] ?? null,
+            $answers['oku_cert']['path'] ?? null,
             $answers['classification_cert']['path'] ?? null,
             $answers['quality_cert']['path'] ?? null,
             ...array_column($answers['product_images'] ?? [], 'path'),

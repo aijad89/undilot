@@ -90,12 +90,54 @@
         @else
             {{-- Two forms, each card saved on its own. --}}
             <div class="ap-profile-stack" data-profile-form>
-            <form method="POST" action="{{ route('profile.contact') }}">
+            <form method="POST" action="{{ route('profile.contact') }}" enctype="multipart/form-data" data-inline-errors>
                 @csrf
                 @method('PUT')
 
                 <section class="ap-card ap-card-padded">
                     <h2 class="ap-section-title">General information</h2>
+
+                    <div class="ap-field">
+                        <label class="ap-label" for="entrepreneur_category">Entrepreneur category</label>
+                        <select class="ap-select" id="entrepreneur_category" name="entrepreneur_category" required>
+                            <option value="">— Choose —</option>
+                            @foreach(\App\Support\CompanyCredentials::ENTREPRENEUR_CATEGORIES as $category)
+                                <option value="{{ $category }}" @selected(old('entrepreneur_category', $held['entrepreneur_category'] ?? null) === $category)>{{ $category }}</option>
+                            @endforeach
+                        </select>
+                        @error('entrepreneur_category')<p class="ap-field-error">{{ $message }}</p>@enderror
+                    </div>
+
+                    <fieldset class="ap-field">
+                        <legend class="ap-label">OKU status</legend>
+                        <div class="pf-choices">
+                            @foreach(\App\Support\CompanyCredentials::OKU as $key => $label)
+                                <label class="pf-choice">
+                                    <input type="radio" name="oku" value="{{ $key }}" required @checked(old('oku', $held['oku'] ?? null) === $key)>
+                                    {{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('oku')<p class="ap-field-error">{{ $message }}</p>@enderror
+
+                        @php $okuOnFile = $held['oku_cert'] ?? null; @endphp
+                        <div class="pf-cert" data-if="oku:yes">
+                            <div class="ap-field">
+                                <label class="ap-label" for="oku_number">OKU card number</label>
+                                <input class="ap-input" id="oku_number" name="oku_number" maxlength="50" data-required
+                                       value="{{ old('oku_number', $okuOnFile['number'] ?? '') }}">
+                                @error('oku_number')<p class="ap-field-error">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="ap-field mb-0">
+                                <label class="ap-label" for="oku_file">OKU card <span class="ap-muted">(PDF, JPG or PNG, 5 MB)</span></label>
+                                <input type="file" id="oku_file" name="oku_file" accept=".pdf,.jpg,.jpeg,.png" @if(empty($okuOnFile['path'])) data-required @endif>
+                                @if(! empty($okuOnFile['path']))
+                                    <p class="ap-field-hint">On file: {{ $okuOnFile['original'] }}. Leave empty to keep it; a new card number needs a new copy.</p>
+                                @endif
+                                @error('oku_file')<p class="ap-field-error">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                    </fieldset>
 
                     {{-- The staff the owner names for the office to reach. A blank row is dropped on save. --}}
                     <fieldset class="ap-field">
@@ -146,7 +188,7 @@
                 </section>
             </form>
 
-            <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data">
+            <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" data-inline-errors>
                 @csrf
                 @method('PUT')
 
@@ -314,6 +356,7 @@
 
 @if($company)
     @include('partials.kraf-picker-script', ['picker' => $picker])
+    @include('partials.inline-errors', ['class' => 'ap-field-error'])
     <script>
     // A certificate's fields show only while its answer is yes (or the
     // standard). Hidden, they are switched off: neither checked nor sent.

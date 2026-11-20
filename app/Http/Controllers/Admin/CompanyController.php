@@ -7,7 +7,8 @@ use App\Models\Company;
 use App\Models\CompanyKraf;
 use App\Models\User;
 use App\Support\AdminZones;
-use App\Support\EntrepreneurCategories;
+use App\Support\BusinessTypes;
+use App\Support\CompanyCredentials;
 use App\Support\KrafPicker;
 use App\Support\KrafSelections;
 use App\Support\PlotSizes;
@@ -96,7 +97,8 @@ class CompanyController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'state' => ['required', Rule::in($this->zonesFor($admin))],
-            'entrepreneur_category' => ['nullable', EntrepreneurCategories::rule()],
+            'business_type' => ['nullable', BusinessTypes::rule()],
+            'entrepreneur_category' => ['nullable', Rule::in(CompanyCredentials::ENTREPRENEUR_CATEGORIES)],
             'registration_no' => ['nullable', 'string', 'max:100'],
             'is_active' => ['nullable', 'boolean'],
 
@@ -136,9 +138,11 @@ class CompanyController extends Controller
             return $user->company()->create([
                 'name' => $data['name'],
                 'state' => $data['state'],
-                'entrepreneur_category' => $data['entrepreneur_category'] ?? null,
+                'business_type' => $data['business_type'] ?? null,
                 'registration_no' => $data['registration_no'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
+                // The participant picks it on the profile; the office may set it first.
+                'credentials' => ['entrepreneur_category' => $data['entrepreneur_category'] ?? null],
             ]);
         });
 
@@ -172,7 +176,9 @@ class CompanyController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'state' => ['required', Rule::in($this->zonesFor($request->user('admin')))],
-            'entrepreneur_category' => ['nullable', EntrepreneurCategories::rule()],
+            'business_type' => ['nullable', BusinessTypes::rule($company->business_type)],
+            'entrepreneur_category' => ['nullable', Rule::in(CompanyCredentials::ENTREPRENEUR_CATEGORIES)],
+            ...CompanyCredentials::okuRules($request, $company, required: false),
             'registration_no' => ['nullable', 'string', 'max:100'],
 
             'owner_name' => ['required', 'string', 'max:255'],
@@ -189,7 +195,9 @@ class CompanyController extends Controller
             // Left blank on every save: participants sign in with community ID
             // + IC, so the password is never used.
             'password' => ['nullable', 'confirmed', Password::defaults()],
-        ], self::IC_MESSAGES);
+        ], self::IC_MESSAGES + CompanyCredentials::MESSAGES, CompanyCredentials::ATTRIBUTES);
+
+        $before = CompanyCredentials::filePaths($company->credentials ?? []);
 
         DB::transaction(function () use ($request, $data, $company, $user) {
             $user->update([
@@ -214,11 +222,19 @@ class CompanyController extends Controller
             $company->update([
                 'name' => $data['name'],
                 'state' => $data['state'],
-                'entrepreneur_category' => $data['entrepreneur_category'] ?? null,
+                'business_type' => $data['business_type'] ?? null,
                 'registration_no' => $data['registration_no'] ?? null,
                 'is_active' => $request->boolean('is_active'),
+                // The participant's own field; the office may correct it.
+                'credentials' => [
+                    'entrepreneur_category' => $data['entrepreneur_category'] ?? null,
+                    'oku' => $data['oku'] ?? null,
+                    'oku_cert' => CompanyCredentials::okuCert($request, $data, $company),
+                ] + ($company->credentials ?? []),
             ]);
         });
+
+        CompanyCredentials::deleteUnused($company, $before);
 
         return redirect()->route('admin.companies.edit', $company)
             ->with('success', 'Saved.');

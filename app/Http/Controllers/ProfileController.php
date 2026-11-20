@@ -8,6 +8,7 @@ use App\Support\CompanyCredentials;
 use App\Support\KrafPicker;
 use App\Support\KrafSelections;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * The participant's own profile.
@@ -52,14 +53,23 @@ class ProfileController extends Controller
         ))]);
 
         $data = $request->validate(
-            $contact + CompanyCredentials::staffRules(),
+            $contact + CompanyCredentials::staffRules($request, $company),
             CompanyCredentials::MESSAGES,
             CompanyCredentials::ATTRIBUTES,
         );
 
-        $company->update(array_intersect_key($data, Company::CONTACT_FIELDS) + ['credentials' => [
-            'staff' => array_map(fn ($s) => ['name' => $s['name'], 'phone' => $s['phone']], $data['staff']),
-        ] + ($company->credentials ?? [])]);
+        $before = CompanyCredentials::filePaths($company->credentials ?? []);
+
+        $company->update(array_intersect_key($data, Company::CONTACT_FIELDS) + [
+            'credentials' => [
+                'entrepreneur_category' => $data['entrepreneur_category'],
+                'oku' => $data['oku'],
+                'oku_cert' => CompanyCredentials::okuCert($request, $data, $company),
+                'staff' => array_map(fn ($s) => ['name' => $s['name'], 'phone' => $s['phone']], $data['staff']),
+            ] + ($company->credentials ?? []),
+        ]);
+
+        CompanyCredentials::deleteUnused($company, $before);
 
         return redirect()->route('profile')->with('success', 'Information saved.');
     }
@@ -114,6 +124,27 @@ class ProfileController extends Controller
         $selection->delete();
 
         return redirect()->to(route('profile').'#crafts')->with('success', 'Craft removed.');
+    }
+
+    /**
+     * A recognition proof or certificate file on the company's profile: for the
+     * company's own account, or an admin of its zone (super and HQ: any).
+     */
+    public function certificate(Request $request, Company $company, string $key)
+    {
+        $admin = $request->user('admin');
+        $user = $request->user('web');
+
+        abort_unless(
+            ($admin && ($admin->hasGlobalAccess() || $admin->state === $company->state))
+                || ($user && $user->company?->id === $company->id),
+            404
+        );
+
+        $file = $company->credentials["{$key}_cert"] ?? null;
+        abort_unless(! empty($file['path']) && Storage::disk('local')->exists($file['path']), 404);
+
+        return Storage::disk('local')->response($file['path'], $file['original'] ?? basename($file['path']));
     }
 
     /** The signed-in participant's own company; only an active one is theirs to change. */

@@ -77,7 +77,7 @@ it('stores a blank cell as nothing rather than guessing', function () {
         ->and($user->community_id)->toBeNull()
         ->and($company->kraf_code)->toBeNull('657 of the office 858 have no code; inventing one is worse than none.')
         ->and($company->plot_size)->toBeNull()
-        ->and($company->entrepreneur_category)->toBeNull();
+        ->and($company->business_type)->toBeNull();
 });
 
 it('reads no email: an `emel` column is named as not read, and nothing stores it', function () {
@@ -259,7 +259,7 @@ it('reads the address, commas and all, onto the participant', function () {
         ->and(User::where('ic_number', '890508-12-0000')->value('address'))->toBe('No 12, Jalan Kraf, 81100 Johor Bahru');
 });
 
-it('takes only the office\'s two entrepreneur categories', function () {
+it('takes only the office\'s two business types', function () {
     $exit = Artisan::call('import:participants', [
         'path' => csvFile([
             CSV_HEAD,
@@ -270,6 +270,6 @@ it('takes only the office\'s two entrepreneur categories', function () {
     ]);
 
     expect($exit)->toBe(1)
-        ->and(Company::whereHas('user', fn ($q) => $q->where('ic_number', '890508-12-0000'))->value('entrepreneur_category'))->toBe('Pemborong')
+        ->and(Company::whereHas('user', fn ($q) => $q->where('ic_number', '890508-12-0000'))->value('business_type'))->toBe('Pemborong')
         ->and(User::where('ic_number', '800601-10-0000')->exists())->toBeFalse();
 });

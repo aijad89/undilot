@@ -153,7 +153,7 @@ class DemoScenarioSeeder extends LocalOnlySeeder
         $company = Company::firstOrCreate(['user_id' => $user->id], [
             'name' => $name,
             'state' => $zone,
-            'entrepreneur_category' => null,
+            'business_type' => null,
             'is_active' => true,
         ]);
         $company->kraf_code = $code; // not fillable: admin only
@@ -366,6 +366,7 @@ class DemoScenarioSeeder extends LocalOnlySeeder
                 'classification_cert' => null,
                 'quality' => null,
                 'quality_cert' => null,
+                'entrepreneur_category' => 'Mikro, Kecil & Sederhana (MKS)', 'oku' => 'no',
                 'staff' => [['name' => $company->user->name, 'phone' => $company->user->phone]],
                 'product_images' => [],
             ],

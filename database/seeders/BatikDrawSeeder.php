@@ -159,7 +159,7 @@ class BatikDrawSeeder extends LocalOnlySeeder
                 'user_id' => $user->id,
                 'name' => $this->companyName($i),
                 'state' => $zone,
-                'entrepreneur_category' => $n % 10 === 0 ? 'Pemborong' : 'Pengeluar atau Pedagang',
+                'business_type' => $n % 10 === 0 ? 'Pemborong' : 'Pengeluar atau Pedagang',
                 'is_active' => true,
             ]);
             $company->kraf_code = $code;     // admin-only, not fillable

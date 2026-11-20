@@ -27,7 +27,7 @@ class Company extends Model
         'name',
         'registration_no',
         'state',
-        'entrepreneur_category',
+        'business_type',
         'is_active',
         'credentials',
         'workshop_address',

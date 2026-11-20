@@ -6,16 +6,16 @@ use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\PlotSize;
 use App\Models\User;
-use App\Support\EntrepreneurCategories;
+use App\Support\BusinessTypes;
 use App\Support\PlotSizes;
 
 /*
  * The Dropdown Lists screen edits two lists as a textarea: booth sizes and
- * entrepreneur categories. Both name values that live in database columns:
+ * business types. Both name values that live in database columns:
  *
  *   plot_sizes               event_registrations.plot_size, companies.plot_size,
  *                            plot_sizes.size (the plan's own rows)
- *   entrepreneur_categories  companies.entrepreneur_category
+ *   business_types  companies.business_type
  *
  * Dropping a line from the textarea used to be accepted whatever held it. Then
  * every dropdown built from the list stopped offering a value rows still carry:
@@ -79,19 +79,19 @@ it('refuses to drop a booth size still in use, wherever it is held', function (s
     expect(PlotSizes::all())->toBe(['3x3', '3x6', '3x9']);
 })->with(['a draw-list row', 'a company', 'a lot plan']);
 
-it('refuses to drop an entrepreneur category a company still carries', function () {
-    EntrepreneurCategories::set(['Micro, Small & Medium (MSM)', 'No Category']);
+it('refuses to drop a business type a company still carries', function () {
+    BusinessTypes::set(['Micro, Small & Medium (MSM)', 'No Category']);
 
     Company::factory()->create([
         'user_id' => User::factory()->create()->id,
-        'entrepreneur_category' => 'No Category',
+        'business_type' => 'No Category',
     ]);
 
     $this->actingAs(superAdmin(), 'admin');
-    saveList('entrepreneur_categories', ['Micro, Small & Medium (MSM)'])
+    saveList('business_types', ['Micro, Small & Medium (MSM)'])
         ->assertSessionHas('error', fn ($m) => str_contains($m, 'No Category'));
 
-    expect(EntrepreneurCategories::all())->toBe(['Micro, Small & Medium (MSM)', 'No Category']);
+    expect(BusinessTypes::all())->toBe(['Micro, Small & Medium (MSM)', 'No Category']);
 });
 
 it('reads a change of case as the same value, not a removal', function () {

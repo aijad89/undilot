@@ -70,6 +70,12 @@ Route::middleware(['auth:web', 'user.active'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'read'])->name('notifications.read');
 });
 
+/* A certificate on the company's profile: for the company itself, or an admin of its zone. */
+Route::get('/companies/{company}/certificates/{key}', [ProfileController::class, 'certificate'])
+    ->middleware('auth:web,admin')
+    ->whereIn('key', ['recognition', 'oku', 'classification', 'quality'])
+    ->name('companies.certificate');
+
 /* A join request's document: for its own company, or an admin of that zone. */
 Route::get('/join-requests/{joinRequest}/documents/{index}', [JoinRequestController::class, 'document'])
     ->middleware('auth:web,admin')

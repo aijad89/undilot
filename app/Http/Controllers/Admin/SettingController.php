@@ -13,7 +13,7 @@ use App\Models\KrafProduk;
 use App\Models\KrafSubBidang;
 use App\Models\Setting;
 use App\Support\AdminZones;
-use App\Support\EntrepreneurCategories;
+use App\Support\BusinessTypes;
 use App\Support\PlotSizes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
  * The lists the rest of the application picks from.
  *
  * THREE OF THEM ARE SETTINGS ROWS, TWO ARE TABLES, and the difference is not
- * arbitrary. Zones, booth sizes and entrepreneur categories are short lists of
+ * arbitrary. Zones, booth sizes and business types are short lists of
  * strings that nothing references by id, so they live as JSON in `settings`. The
  * craft hierarchy and the craft codes are rows that companies, plots and draw
  * entries point at, so they are tables.
@@ -46,7 +46,7 @@ class SettingController extends Controller
      */
     private const LISTS = [
         'plot_sizes' => PlotSizes::class,
-        'entrepreneur_categories' => EntrepreneurCategories::class,
+        'business_types' => BusinessTypes::class,
     ];
 
     public function lists(Request $request)
@@ -55,7 +55,7 @@ class SettingController extends Controller
             'zones' => AdminZones::all(),
             'zoneUsage' => AdminZones::usageForAll(),
             'plotSizes' => PlotSizes::all(),
-            'entrepreneurCategories' => EntrepreneurCategories::all(),
+            'businessTypes' => BusinessTypes::all(),
             'canEditZones' => $request->user('admin')->isSuperAdmin(),
         ]);
     }
@@ -95,8 +95,8 @@ class SettingController extends Controller
             'companies' => 'plot_size',
             'plot_sizes' => 'size',
         ],
-        'entrepreneur_categories' => [
-            'companies' => 'entrepreneur_category',
+        'business_types' => [
+            'companies' => 'business_type',
         ],
     ];
 

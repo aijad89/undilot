@@ -111,9 +111,9 @@
     ])
 
     @include('admin.settings.partials.managed-list', [
-        'title' => 'Entrepreneur Categories',
-        'list' => 'entrepreneur_categories',
-        'values' => $entrepreneurCategories,
+        'title' => 'Business Types',
+        'list' => 'business_types',
+        'values' => $businessTypes,
         'help' => 'What kind of body a company registers as. Two of these — government
                    agency and NGO — are treated differently by the draw, and THAT pair is
                    named in code rather than here: renaming one of them in this box does

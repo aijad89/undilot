@@ -13,9 +13,9 @@ namespace App\Support;
  * Validated with `Rule::in()` rather than an `in:` string, so a value holding a
  * comma stays safe if one is ever added in Settings.
  */
-class EntrepreneurCategories extends ManagedList
+class BusinessTypes extends ManagedList
 {
-    protected const KEY = 'entrepreneur_categories';
+    protected const KEY = 'business_types';
 
     public const DEFAULTS = [
         'Pengeluar atau Pedagang',

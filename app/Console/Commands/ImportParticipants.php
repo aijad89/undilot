@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\User;
 use App\Support\AdminZones;
-use App\Support\EntrepreneurCategories;
+use App\Support\BusinessTypes;
 use App\Support\KrafPicker;
 use App\Support\PlotSizes;
 use Illuminate\Console\Command;
@@ -204,7 +204,7 @@ class ImportParticipants extends Command
         $sizes = PlotSizes::all();
         // A flat list of labels, not a key => label map: `array_keys()` here
         // would compare against [0, 1, 2…] and reject every valid category.
-        $categories = EntrepreneurCategories::all();
+        $categories = BusinessTypes::all();
 
         $claimedIc = [];
 
@@ -266,7 +266,7 @@ class ImportParticipants extends Command
             $category = $row['kategori_usahawan'] ?? '';
 
             if ($category !== '' && ! in_array($category, $categories, true)) {
-                $this->failed[] = "line {$line}: {$name} has entrepreneur category '{$category}', which is not a known one";
+                $this->failed[] = "line {$line}: {$name} has business type '{$category}', which is not a known one";
 
                 continue;
             }
@@ -336,7 +336,7 @@ class ImportParticipants extends Command
                         // `companies.name` is NOT NULL and the draw list reads it.
                         'name' => $plan['company'] !== '' ? $plan['company'] : $plan['name'],
                         'state' => $plan['zone'] !== '' ? $plan['zone'] : null,
-                        'entrepreneur_category' => $plan['category'] !== '' ? $plan['category'] : null,
+                        'business_type' => $plan['category'] !== '' ? $plan['category'] : null,
                         'is_active' => true,
                     ]);
 

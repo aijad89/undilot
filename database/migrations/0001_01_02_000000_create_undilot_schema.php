@@ -219,9 +219,9 @@ return new class extends Migration
             // belongs to; the workshop address below is contact detail only.
             $table->string('state')->nullable();
 
-            // One of EntrepreneurCategories: 'Pengeluar atau Pedagang' or
+            // One of BusinessTypes: 'Pengeluar atau Pedagang' or
             // 'Pemborong'. A label only; the draw does not read it.
-            $table->string('entrepreneur_category')->nullable();
+            $table->string('business_type')->nullable();
 
             // The company's usual craft code (TBP, RKP…), set by an admin and never
             // shown to the participant. A string like event_registrations.code, and
@@ -661,9 +661,9 @@ return new class extends Migration
          *               'Kayu(Hiasan Ukiran & Kegunaan)' — with no code and no
          *               size. Split from the RIGHT: the craft name itself can
          *               hold punctuation.
-         *   `category`  NOT a craft at all — the ENTREPRENEUR category,
+         *   `category`  NOT a craft at all — the company's BUSINESS TYPE,
          *               'Pentahapan 2 (Pengilang/Pedagang,Pengeluar,Agensi)'.
-         *               It belongs in `companies.entrepreneur_category`.
+         *               It belongs in `companies.business_type`.
          *
          * `boothid` repeats the code as its prefix in the newer data (TBA02 for
          * TBA, AMH03 for AMH), which is a second reading of the same fact and a

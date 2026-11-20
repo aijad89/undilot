@@ -19,7 +19,7 @@
         <p class="mac-muted mb-0">{{ $company->state ?? 'No zone' }}</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.companies.update', $company) }}">
+    <form method="POST" action="{{ route('admin.companies.update', $company) }}" enctype="multipart/form-data" data-inline-errors>
         @csrf
         @method('PUT')
         @include('admin.companies._form')
@@ -27,6 +27,7 @@
 
     {{-- Outside the form above, deliberately: the picker posts to its own route,
          and a form inside a form is not a thing a browser will send. --}}
+    @include('admin.companies.partials.profile-card')
     @include('admin.companies.partials.kraf-section')
     @include('admin.companies.partials.kraf-code-card')
 </div>

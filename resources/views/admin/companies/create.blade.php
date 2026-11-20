@@ -20,7 +20,7 @@
         </p>
     </div>
 
-    <form method="POST" action="{{ route('admin.companies.store') }}">
+    <form method="POST" action="{{ route('admin.companies.store') }}" data-inline-errors>
         @csrf
         @include('admin.companies._form')
     </form>

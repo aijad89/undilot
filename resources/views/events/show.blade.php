@@ -184,6 +184,8 @@
                             <dt>Booth size</dt><dd>{{ $company->plot_size ?: '—' }}</dd>
 
                             <dt class="evd-facts-head">General information</dt>
+                            <dt>Entrepreneur category</dt><dd>{{ $held['entrepreneur_category'] ?? '—' }}</dd>
+                            <dt>OKU status</dt><dd>{{ \App\Support\CompanyCredentials::OKU[$held['oku'] ?? ''] ?? '—' }}@if(! empty($held['oku_cert']['number'])), card {{ $held['oku_cert']['number'] }}@endif</dd>
                             <dt>Staff to contact</dt>
                             <dd>
                                 @forelse($held['staff'] ?? [] as $s)

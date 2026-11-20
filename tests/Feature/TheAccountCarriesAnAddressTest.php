@@ -94,7 +94,7 @@ it('edits the old profile fields the import brought in, and the participant sees
         ->toBe(['salutation' => 'Puan', 'postcode' => '31400', 'district' => 'Kinta'])
         ->and($company->fresh()->registration_no)->toBe('SA0123456-X');
     $this->get(route('admin.companies.edit', $company))
-        ->assertSee('value="Puan"', false)->assertSee('value="31400"', false)
+        ->assertSee('<option value="Puan" selected>', false)->assertSee('value="31400"', false)
         ->assertSee('value="Kinta"', false)->assertSee('value="SA0123456-X"', false);
 
     $user = $company->user->fresh();
@@ -119,4 +119,19 @@ it('takes the old profile fields when the company is created', function () {
     $user = User::where('community_id', 'KOM-0003')->first();
     expect($user->only('salutation', 'postcode', 'district'))->toBe(['salutation' => 'Cik', 'postcode' => '33000', 'district' => 'Kuala Kangsar'])
         ->and($user->company->registration_no)->toBe('JM0999');
+});
+
+it('offers salutations as a list, and keeps one from the old data that is not on it', function () {
+    $company = addressedCompany();
+    $company->user->update(['salutation' => 'Tok']);
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.companies.edit', $company))
+        ->assertSee('<select id="salutation" name="salutation"', false)
+        ->assertSee('<option value="Encik"', false)
+        ->assertSee('<option value="Tok" selected>', false);
+
+    // Saved untouched, it stays Tok rather than the first option.
+    $this->put(route('admin.companies.update', $company), companyPut($company->fresh('user'), ['salutation' => 'Tok']))
+        ->assertSessionHas('success');
+    expect($company->user->fresh()->salutation)->toBe('Tok');
 });
