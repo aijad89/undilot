@@ -407,14 +407,14 @@ it('keeps a business type from the old data that is not on the list', function (
         ->assertSee('<option value="'.e($old).'" selected>', false);
     $this->put(route('admin.companies.update', $company), [
         'name' => $company->name, 'state' => 'Perak', 'owner_name' => $user->name, 'ic_number' => $user->ic_number,
-        'community_id' => 'KOM-OLD', 'business_type' => $old,
+        'community_id' => 'KOM-OLD', 'email' => $user->email, 'business_type' => $old,
     ])->assertSessionHasNoErrors();
     expect($company->fresh()->business_type)->toBe($old);
     // Another company may not be given it: it is not on the list.
     $other = Company::factory()->create(['state' => 'Perak', 'business_type' => null]);
     $this->put(route('admin.companies.update', $other), [
         'name' => $other->name, 'state' => 'Perak', 'owner_name' => 'X', 'ic_number' => '900101-08-3333',
-        'community_id' => 'KOM-X', 'business_type' => $old,
+        'community_id' => 'KOM-X', 'email' => $other->user->email, 'business_type' => $old,
     ])->assertSessionHasErrors('business_type');
 });
 
@@ -440,7 +440,7 @@ it('asks the entrepreneur category on the profile, one of the MICF form choices,
     $user = $company->user;
     $this->put(route('admin.companies.update', $company), [
         'name' => $company->name, 'state' => 'Perak', 'owner_name' => $user->name, 'ic_number' => $user->ic_number,
-        'community_id' => 'KOM-MICF', 'entrepreneur_category' => 'Agensi Swasta',
+        'community_id' => 'KOM-MICF', 'email' => $user->email, 'entrepreneur_category' => 'Agensi Swasta',
     ])->assertSessionHasNoErrors();
     $held = $company->fresh()->credentials;
     expect($held['entrepreneur_category'])->toBe('Agensi Swasta')
@@ -448,7 +448,7 @@ it('asks the entrepreneur category on the profile, one of the MICF form choices,
 
     $this->put(route('admin.companies.update', $company), [
         'name' => $company->name, 'state' => 'Perak', 'owner_name' => $user->name, 'ic_number' => $user->ic_number,
-        'community_id' => 'KOM-MICF', 'entrepreneur_category' => 'Pemborong',
+        'community_id' => 'KOM-MICF', 'email' => $user->email, 'entrepreneur_category' => 'Pemborong',
     ])->assertSessionHasErrors('entrepreneur_category');
 });
 
@@ -505,7 +505,7 @@ it('lets the office set the OKU status and card on the company form', function (
     $user = $company->user;
     $form = fn (array $more) => [
         'name' => $company->name, 'state' => 'Perak', 'owner_name' => $user->name, 'ic_number' => $user->ic_number,
-        'community_id' => 'KOM-OKU', 'entrepreneur_category' => 'Agensi Swasta',
+        'community_id' => 'KOM-OKU', 'email' => $user->email, 'entrepreneur_category' => 'Agensi Swasta',
     ] + $more;
     $this->actingAs(stateAdmin('Perak'), 'admin');
 

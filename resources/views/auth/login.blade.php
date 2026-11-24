@@ -26,42 +26,41 @@
     <form method="POST" action="{{ route('login') }}">
         @csrf
 
-        {{-- Community ID + IC, no password (LoginRequest). No "Forgot password":
-             participants have no email to receive a link. --}}
+        {{-- Email + password (LoginRequest). The first time, the IC is the
+             password; the next page asks for a new one. --}}
         <div class="mb-3">
-            <label for="community_id" class="form-label fw-semibold">Community ID (ID PKKM)</label>
-            <input type="text"
-                   id="community_id"
-                   name="community_id"
-                   class="form-control form-control-lg @error('community_id') is-invalid @enderror"
-                   value="{{ old('community_id') }}"
+            <label for="email" class="form-label fw-semibold">Email</label>
+            <input type="email"
+                   id="email"
+                   name="email"
+                   class="form-control form-control-lg @error('email') is-invalid @enderror"
+                   value="{{ old('email') }}"
                    autocomplete="username"
                    required autofocus>
-            @error('community_id')
+            @error('email')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
         </div>
 
         <div class="mb-3">
-            <label for="ic_number" class="form-label fw-semibold">IC number</label>
-            <input type="text"
-                   id="ic_number"
-                   name="ic_number"
-                   inputmode="numeric"
-                   class="form-control form-control-lg @error('ic_number') is-invalid @enderror"
-                   placeholder="890508-12-0000"
-                   autocomplete="off"
+            <label for="password" class="form-label fw-semibold">Password</label>
+            <input type="password"
+                   id="password"
+                   name="password"
+                   class="form-control form-control-lg @error('password') is-invalid @enderror"
+                   autocomplete="current-password"
                    required>
-            @error('ic_number')
+            <div class="form-text">First time signing in? Your password is your IC number.</div>
+            @error('password')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
         </div>
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="remember_me" name="remember">
                 <label class="form-check-label text-muted" for="remember_me">Remember me</label>
             </div>
+            <a href="{{ route('password.request') }}" class="text-decoration-none small">Forgot password?</a>
         </div>
 
         <div class="d-grid">

@@ -15,11 +15,21 @@ return new class extends Migration
             $table->id();
             $table->string('name');
 
-            // NO EMAIL COLUMN. Participants sign in with community ID + IC, and
-            // the project uses no email anywhere (owner's decision, 2026-11-17).
-            // `password` stays because Authenticatable expects one; it is a
-            // random hash nobody is told.
+            // What the participant signs in with, with a password (owner,
+            // 2026-11-24 — replacing community ID + IC). Stored lower-case and
+            // trimmed. Set by the office only: the email is the key to the
+            // account, and the reset link goes to it. Nullable because imported
+            // accounts may have none yet; such an account cannot sign in until
+            // the office adds one.
+            $table->string('email')->nullable()->unique();
+
+            // Unused until `password_changed_at` is set: before that the IC is
+            // the password (LoginRequest), and the participant must choose one.
             $table->string('password');
+
+            // NULL = first sign-in still to come, or the office has reset the
+            // account back to its IC. Set when the participant chooses a password.
+            $table->timestamp('password_changed_at')->nullable();
             $table->string('phone')->nullable();
 
             // The participant's IC. User::icHash() turns it into the code printed
@@ -82,7 +92,12 @@ return new class extends Migration
             $table->index('community_id');
         });
 
-        // No `password_reset_tokens`: there is no password reset (no email).
+        // The "forgot password" link, emailed (NewPasswordController).
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
@@ -100,6 +115,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('users');
+        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
 };

@@ -71,6 +71,9 @@ class DemoUserSeeder extends LocalOnlySeeder
 
             $user = User::firstOrCreate(['community_id' => self::communityIdFor($zone)], [
                 'name' => "Owner {$name}",
+                // Demo accounts: an email to sign in with, and a password already chosen so /auto lands on the portal.
+                'email' => strtolower(self::communityIdFor($zone)).'@demo.test',
+                'password_changed_at' => now(),
                 'password' => Str::random(40),
                 'phone' => '01'.random_int(10000000, 99999999),
                 'ic_number' => $ic,

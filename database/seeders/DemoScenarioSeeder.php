@@ -138,6 +138,9 @@ class DemoScenarioSeeder extends LocalOnlySeeder
 
         $user = \App\Models\User::firstOrCreate(['community_id' => 'KOM-'.strtoupper(substr(md5($seed), 0, 6))], [
             'name' => "Owner {$name}",
+            // Demo accounts: an email to sign in with, and a password already chosen so /auto lands on the portal.
+            'email' => strtolower('KOM-'.strtoupper(substr(md5($seed), 0, 6))).'@demo.test',
+            'password_changed_at' => now(),
             'password' => \Illuminate\Support\Str::random(40),
             'phone' => '01'.random_int(10000000, 99999999),
             'ic_number' => $ic,

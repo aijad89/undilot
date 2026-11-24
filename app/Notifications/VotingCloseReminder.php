@@ -18,9 +18,9 @@ class VotingCloseReminder extends Notification implements ShouldQueue
     public function __construct(public Event $event) {}
 
     /**
-     * In-app only. The app sends no email at all (owner's decision,
-     * 2026-11-17): participants sign in with community ID + IC and most
-     * give no address. Do not add 'mail' back without that decision.
+     * In-app only. The app's one email is the password-reset link (owner,
+     * 2026-11-24); notifications stay in the app. Do not add 'mail' without
+     * the owner's decision.
      */
     public function via($notifiable): array
     {

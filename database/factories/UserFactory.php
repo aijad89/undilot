@@ -29,7 +29,10 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= bcrypt('password'),
+            // A password already chosen; firstSignIn() is the IC-is-the-password state.
+            'password_changed_at' => now(),
             'phone' => fake()->numerify('01#-#######'),
             // Dashed, as the Companies screen stores it.
             'ic_number' => fake()->unique()->numerify('######-##-####'),
@@ -49,6 +52,12 @@ class UserFactory extends Factory
     public function inactive(): static
     {
         return $this->state(fn () => ['is_active' => false]);
+    }
+
+    /** Not signed in yet, or reset by the office: the IC is the password. */
+    public function firstSignIn(): static
+    {
+        return $this->state(fn () => ['password_changed_at' => null]);
     }
 
     /** No IC on file, so User::icHash() returns null and there is no QR code. */

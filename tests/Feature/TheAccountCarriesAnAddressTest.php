@@ -21,7 +21,7 @@ function companyPut(Company $company, array $overrides = []): array
     return array_merge([
         'name' => $company->name, 'state' => 'Perak',
         'owner_name' => $company->user->name,
-        'ic_number' => $company->user->ic_number, 'community_id' => 'KOM-0001',
+        'ic_number' => $company->user->ic_number, 'community_id' => 'KOM-0001', 'email' => $company->user->email,
         'is_active' => '1', 'account_active' => '1',
     ], $overrides);
 }
@@ -45,7 +45,7 @@ it('saves the address when the company is created', function () {
     $this->actingAs(superAdmin(), 'admin')->post(route('admin.companies.store'), [
         'name' => 'Baru Beralamat', 'state' => 'Perak',
         'owner_name' => 'Siti',
-        'ic_number' => '900101-08-1111', 'community_id' => 'KOM-0002',
+        'ic_number' => '900101-08-1111', 'community_id' => 'KOM-0002', 'email' => 'siti2@kraf.test',
         'address' => 'Lot 5, Kampung Kraf, Kuala Kangsar',
     ])->assertSessionHasNoErrors();
 
@@ -72,14 +72,13 @@ it('refuses an address longer than 500 characters', function () {
     expect($company->user->fresh()->address)->toBe('Kept');
 });
 
-it('puts the password fields side by side, under one note', function () {
+it('asks the office for no password, only the email the participant signs in with', function () {
     $html = $this->actingAs(superAdmin(), 'admin')
         ->get(route('admin.companies.edit', addressedCompany()))->getContent();
 
-    // Both fields come before the note: the note no longer sits under one of
-    // them, making it taller than its neighbour.
-    expect(strpos($html, 'id="password"'))->toBeLessThan(strpos($html, 'id="password_confirmation"'))
-        ->and(strpos($html, 'id="password_confirmation"'))->toBeLessThan(strpos($html, 'Leave both empty to keep the current password.'));
+    // The first sign-in is with the IC (owner, 2026-11-24): no password typed by the office.
+    expect(str_contains($html, 'id="password"'))->toBeFalse()
+        ->and(str_contains($html, 'name="email"'))->toBeTrue();
 });
 
 it('edits the old profile fields the import brought in, and the participant sees them read-only', function () {
@@ -113,7 +112,7 @@ it('edits the old profile fields the import brought in, and the participant sees
 it('takes the old profile fields when the company is created', function () {
     $this->actingAs(superAdmin(), 'admin')->post(route('admin.companies.store'), [
         'name' => 'Baru Lengkap', 'state' => 'Perak', 'owner_name' => 'Siti',
-        'ic_number' => '900101-08-2222', 'community_id' => 'KOM-0003',
+        'ic_number' => '900101-08-2222', 'community_id' => 'KOM-0003', 'email' => 'siti3@kraf.test',
         'salutation' => 'Cik', 'postcode' => '33000', 'district' => 'Kuala Kangsar', 'registration_no' => 'JM0999',
     ])->assertSessionHasNoErrors();
 

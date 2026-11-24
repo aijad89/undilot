@@ -23,7 +23,8 @@ use Throwable;
  *
  * PASSWORDS ARE NOT CARRIED OVER (owner, 2026-11-17): the old ones are plain
  * text and unsalted MD5. Every admin gets a random password and a super admin
- * resets it; participants sign in with community ID + IC and need none.
+ * resets it. Participants sign in with an email the office adds (the old
+ * system kept none), their IC the first time.
  *
  * ONE PERSON, MANY OLD ROWS. The same usahawan appears in the live table, the
  * master lists and each past event's copy. They are one account, found by IC
@@ -75,7 +76,12 @@ class LegacyAccounts extends Command
             $this->line('  '.$note);
         }
         $this->newLine();
-        $this->line('Passwords are random. A super admin resets them; participants sign in with community ID + IC.');
+        $this->line('Admin passwords are random; a super admin resets them.');
+        // The old system kept no email, and a participant signs in with one.
+        $noEmail = User::whereNotNull('legacy_id')->whereNull('email')->count();
+        if ($noEmail > 0) {
+            $this->warn("{$noEmail} participant(s) have no email and CANNOT SIGN IN until the office adds one on the company page. Their first sign-in is with their IC.");
+        }
 
         return self::SUCCESS;
     }

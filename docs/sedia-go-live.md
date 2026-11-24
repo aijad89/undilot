@@ -77,6 +77,11 @@ Senarai semak penuh: [`serahan-pembangun.md` seksyen 13](serahan-pembangun.md#13
 - [ ] Penjadual dari `/etc/cron.d/undilot` (bukan crontab `www-data`)
 - [ ] Pekerja baris gilir (systemd `queue:work database`) — tanpanya **tiada
       notifikasi dihantar**
+- [ ] `MAIL_*` sebenar dalam `.env` (SMTP pejabat). Tanpanya pautan reset kata
+      laluan tidak sampai — `MAIL_MAILER=log` menulisnya ke log sahaja. Uji
+      *Forgot password?* dengan satu akaun sebelum dibuka.
+- [ ] Setiap peserta ada emel (pejabat isi di halaman syarikat). Tanpa emel,
+      tiada log masuk. Kali pertama: emel + IC, kemudian wajib tukar.
 - [ ] Log masuk sebagai super selepas deploy: kad *Needs attention* tidak
       menunjukkan baris `Server:` (pekerja, penjadual, `storage:link` —
       `DashboardController::serverProblems()`). Penjadual dianggap mati jika

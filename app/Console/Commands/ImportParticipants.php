@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Company;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
 use App\Support\AdminZones;
 use App\Support\BusinessTypes;
@@ -55,12 +56,13 @@ class ImportParticipants extends Command
     /** Every column the importer reads. Anything else in the sheet is ignored and reported. */
     private const KNOWN = [
         'nama', 'ic', 'telefon', 'syarikat', 'zon',
-        'kod_kraf', 'saiz_gerai', 'kategori_usahawan', 'no_komuniti', 'alamat',
+        'kod_kraf', 'saiz_gerai', 'kategori_usahawan', 'no_komuniti', 'alamat', 'emel',
     ];
 
     private array $planned = [];
     private array $failed = [];
     private array $ignoredColumns = [];
+    private int $emailTaken = 0;
 
     public function handle(): int
     {
@@ -110,13 +112,16 @@ class ImportParticipants extends Command
         $this->newLine();
         $this->line("Written: {$written['created']} new, {$written['updated']} updated.");
 
-        // Participants sign in with community ID + IC (LoginRequest). Without
-        // the ID the row is written, but that person cannot sign in.
-        $noId = count(array_filter($this->planned, fn ($p) => $p['community'] === ''));
+        // Participants sign in with their email (LoginRequest). Without one
+        // the row is written, but that person cannot sign in.
+        $noEmail = count(array_filter($this->planned, fn ($p) => $p['email'] === ''));
 
-        if ($noId > 0) {
+        if ($noEmail > 0) {
             $this->newLine();
-            $this->warn("{$noId} participant(s) have no community ID (no_komuniti) and CANNOT SIGN IN until one is added.");
+            $this->warn("{$noEmail} participant(s) have no valid email (emel) and CANNOT SIGN IN until the office adds one.");
+        }
+        if ($this->emailTaken > 0) {
+            $this->warn("{$this->emailTaken} email(s) already belong to another participant and were not set.");
         }
 
         return $this->failed === [] ? self::SUCCESS : self::FAILURE;
@@ -157,7 +162,6 @@ class ImportParticipants extends Command
 
         // Columns the office added for its own use are reported, not silently
         // dropped: a misspelled `alamat` looks exactly like an extra column.
-        // An `emel` column lands here too — the project keeps no email.
         $this->ignoredColumns = array_values(array_filter(
             $header,
             fn ($h) => $h !== '' && ! in_array($h, self::KNOWN, true) && ! str_starts_with($h, '_')
@@ -286,6 +290,8 @@ class ImportParticipants extends Command
                 'category' => $category,
                 'community' => $row['no_komuniti'] ?? '',
                 'address' => $row['alamat'] ?? '',
+                // Kept only when it is an address; a typo is a blank, reported below.
+                'email' => filter_var($email = LoginRequest::email($row['emel'] ?? ''), FILTER_VALIDATE_EMAIL) ? $email : '',
             ];
         }
     }
@@ -312,9 +318,10 @@ class ImportParticipants extends Command
 
                     if ($user === null) {
                         $user = new User;
-                        // Random, and never told to anyone: participants sign
-                        // in with community ID + IC, not a password.
+                        // Never used: the first sign-in is with the IC, then
+                        // the participant chooses a password.
                         $user->password = bcrypt(Str::random(32));
+                        $user->password_changed_at = null;
                         $created++;
                     } else {
                         $updated++;
@@ -325,6 +332,14 @@ class ImportParticipants extends Command
                     $user->phone = $plan['phone'] !== '' ? $plan['phone'] : null;
                     $user->community_id = $plan['community'] !== '' ? $plan['community'] : null;
                     $user->address = $plan['address'] !== '' ? $plan['address'] : null;
+                    // A blank cell keeps the email on file; one held by someone else is not taken.
+                    if ($plan['email'] !== '') {
+                        if (User::where('email', $plan['email'])->where('id', '!=', $user->id ?? 0)->exists()) {
+                            $this->emailTaken++;
+                        } else {
+                            $user->email = $plan['email'];
+                        }
+                    }
                     $user->is_active = true;
                     $user->save();
 
@@ -377,7 +392,7 @@ class ImportParticipants extends Command
 
         foreach (['phone' => 'telefon', 'company' => 'syarikat', 'zone' => 'zon',
             'code' => 'kod_kraf', 'size' => 'saiz_gerai', 'category' => 'kategori_usahawan',
-            'community' => 'no_komuniti', 'address' => 'alamat'] as $key => $label) {
+            'community' => 'no_komuniti', 'address' => 'alamat', 'email' => 'emel'] as $key => $label) {
             $n = $blank($key);
 
             if ($n > 0) {

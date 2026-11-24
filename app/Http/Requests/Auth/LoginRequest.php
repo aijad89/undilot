@@ -6,25 +6,23 @@ use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The participant sign-in: COMMUNITY ID + IC NUMBER, no password.
+ * The participant sign-in: EMAIL + PASSWORD (owner, 2026-11-24 — replacing
+ * community ID + IC, whose values were both printed on the lot slip).
  *
- * The owner's decision (2026-11-17): participants are not given an email, so
- * the password flow — which can only be started through an emailed reset link —
- * could never let them in. Both values are ones the office already holds and
- * the participant already knows.
+ * The email is the username. It is set by the office only, and the slip does
+ * not carry it. Until the participant has chosen a password
+ * (`password_changed_at` NULL — a new account, or one the office reset) the IC
+ * is the password, compared as digits; EnsurePasswordChanged then holds them
+ * on the change-password page until they choose one. After that only the
+ * chosen password works, and a forgotten one is reset by an emailed link.
  *
- * KNOWN WEAKNESS, ACCEPTED FOR NOW: neither value is a secret. The IC is printed
- * on the lot slip and both are known to the office and to anyone holding the
- * participant's documents. The owner has asked for this to be revisited by the
- * team later; until then the rate limit below is the only brake on guessing.
- *
- * Admins (officers) sign in at /admin/login with username + password. No email
- * anywhere in the project.
+ * Admins (officers) sign in at /admin/login with username + password.
  */
 class LoginRequest extends FormRequest
 {
@@ -39,8 +37,8 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'community_id' => ['required', 'string', 'max:50'],
-            'ic_number' => ['required', 'string', 'max:20'],
+            'email' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string'],
         ];
     }
 
@@ -57,21 +55,21 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'community_id' => 'No participant has that community ID and IC number.',
+                'email' => 'That email and password do not match an account.',
             ]);
         }
 
         // Checked AFTER the match, as the admin login does: only someone who
-        // already holds both values learns the account exists but is off.
+        // already holds the password learns the account exists but is off.
         if (! $user->is_active) {
             throw ValidationException::withMessages([
-                'community_id' => 'Your account has been deactivated. Please contact the administrator.',
+                'email' => 'Your account has been deactivated. Please contact the administrator.',
             ]);
         }
 
         if ($user->company && ! $user->company->is_active) {
             throw ValidationException::withMessages([
-                'community_id' => 'Your company has been deactivated. Please contact the administrator.',
+                'email' => 'Your company has been deactivated. Please contact the administrator.',
             ]);
         }
 
@@ -80,33 +78,31 @@ class LoginRequest extends FormRequest
         RateLimiter::clear($this->throttleKey());
     }
 
-    /**
-     * The one account holding both values, or null.
-     *
-     * The community ID is compared trimmed and without regard to case. The IC
-     * is compared as DIGITS: the office writes both 890508-12-0000 and
-     * 890508120000, and a participant may type either.
-     *
-     * Two accounts holding the same pair is null, not the first one: nothing
-     * says which of the two is signing in.
-     */
+    /** The account with this email whose password (or, before one is chosen, IC) matches. */
     private function matchingUser(): ?User
     {
-        $id = Str::lower(trim((string) $this->input('community_id')));
-        $ic = self::digits($this->input('ic_number'));
+        $email = self::email($this->input('email'));
+        $password = (string) $this->input('password');
+        $user = $email === '' ? null : User::where('email', $email)->first();
 
-        if ($id === '' || $ic === '') {
+        if (! $user) {
             return null;
         }
 
-        $matches = User::whereRaw('lower(trim(community_id)) = ?', [$id])
-            ->whereNotNull('ic_number')
-            ->get()
-            ->filter(fn (User $u) => self::digits($u->ic_number) === $ic);
+        if ($user->password_changed_at === null) {
+            $ic = self::digits($user->ic_number);
 
-        return $matches->count() === 1 ? $matches->first() : null;
+            return $ic !== '' && hash_equals($ic, self::digits($password)) ? $user : null;
+        }
+
+        return Hash::check($password, $user->password) ? $user : null;
     }
 
+    /** As stored: trimmed, lower-case. */
+    public static function email(mixed $value): string
+    {
+        return Str::lower(trim((string) $value));
+    }
     private static function digits(mixed $value): string
     {
         return preg_replace('/\D+/', '', (string) $value);
@@ -126,7 +122,7 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'community_id' => trans('auth.throttle', [
+            'email' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -134,11 +130,11 @@ class LoginRequest extends FormRequest
     }
 
     /**
-     * Per community ID and per address. The IC is left out on purpose: keyed
+     * Per email and per address. The password is left out on purpose: keyed
      * on it, every wrong guess would start a fresh counter.
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower(trim((string) $this->input('community_id'))).'|'.$this->ip());
+        return Str::transliterate(Str::lower(trim((string) $this->input('email'))).'|'.$this->ip());
     }
 }

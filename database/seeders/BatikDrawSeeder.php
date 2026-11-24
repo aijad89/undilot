@@ -150,6 +150,8 @@ class BatikDrawSeeder extends LocalOnlySeeder
             ]);
             $user->forceFill([
                 'community_id' => sprintf('%s%03d', self::ID_PREFIX, $n),
+                'email' => strtolower(sprintf('%s%03d', self::ID_PREFIX, $n)).'@demo.test',
+                'password_changed_at' => now(),
                 'ic_number' => sprintf('%s-%s-%04d', $born->format('ymd'), self::BIRTH_STATE[$zone] ?? '14', 5000 + $n),
                 'phone' => sprintf('01%d-%07d', $faker->numberBetween(2, 9), $faker->numberBetween(1000000, 9999999)),
                 'is_active' => true,

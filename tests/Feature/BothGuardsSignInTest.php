@@ -33,8 +33,8 @@ it('signs a participant in and lands them on their dashboard', function () {
     $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
 
     $this->post('/login', [
-        'community_id' => $user->community_id,
-        'ic_number' => '890508120000',   // digits only: the dashes are not required
+        'email' => $user->email,
+        'password' => 'password',
     ])->assertRedirect(route('dashboard'));   // not '/', which is the public event list
 
     expect(auth('web')->check())->toBeTrue()
@@ -76,7 +76,7 @@ it('logs out a participant whose account was switched off, mid-session', functio
     expect(auth('web')->check())->toBeFalse();
 });
 
-it('refuses a wrong password, or a wrong IC, on its own guard', function () {
+it('refuses a wrong password on either guard', function () {
     $admin = Admin::factory()->super()->create(['password' => 'kraf1234']);
     $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
 
@@ -84,8 +84,8 @@ it('refuses a wrong password, or a wrong IC, on its own guard', function () {
         ->assertSessionHasErrors('username');
     expect(auth('admin')->check())->toBeFalse();
 
-    $this->post('/login', ['community_id' => $user->community_id, 'ic_number' => '000000-00-0000'])
-        ->assertSessionHasErrors('community_id');
+    $this->post('/login', ['email' => $user->email, 'password' => 'wrong'])
+        ->assertSessionHasErrors('email');
     expect(auth('web')->check())->toBeFalse();
 });
 
@@ -119,7 +119,7 @@ it('sends a participant to their dashboard, not an admin page they were bounced 
 
     $this->get(route('admin.events.index'))->assertRedirect(route('admin.login'));
 
-    $this->post('/login', ['community_id' => $user->community_id, 'ic_number' => $user->ic_number])
+    $this->post('/login', ['email' => $user->email, 'password' => 'password'])
         ->assertRedirect(route('dashboard'));
 });
 
@@ -128,6 +128,6 @@ it('still sends a participant back to the participant page they were bounced fro
 
     $this->get(route('notifications.index'))->assertRedirect(route('login'));
 
-    $this->post('/login', ['community_id' => $user->community_id, 'ic_number' => $user->ic_number])
+    $this->post('/login', ['email' => $user->email, 'password' => 'password'])
         ->assertRedirect(route('notifications.index'));
 });

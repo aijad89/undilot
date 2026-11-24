@@ -176,18 +176,19 @@ it('creates the company and its one account from a single form', function () {
             'phone' => '012-3456789',
             'ic_number' => '900101-01-2222',
             'community_id' => 'KOM-0003',
-            'password' => 'kraf1234',
-            'password_confirmation' => 'kraf1234',
+            'email' => 'aminah@kraf.test',
         ])
         ->assertRedirect();
 
     $company = Company::sole();
     $user = User::sole();
 
+    // No password from the office: the first sign-in is with the IC.
     expect($company->user_id)->toBe($user->id)
         ->and($user->community_id)->toBe('KOM-0003')
+        ->and($user->email)->toBe('aminah@kraf.test')
         ->and($user->is_active)->toBeTrue()
-        ->and(Hash::check('kraf1234', $user->password))->toBeTrue();
+        ->and($user->password_changed_at)->toBeNull();
 });
 
 it('stores an IC typed as twelve bare digits in its dashed form, so one IC is one spelling', function () {
@@ -197,7 +198,7 @@ it('stores an IC typed as twelve bare digits in its dashed form, so one IC is on
     $post = fn (string $ic, string $tag) => $this->actingAs(stateAdmin('Johor'), 'admin')
         ->post(route('admin.companies.store'), [
             'name' => 'Kraf '.$tag, 'state' => 'Johor', 'owner_name' => 'Owner',
-            'ic_number' => $ic, 'community_id' => 'KOM-'.$tag,
+            'ic_number' => $ic, 'community_id' => 'KOM-'.$tag, 'email' => "{$tag}@kraf.test",
         ]);
 
     // The same IC as the existing account, typed without dashes: refused as a

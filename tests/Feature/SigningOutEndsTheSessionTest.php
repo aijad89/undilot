@@ -25,7 +25,7 @@ use App\Models\User;
 function signInParticipant($test): User
 {
     $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
-    $test->post(route('login'), ['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $test->post(route('login'), ['email' => $user->email, 'password' => 'password']);
     auth()->forgetGuards();
 
     return $user;
@@ -90,7 +90,7 @@ it('kills a "remember me" sign-in too, so the cookie cannot sign anyone back in'
 
     $signIn = $this->post(route($who === 'participant' ? 'login' : 'admin.login'), [
         ...($who === 'participant'
-            ? ['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']
+            ? ['email' => $model->email, 'password' => 'password']
             : ['username' => $model->username, 'password' => 'kraf1234']),
         'remember' => 'on',
     ])->assertCookie($recaller);

@@ -16,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -110,9 +109,9 @@ class CompanyController extends Controller
             'salutation' => ['nullable', 'string', 'max:50'],
             'postcode' => ['nullable', 'string', 'max:20'],
             'district' => ['nullable', 'string', 'max:100'],
-            // Optional and normally blank: participants sign in with community
-            // ID + IC, so the password is never used (owner, 2026-11-17).
-            'password' => ['nullable', 'confirmed', Password::defaults()],
+            // The participant's username; the reset link goes to it. The
+            // office's to set, never the participant's (owner, 2026-11-24).
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'account_active' => ['nullable', 'boolean'],
         ], self::IC_MESSAGES);
 
@@ -128,11 +127,12 @@ class CompanyController extends Controller
                 'salutation' => $data['salutation'] ?? null,
                 'postcode' => $data['postcode'] ?? null,
                 'district' => $data['district'] ?? null,
+                'email' => $data['email'],
                 'is_active' => $request->boolean('account_active', true),
-                // A random password when none was typed, NOT a default one: a
-                // fallback password in tracked code is a password in git history
-                // from the day it was written.
-                'password' => bcrypt($data['password'] ?? Str::random(32)),
+                // Never used: with `password_changed_at` NULL the IC signs in the
+                // first time, and the participant then chooses a password.
+                'password' => bcrypt(Str::random(32)),
+                'password_changed_at' => null,
             ]);
 
             return $user->company()->create([
@@ -147,7 +147,7 @@ class CompanyController extends Controller
         });
 
         return redirect()->route('admin.companies.edit', $company)
-            ->with('success', "{$company->name} created, with an account for community ID {$company->user->community_id}.");
+            ->with('success', "{$company->name} created. The participant signs in with {$company->user->email} and their IC number, then chooses a password.");
     }
 
     public function edit(Request $request, Company $company)
@@ -192,9 +192,7 @@ class CompanyController extends Controller
             'salutation' => ['nullable', 'string', 'max:50'],
             'postcode' => ['nullable', 'string', 'max:20'],
             'district' => ['nullable', 'string', 'max:100'],
-            // Left blank on every save: participants sign in with community ID
-            // + IC, so the password is never used.
-            'password' => ['nullable', 'confirmed', Password::defaults()],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
         ], self::IC_MESSAGES + CompanyCredentials::MESSAGES, CompanyCredentials::ATTRIBUTES);
 
         $before = CompanyCredentials::filePaths($company->profile());
@@ -209,15 +207,13 @@ class CompanyController extends Controller
                 'salutation' => $data['salutation'] ?? null,
                 'postcode' => $data['postcode'] ?? null,
                 'district' => $data['district'] ?? null,
+                'email' => $data['email'],
                 // Two switches, two facts. A company switched off is off the
                 // books; an account switched off cannot sign in, and
                 // EnforceUserIsActive ends the session of anyone already in.
                 'is_active' => $request->boolean('account_active'),
             ]);
 
-            if (! empty($data['password'])) {
-                $user->update(['password' => bcrypt($data['password'])]);
-            }
 
             $company->update([
                 'name' => $data['name'],
@@ -249,6 +245,24 @@ class CompanyController extends Controller
      * ValidationException, and it is caught here so the admin reads a sentence
      * rather than a stack trace.
      */
+    /**
+     * Back to the IC: the participant's next sign-in is with their IC, and they
+     * must choose a new password (owner, 2026-11-24). For a participant who has
+     * lost both the password and the email inbox.
+     */
+    public function resetPassword(Request $request, Company $company)
+    {
+        $this->authorizeScope($request, $company);
+
+        $company->user->forceFill([
+            'password' => bcrypt(Str::random(32)),
+            'password_changed_at' => null,
+        ])->save();
+
+        return redirect()->route('admin.companies.edit', $company)
+            ->with('success', 'Password reset. The participant signs in next with their IC number and chooses a new password.');
+    }
+
     public function destroy(Request $request, Company $company)
     {
         $this->authorizeScope($request, $company);

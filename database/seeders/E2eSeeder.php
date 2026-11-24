@@ -61,6 +61,8 @@ class E2eSeeder extends LocalOnlySeeder
             $user = User::create([
                 'name' => "Owner {$name}",
                 'community_id' => 'E2E-'.strtoupper($handle),
+                'email' => "{$handle}@e2e.test",
+                'password_changed_at' => now(),
                 'password' => $password(),
                 'ic_number' => $ic,
                 'is_active' => true,

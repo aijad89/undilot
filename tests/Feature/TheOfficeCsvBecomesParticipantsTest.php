@@ -80,17 +80,19 @@ it('stores a blank cell as nothing rather than guessing', function () {
         ->and($company->business_type)->toBeNull();
 });
 
-it('reads no email: an `emel` column is named as not read, and nothing stores it', function () {
-    // The project keeps no email (owner, 2026-11-17). CSV_HEAD still carries
-    // `emel`, the way an old office sheet might.
+it('reads the `emel` column as the sign-in email, and warns of rows without one', function () {
+    // The participant signs in with it (owner, 2026-11-24).
     Artisan::call('import:participants', [
-        'path' => csvFile([CSV_HEAD, 'AHMAD BIN ALI,700101-01-1111,,ahmad@gmail.com,Kraf Ahmad,Kedah,,,,KOM-1']),
+        'path' => csvFile([CSV_HEAD, 'AHMAD BIN ALI,700101-01-1111,, Ahmad@Gmail.com,Kraf Ahmad,Kedah,,,,KOM-1', 'SITI BINTI ABU,700101-01-2222,,bukan-emel,Kraf Siti,Kedah,,,,KOM-2']),
         '--force' => true,
     ]);
 
-    expect(Artisan::output())->toContain('Columns not read', 'emel')
-        ->and(User::where('ic_number', '700101-01-1111')->exists())->toBeTrue()
-        ->and(Illuminate\Support\Facades\Schema::hasColumn('users', 'email'))->toBeFalse();
+    $user = User::where('ic_number', '700101-01-1111')->sole();
+    expect($user->email)->toBe('ahmad@gmail.com')
+        ->and($user->password_changed_at)->toBeNull()
+        ->and(User::where('ic_number', '700101-01-2222')->value('email'))->toBeNull()
+        ->and(Artisan::output())->toContain('1 participant(s) have no valid email (emel) and CANNOT SIGN IN')
+        ->and(str_contains(Artisan::output(), 'Columns not read'))->toBeFalse();
 });
 
 it('refuses a zone that is not one of the office zones', function () {

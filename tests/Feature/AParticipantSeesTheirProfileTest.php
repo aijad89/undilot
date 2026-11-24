@@ -44,18 +44,12 @@ it('is reached from the menu, and only when signed in', function () {
         ->assertSee('href="'.route('profile').'"', false);
 });
 
-it('has no password to change: participants sign in with community ID + IC', function () {
+it('links to the password page, and shows the email they sign in with, read-only', function () {
     $company = profileOwner();
 
     $this->actingAs($company->user, 'web')->get(route('profile'))->assertOk()
-        ->assertDontSee('Change password')
-        ->assertDontSee('current_password', false);
-
-    // The endpoint is gone, not just unlinked.
-    expect(Route::has('profile.password'))->toBeFalse();
-    $this->put(url('/profile/password'), ['current_password' => 'lama1234', 'password' => 'baharu123', 'password_confirmation' => 'baharu123'])
-        ->assertNotFound();
-    expect(Hash::check('lama1234', $company->user->fresh()->password))->toBeTrue();
+        ->assertSee(route('password.edit'), false)
+        ->assertSee('value="'.$company->user->email.'" disabled', false);
 });
 
 it('shows the community ID they sign in with', function () {

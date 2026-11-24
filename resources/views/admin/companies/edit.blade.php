@@ -24,6 +24,7 @@
         @method('PUT')
         @include('admin.companies._form')
     </form>
+    <form method="POST" action="{{ route('admin.companies.reset-password', $company) }}" id="reset-password-form" hidden>@csrf</form>
 
     {{-- Outside the form above, deliberately: the picker posts to its own route,
          and a form inside a form is not a thing a browser will send. --}}

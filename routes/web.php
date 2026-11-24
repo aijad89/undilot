@@ -43,7 +43,7 @@ Route::get('/events/{event}', [HomeController::class, 'show'])->name('events.sho
 // the admin guard to the participant portal. The admin group below has always
 // said `auth:admin`; this is the same sentence on this side. An admin is a guest
 // here, which is the decision, and redirectGuestsTo sends them to the right form.
-Route::middleware(['auth:web', 'user.active'])->group(function () {
+Route::middleware(['auth:web', 'user.active', 'user.password-set'])->group(function () {
     Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
     Route::get('/past-events', [HomeController::class, 'pastEvents'])->name('past-events');
     Route::get('/past-events/{event}', [HomeController::class, 'pastEvent'])->name('past-events.show');
@@ -56,8 +56,7 @@ Route::middleware(['auth:web', 'user.active'])->group(function () {
 
     // The account facts are the office's and read-only; the company's contact,
     // certificates and crafts are the participant's to keep — every request to
-    // join starts from them. No password change: participants sign in with
-    // community ID + IC and never hold a password (owner, 2026-11-17).
+    // join starts from them. The password is changed at route('password.edit').
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/contact', [ProfileController::class, 'updateContact'])->name('profile.contact');
@@ -195,6 +194,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('companies/{company}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
         Route::put('companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
         Route::delete('companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+        Route::post('companies/{company}/reset-password', [CompanyController::class, 'resetPassword'])->name('companies.reset-password');
 
         Route::post('companies/{company}/kraf', [CompanyController::class, 'storeKraf'])->name('companies.kraf.store');
         Route::put('companies/{company}/kraf/{selection}/primary', [CompanyController::class, 'makeKrafPrimary'])

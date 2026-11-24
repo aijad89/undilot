@@ -44,6 +44,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // every admin route reads like a guard and would enforce nothing.
             'track.admin-last-seen' => TrackAdminLastSeen::class,
             'user.active' => EnforceUserIsActive::class,
+            // Holds a participant on the change-password page while the IC is their password.
+            'user.password-set' => \App\Http\Middleware\EnsurePasswordChanged::class,
             // Ends the session of an admin whose account was switched off.
             'admin.active' => EnforceAdminIsActive::class,
         ]);

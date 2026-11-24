@@ -185,6 +185,13 @@
                    value="{{ $owner('community_id', 'community_id') }}" maxlength="50" required>
         </div>
 
+        <div class="col-md-8">
+            <label class="mac-label" for="email">Email</label>
+            <input type="email" id="email" name="email" class="mac-form-control"
+                   value="{{ $owner('email', 'email') }}" maxlength="255" required autocomplete="off">
+            <small class="mac-muted">The participant signs in with this, and a forgotten password is reset through it.</small>
+        </div>
+
         <div class="col-12">
             <label class="mac-label" for="address">Address</label>
             <textarea id="address" name="address" class="mac-form-control" rows="3" maxlength="500"
@@ -204,29 +211,22 @@
         </div>
     </div>
 
-    {{-- The password in a block of its own, its note under BOTH fields: under
-         one of them it was taller than its neighbour and pushed the grid out
-         of line. --}}
-    <h4 class="mac-card-title mt-4 pt-3 mb-3" style="border-top:1px solid var(--ui-sep);font-size:0.9375rem;">{{ $editing ? 'Reset password' : 'Password' }}</h4>
+    {{-- No password typed by the office (owner, 2026-11-24): the first sign-in
+         is with the IC, then the participant chooses one. "Reset to IC" posts
+         its own form, outside this one (edit.blade.php). --}}
+    <h4 class="mac-card-title mt-4 pt-3 mb-3" style="border-top:1px solid var(--ui-sep);font-size:0.9375rem;">Sign-in</h4>
     <div class="row g-3">
-        <div class="col-md-6">
-            <label class="mac-label" for="password">{{ $editing ? 'New password' : 'Password' }}</label>
-            <input type="password" id="password" name="password" class="mac-form-control" autocomplete="new-password">
+        <div class="col-12">
+            @if(! $editing)
+                <p class="mac-muted mac-text-sm mb-0">The participant signs in the first time with this email and their IC number, then chooses a password.</p>
+            @elseif($user->password_changed_at === null)
+                <p class="mac-muted mac-text-sm mb-0">Not signed in yet, or reset: the next sign-in is with the IC number.</p>
+            @else
+                <p class="mac-muted mac-text-sm mb-2">Password chosen {{ $user->password_changed_at->format('d M Y') }}. If they have lost it and cannot use the email link, reset it to their IC number.</p>
+                <button type="submit" form="reset-password-form" class="mac-btn-secondary"
+                        onclick="return confirm('Reset this participant\'s password to their IC number?')">Reset password to IC</button>
+            @endif
         </div>
-
-        <div class="col-md-6">
-            <label class="mac-label" for="password_confirmation">Confirm password</label>
-            <input type="password" id="password_confirmation" name="password_confirmation"
-                   class="mac-form-control" autocomplete="new-password">
-        </div>
-
-        <div class="col-12 mt-1">
-            <small class="mac-muted">
-                Not needed: the participant signs in with community ID and IC.
-                Leave both empty{{ $editing ? ' to keep the current password' : ' (a random one is set)' }}.
-            </small>
-        </div>
-
         <div class="col-12">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="account_active" name="account_active" value="1"

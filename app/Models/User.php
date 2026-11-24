@@ -31,7 +31,9 @@ class User extends Authenticatable
     /** @var list<string> */
     protected $fillable = [
         'name',
+        'email',
         'password',
+        'password_changed_at',
         'phone',
         'ic_number',
         'community_id',
@@ -51,11 +53,18 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    /** Stored trimmed and lower-case, as LoginRequest looks it up; blank is null. */
+    protected function email(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::set(fn (?string $value) => \App\Http\Requests\Auth\LoginRequest::email($value) ?: null);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
             'last_seen_at' => 'datetime',
+            'password_changed_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];

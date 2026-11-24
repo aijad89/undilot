@@ -121,6 +121,10 @@
                         </div>
                     </div>
                     <div class="ap-field">
+                        <label class="ap-label" for="acc_email">Email <span class="ap-muted">(you sign in with this)</span></label>
+                        <input class="ap-input" id="acc_email" value="{{ $user->email }}" disabled>
+                    </div>
+                    <div class="ap-field">
                         <label class="ap-label" for="acc_address">Address</label>
                         <textarea class="ap-textarea" id="acc_address" name="address" rows="3" maxlength="500" autocomplete="street-address">{{ old('address', $user->address) }}</textarea>
                         @error('address')<p class="ap-field-error">{{ $message }}</p>@enderror
@@ -138,15 +142,20 @@
                         </div>
                     </div>
 
-                    <p class="ap-side-note">Zone, IC number and Community ID are kept by the office. You sign in with your Community ID and IC, so if either is wrong, contact the Kraftangan office.</p>
-                    <button type="submit" class="ap-btn ap-btn-primary">Save account</button>
+                    <p class="ap-side-note">Zone, IC number, Community ID and email are kept by the office. You sign in with your email, so if it is wrong, contact the Kraftangan office.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button type="submit" class="ap-btn ap-btn-primary">Save account</button>
+                        <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
+                    </div>
                 </form>
             @else
                 <dl class="ap-facts">
                     <dt>Owner's name</dt><dd>{{ $user->name }}</dd>
                     <dt>IC number</dt><dd class="ap-tabular">{{ $user->ic_number ?: '—' }}</dd>
                     <dt>Community ID</dt><dd class="ap-tabular">{{ $user->community_id ?: '—' }}</dd>
+                    <dt>Email</dt><dd>{{ $user->email ?: '—' }}</dd>
                 </dl>
+                <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
             @endif
         </section>
 

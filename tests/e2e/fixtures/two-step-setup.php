@@ -27,6 +27,8 @@ $event = Event::create([
 $user = User::create([
     'name' => "Owner Anyaman {$tag}",
     'community_id' => 'E2E-ANYAMAN-'.strtoupper($tag),
+    'email' => strtolower("anyaman-{$tag}@e2e.test"),
+    'password_changed_at' => now(),
     'password' => bcrypt(Str::random(40)),
     'is_active' => true,
 ]);
