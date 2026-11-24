@@ -37,8 +37,8 @@ it('makes an officer the state admin of their own zone, keeping the office name'
 
     // An officer was a branch officer in the old system, never HQ: the role is
     // read from where they came from, not handed out by position in the table.
-    expect($admin->name)->toBe('NORAINI BINTI OSMAN')
-        ->and($admin->username)->toBe('noraini')
+    expect($admin->name)->toBe('PEGAWAI CONTOH SATU')
+        ->and($admin->username)->toBe('pegsatu')
         ->and($admin->role)->toBe('admin')
         ->and($admin->state)->toBe('Perlis');
 
@@ -54,12 +54,12 @@ it('builds a participant with their company, craft code and booth size', functio
     // craft name that itself holds punctuation.
     $user = User::where('legacy_id', 'usahawan:204')->first();
 
-    expect($user->name)->toBe('SITTI WARDAHAH BINTI ALI DAHLAN')
-        ->and($user->ic_number)->toBe('890508-12-0000');
+    expect($user->name)->toBe('SITI CONTOH BINTI ABU BAKAR')
+        ->and($user->ic_number)->toBe('900101-12-0000');
 
     $company = Company::where('user_id', $user->id)->first();
 
-    expect($company->name)->toBe('WARDAHAMIRAH LEGACY')
+    expect($company->name)->toBe('CONTOH KRAF LEGACY')
         ->and($company->state)->toBe('Perlis')
         ->and($company->kraf_code)->toBe('AMH', 'Split from the RIGHT, or the code reads "Manik".')
         ->and($company->plot_size)->toBe('3x3');
@@ -79,7 +79,7 @@ it('leaves the code and size null for the older rows that carry neither', functi
 
     // An HOURLY BACKUP is not a source of people (Legacy::participantSources):
     // its rows stay in staging, archive only, and become no account.
-    expect(User::where('name', 'Leena binti Hassan')->exists())
+    expect(User::where('name', 'Lina binti Contoh')->exists())
         ->toBeFalse('An hourly backup row became an account.');
 });
 
@@ -87,30 +87,30 @@ it('hands out the same role to the same officer on a re-run', function () {
     loadForAccounts();
 
     Artisan::call('legacy:accounts');
-    $first = Admin::where('username', 'noraini')->first();
+    $first = Admin::where('username', 'pegsatu')->first();
 
     Artisan::call('legacy:accounts');
-    $second = Admin::where('username', 'noraini')->first();
+    $second = Admin::where('username', 'pegsatu')->first();
 
     expect($second->id)->toBe($first->id, 'A re-run must update, not duplicate.')
         ->and($second->role)->toBe($first->role);
 
-    expect(Admin::where('username', 'noraini')->count())->toBe(1);
+    expect(Admin::where('username', 'pegsatu')->count())->toBe(1);
 });
 
 it('gives two officers who share one login two accounts, and does not let the second take the first one\'s role', function () {
     loadForAccounts();
     Artisan::call('legacy:accounts');
 
-    // The fixture carries ids 30 and 31, both 'NURUL HAIDA BINTI AHMAD' with
-    // loginname 'haida' — the same shape as ids 5 and 25 in the real dump.
+    // The fixture carries ids 30 and 31, both 'PEGAWAI CONTOH DUA' with
+    // loginname 'pegdua' — the same shape as ids 5 and 25 in the real dump.
     //
     // THIS IS THE BUG THIS TEST EXISTS FOR. Keyed on a colliding address,
     // updateOrCreate does not fail: it updates the FIRST officer's row, so the
     // second one takes over the role already handed out. On the real dump that
     // built 17 admins into 16 rows and left no hq admin at all, silently.
-    $first = Admin::where('username', 'haida')->first();
-    $second = Admin::where('username', 'haida.31')->first();
+    $first = Admin::where('username', 'pegdua')->first();
+    $second = Admin::where('username', 'pegdua.31')->first();
 
     expect($first)->not->toBeNull()
         ->and($second)->not->toBeNull('The second officer was swallowed by the first.');
@@ -130,7 +130,7 @@ it('translates a legacy zone the office dropdown does not have', function () {
     // writes 'Pulau Pinang' and 'Negeri Sembilan' in other rows.
     DB::table('legacy_usahawan')->insert([
         'legacy_id' => '300', 'source_table' => 'usahawan',
-        'name' => 'ABDUL AZMI BIN JAAFAR', 'ic' => '591202-07-5507', 'state' => 'P.Penang',
+        'name' => 'PEGAWAI CONTOH TIGA', 'ic' => '590101-07-0003', 'state' => 'P.Penang',
         'companyname' => 'JATI INDAH MULIA', 'crafttype' => 'Batik-TBP-3x3',
         'lot' => 'TBP07', 'location' => 'BASEMENT', 'votetime' => '2025-10-06 11:00:00',
         'bidang' => 'Tekstil', 'salu' => 'Encik', 'preset' => 'TBP07',
@@ -220,19 +220,19 @@ it('carries the community id across, trimmed', function () {
     Artisan::call('legacy:accounts');
 
     // `comid` is filled on 174 of the 175 live rows, and 2,182 rows across the
-    // dump carry it with trailing spaces: '10-1-62  '.
+    // dump carry it with trailing spaces: '99-1-02  '.
     expect(User::where('legacy_id', 'usahawan:205')->value('community_id'))
-        ->toBe('10-1-62');
+        ->toBe('99-1-02');
 });
 
 it('never writes a password anybody could know', function () {
     loadForAccounts();
     Artisan::call('legacy:accounts');
 
-    $admin = Admin::where('username', 'noraini')->first();
+    $admin = Admin::where('username', 'pegsatu')->first();
 
     // Not the login name, not the office name, not a word from the dump.
-    foreach (['noraini', 'password', 'Pengawai', 'NORAINI BINTI OSMAN'] as $guess) {
+    foreach (['pegsatu', 'password', 'Pengawai', 'PEGAWAI CONTOH SATU'] as $guess) {
         expect(Hash::check($guess, $admin->password))->toBeFalse("'{$guess}' opened the account.");
     }
 });
@@ -268,5 +268,5 @@ it('clears out what it made when asked, and leaves the demo accounts alone', fun
         ->toBeTrue('--fresh deleted a DemoSeeder admin.');
 
     // And it did do its own job: the rebuild leaves exactly one of its admins.
-    expect(Admin::where('username', 'noraini')->count())->toBe(1);
+    expect(Admin::where('username', 'pegsatu')->count())->toBe(1);
 });

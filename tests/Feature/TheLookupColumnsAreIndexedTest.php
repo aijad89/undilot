@@ -52,7 +52,7 @@ it('indexes the columns the importers and the lot screens look rows up by', func
 
 it('does not make ic_number unique, because the office writes it two ways', function () {
     // A unique index compares STRINGS, and the dump carries both
-    // `890508-12-0000` and `890508120000` for the same person — so it would
+    // `900101-12-0000` and `900101120000` for the same person — so it would
     // admit exactly the duplicates it appears to forbid. The real rule is
     // "unique once reduced to digits", which the importers enforce in PHP,
     // where they can also drop BOTH rows of a clash instead of picking one.

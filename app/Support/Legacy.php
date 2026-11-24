@@ -105,8 +105,8 @@ final class Legacy
 
     /**
      * Who a participant row is. The IC as digits when it has any — the same rule
-     * import:participants uses, because the office writes `890508-12-0000` and
-     * `890508120000` for one person. Without an IC, the name and company
+     * import:participants uses, because the office writes `900101-12-0000` and
+     * `900101120000` for one person. Without an IC, the name and company
      * together. Null when the row has neither: it cannot be told apart from
      * anyone, so it links to nobody and is reported.
      */

@@ -29,7 +29,7 @@ use RuntimeException;
  * that is a judgement, and judgements are the transform's.
  *
  * WHAT IT DOES NOT DO: clean anything. A trailing space on `boothid` ('TBA06 ')
- * and a `comid` of '14-1-14   ' arrive exactly as the dump holds them. Staging
+ * and a `comid` of '99-1-03   ' arrive exactly as the dump holds them. Staging
  * is a landing strip; trimming and parsing are the transform's job, where a
  * decision can be tested and re-run.
  */
@@ -183,7 +183,7 @@ class LegacyDump
      * Split `(a,b),(c,d)` into groups of unescaped values.
      *
      * Quote-aware on purpose: the dump's addresses hold commas and brackets
-     * ('No. 8, Pangsapuri Teratai, Jalan Metafasa, U 16/3A'), so splitting on
+     * ('No. 8, Pangsapuri Contoh, Jalan Contoh, U 1/1A'), so splitting on
      * punctuation alone tears a row in half and the arity check above would be
      * the only thing to notice.
      *

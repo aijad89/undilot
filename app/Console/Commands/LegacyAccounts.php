@@ -159,7 +159,7 @@ class LegacyAccounts extends Command
      * A unique username per account, from `loginname`.
      *
      * TWO OFFICERS CAN SHARE ONE LOGIN — the old table has the same person
-     * entered twice under 'haida' — and `admins.username` is unique. The first
+     * entered twice under 'pegdua' — and `admins.username` is unique. The first
      * to claim a slug keeps it; every later one carries its own key, so the
      * second never silently takes over the first one's row.
      *

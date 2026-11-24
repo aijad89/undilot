@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Hash;
 
 function firstTimer(array $attributes = []): User
 {
-    $user = User::factory()->firstSignIn()->create($attributes + ['email' => 'siti@kraf.test', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->firstSignIn()->create($attributes + ['email' => 'siti@kraf.test', 'ic_number' => '900101-12-0000']);
     Company::factory()->withProfile()->create(['user_id' => $user->id]);
 
     return $user;
@@ -35,17 +35,17 @@ it('signs in the first time with the IC, however it is written, and holds them o
     $this->get(route('profile'))->assertRedirect(route('password.edit'));
     $this->get(route('password.edit'))->assertOk()->assertSee('Choose your password')->assertDontSee('name="current_password"', false);
 })->with([
-    'as stored' => ['siti@kraf.test', '890508-12-0000'],
-    'IC as bare digits' => ['siti@kraf.test', '890508120000'],
-    'email padded and in other case' => ['  Siti@Kraf.TEST ', '890508-12-0000'],
+    'as stored' => ['siti@kraf.test', '900101-12-0000'],
+    'IC as bare digits' => ['siti@kraf.test', '900101120000'],
+    'email padded and in other case' => ['  Siti@Kraf.TEST ', '900101-12-0000'],
 ]);
 
 it('takes the chosen password from then on, and no longer the IC', function () {
     $user = firstTimer();
-    signInWith('siti@kraf.test', '890508120000');
+    signInWith('siti@kraf.test', '900101120000');
 
     // The IC itself is not a password: letters and numbers are required.
-    $this->put(route('password.change'), ['password' => '890508120000', 'password_confirmation' => '890508120000'])
+    $this->put(route('password.change'), ['password' => '900101120000', 'password_confirmation' => '900101120000'])
         ->assertSessionHasErrors('password');
     $this->put(route('password.change'), ['password' => 'batik2026', 'password_confirmation' => 'batik2026'])
         ->assertRedirect(route('dashboard'));
@@ -55,7 +55,7 @@ it('takes the chosen password from then on, and no longer the IC', function () {
     $this->get(route('dashboard'))->assertOk();
 
     auth('web')->logout();
-    signInWith('siti@kraf.test', '890508-12-0000')->assertSessionHasErrors(['email' => 'That email and password do not match an account.']);
+    signInWith('siti@kraf.test', '900101-12-0000')->assertSessionHasErrors(['email' => 'That email and password do not match an account.']);
     signInWith('siti@kraf.test', 'batik2026')->assertRedirect(route('dashboard'));
 });
 
@@ -74,7 +74,7 @@ it('asks for the current password to change it later', function () {
 it('refuses a wrong password, an unknown email, and an account with no IC on its first sign-in', function () {
     firstTimer();
     signInWith('siti@kraf.test', '000000-00-0000')->assertSessionHasErrors('email');
-    signInWith('nobody@kraf.test', '890508-12-0000')->assertSessionHasErrors('email');
+    signInWith('nobody@kraf.test', '900101-12-0000')->assertSessionHasErrors('email');
 
     User::factory()->firstSignIn()->withoutIc()->create(['email' => 'noic@kraf.test']);
     signInWith('noic@kraf.test', '')->assertSessionHasErrors('password');
@@ -85,7 +85,7 @@ it('refuses a wrong password, an unknown email, and an account with no IC on its
 
 it('refuses a switched-off account, or a switched-off company, with the reason', function () {
     firstTimer(['is_active' => false]);
-    signInWith('siti@kraf.test', '890508-12-0000')
+    signInWith('siti@kraf.test', '900101-12-0000')
         ->assertSessionHasErrors(['email' => 'Your account has been deactivated. Please contact the administrator.']);
 
     $other = User::factory()->create(['email' => 'ros@kraf.test', 'password' => 'tenun2026']);
@@ -103,7 +103,7 @@ it('stops guessing after five wrong tries on one email', function () {
         signInWith('siti@kraf.test', "wrong{$n}");
     }
 
-    signInWith('siti@kraf.test', '890508-12-0000')->assertSessionHasErrors('email');
+    signInWith('siti@kraf.test', '900101-12-0000')->assertSessionHasErrors('email');
     expect(auth('web')->check())->toBeFalse();
 });
 
@@ -148,7 +148,7 @@ it('has the office set the email, and only the office', function () {
 });
 
 it('lets the office reset a participant back to the IC', function () {
-    $user = User::factory()->create(['email' => 'siti@kraf.test', 'password' => 'batik2026', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['email' => 'siti@kraf.test', 'password' => 'batik2026', 'ic_number' => '900101-12-0000']);
     $company = Company::factory()->create(['user_id' => $user->id, 'state' => 'Perak']);
 
     // Not another zone's admin.
@@ -162,6 +162,6 @@ it('lets the office reset a participant back to the IC', function () {
 
     auth()->forgetGuards();
     signInWith('siti@kraf.test', 'batik2026')->assertSessionHasErrors('email');
-    signInWith('siti@kraf.test', '890508120000')->assertRedirect(route('dashboard'));
+    signInWith('siti@kraf.test', '900101120000')->assertRedirect(route('dashboard'));
     $this->get(route('dashboard'))->assertRedirect(route('password.edit'));
 });

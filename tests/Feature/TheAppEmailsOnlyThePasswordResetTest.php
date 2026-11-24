@@ -85,7 +85,7 @@ it('mails the reset link to the email on record, and says the same for an unknow
 
 it('sets a reset password as chosen, so the IC no longer signs in', function () {
     Notification::fake();
-    $user = User::factory()->firstSignIn()->create(['email' => 'siti@kraf.test', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->firstSignIn()->create(['email' => 'siti@kraf.test', 'ic_number' => '900101-12-0000']);
 
     $this->post(route('password.email'), ['email' => 'siti@kraf.test']);
     Notification::assertSentTo($user, ResetPassword::class, function ($n) use ($user) {
@@ -98,7 +98,7 @@ it('sets a reset password as chosen, so the IC no longer signs in', function () 
     });
 
     expect($user->fresh()->password_changed_at)->not->toBeNull();
-    $this->post(route('login'), ['email' => 'siti@kraf.test', 'password' => '890508120000'])->assertSessionHasErrors('email');
+    $this->post(route('login'), ['email' => 'siti@kraf.test', 'password' => '900101120000'])->assertSessionHasErrors('email');
     $this->post(route('login'), ['email' => 'siti@kraf.test', 'password' => 'batik2026'])->assertRedirect(route('dashboard'));
 });
 

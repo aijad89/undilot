@@ -144,7 +144,7 @@ pelayan** (`--fresh` sahaja ditolak dalam production).
   DepartmentAdmin dari `fileuser` dimuat — selebihnya pengguna sistem dokumen.
 - **Satu orang, banyak baris lama.** Peserta yang sama muncul dalam jadual hidup,
   senarai induk dan salinan setiap acara. Mereka satu akaun, dikenal pasti oleh
-  IC sebagai digit (`890508-12-0000` = `890508120000`), atau nama + syarikat bila
+  IC sebagai digit (`900101-12-0000` = `900101120000`), atau nama + syarikat bila
   tiada IC. Sumber terbaru memberi profil (`Legacy::participantSources()`);
   setiap baris lain dipaut. `comid` `'TIADA'` jadi null.
 - **Medan profil lama dibawa**: Gelaran → `users.salutation`, Poskod →
@@ -155,9 +155,9 @@ pelayan** (`--fresh` sahaja ditolak dalam production).
   `upengawai:5`, `fileuser:1`), diisi hanya oleh arahan ini. `--fresh` memadam
   ikut lajur itu, bukan domain emel — sekali dahulu penanda dikongsi dengan
   `DemoSeeder` dan `--fresh` memadam data demo juga.
-- **Dua pegawai berkongsi satu `loginname`** (id 5 dan 25, kedua-duanya `haida`).
+- **Dua pegawai berkongsi satu `loginname`** (id 5 dan 25, kedua-duanya `pegdua`).
   `updateOrCreate` pada kunci bertembung **tidak gagal** — ia mengemas kini baris
-  pegawai pertama. Slug pertama menang; yang kemudian membawa id (`haida.25`).
+  pegawai pertama. Slug pertama menang; yang kemudian membawa id (`pegdua.25`).
 - Kata laluan lama **tidak dibawa** (teks biasa dan MD5): rawak, super admin
   menetapkan semula. Peserta log masuk dengan ID Komuniti + IC.
 
@@ -237,10 +237,10 @@ klausa `ON DELETE`.
 
 ## Pembersihan yang data sebenar sudah tunjukkan perlu
 
-- **Ruang hujung**: `boothid` `'TBA06 '`, `comid` `'10-1-62  '`, `'14-1-14   '`.
+- **Ruang hujung**: `boothid` `'TBA06 '`, `comid` `'99-1-02  '`, `'99-1-03   '`.
 - **Zero-date benar-benar ada**: `votetimepay` = `'0000-00-00 00:00:00'` dalam
   setiap baris sampel.
-- **IC dua format**: `'890508-12-0000'` berbanding `'800601100000'`.
+- **IC dua format**: `'900101-12-0000'` berbanding `'800101100000'`.
 - **Huruf besar/kecil tidak sepadan antara jadual**: `usahawan.location` =
   `'KHEMAH A'` sedangkan `ukhemah.khemah` = `'Khemah A'`. Join mesti normalisasi.
 - **Bendera bercampur bahasa**: `undi` = `'Yes'`, `bayarstatus` / `sstatus` =

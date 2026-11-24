@@ -30,7 +30,7 @@ it('signs an admin in and lands them on the admin dashboard', function () {
 });
 
 it('signs a participant in and lands them on their dashboard', function () {
-    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000']);
 
     $this->post('/login', [
         'email' => $user->email,
@@ -78,7 +78,7 @@ it('logs out a participant whose account was switched off, mid-session', functio
 
 it('refuses a wrong password on either guard', function () {
     $admin = Admin::factory()->super()->create(['password' => 'kraf1234']);
-    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000']);
 
     $this->post('/admin/login', ['username' => $admin->username, 'password' => 'wrong'])
         ->assertSessionHasErrors('username');
@@ -115,7 +115,7 @@ it('still sends an admin back to the admin page they were bounced from', functio
 });
 
 it('sends a participant to their dashboard, not an admin page they were bounced from earlier', function () {
-    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000']);
 
     $this->get(route('admin.events.index'))->assertRedirect(route('admin.login'));
 
@@ -124,7 +124,7 @@ it('sends a participant to their dashboard, not an admin page they were bounced 
 });
 
 it('still sends a participant back to the participant page they were bounced from', function () {
-    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000']);
 
     $this->get(route('notifications.index'))->assertRedirect(route('login'));
 

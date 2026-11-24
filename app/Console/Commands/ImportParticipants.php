@@ -25,7 +25,7 @@ use Throwable;
  *
  * MATCHED ON IC. Measured across the office dump: 858 participants, the IC
  * filled on every one and unique on every one once normalised to digits — which
- * it must be, because the sheets hold both `890508-12-0000` and `890508120000`.
+ * it must be, because the sheets hold both `900101-12-0000` and `900101120000`.
  * Nothing else comes close: there is no email column at all, and `comid` is
  * filled on 88%.
  *
@@ -431,7 +431,7 @@ class ImportParticipants extends Command
         return fgetcsv($handle, null, ',', '"', '');
     }
 
-    /** Malaysian IC is written both as 890508-12-0000 and as 890508120000. */
+    /** Malaysian IC is written both as 900101-12-0000 and as 900101120000. */
     private static function digits(?string $value): string
     {
         return preg_replace('/\D+/', '', (string) $value);

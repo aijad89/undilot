@@ -30,16 +30,16 @@ function plantAacb(array $overrides = []): void
     DB::table('legacy_usahawan')->insert([
         [
             'legacy_id' => '204', 'source_table' => 'usahawan',
-            'name' => 'SITTI WARDAHAH', 'ic' => '890508-12-0000', 'state' => 'Perlis',
-            'companyname' => 'WARDAHAMIRAH LEGACY', 'crafttype' => 'Batik-TBP-3x3',
+            'name' => 'SITI CONTOH', 'ic' => '900101-12-0000', 'state' => 'Perlis',
+            'companyname' => 'CONTOH KRAF LEGACY', 'crafttype' => 'Batik-TBP-3x3',
             'lot' => 'TBP01', 'location' => 'BASEMENT', 'votetime' => '2025-10-06 10:02:07',
             'bidang' => 'Tekstil', 'salu' => 'Puan', 'preset' => 'TBP01',
-            'comid' => '10-1-62  ', 'byuser' => '24', 'imported_at' => now(),
+            'comid' => '99-1-02  ', 'byuser' => '24', 'imported_at' => now(),
         ],
         [
             'legacy_id' => '205', 'source_table' => 'usahawan',
-            'name' => 'SAADIAH BINTI MD NOORDIN', 'ic' => '660814-02-0000', 'state' => 'Kedah',
-            'companyname' => 'BINTARA KRAF', 'crafttype' => 'Kayu-RKP-3x6',
+            'name' => 'PESERTA CONTOH DUA', 'ic' => '660101-02-0000', 'state' => 'Kedah',
+            'companyname' => 'CONTOH DUA KRAF', 'crafttype' => 'Kayu-RKP-3x6',
             'lot' => 'RKP01', 'location' => 'KHEMAH A', 'votetime' => '2025-10-06 13:54:09',
             'bidang' => 'Hasil Rimba', 'salu' => 'Puan', 'preset' => 'RKP01',
             'comid' => '05-2-66', 'byuser' => '4', 'imported_at' => now(),
@@ -47,8 +47,8 @@ function plantAacb(array $overrides = []): void
     ]);
 
     DB::table('legacy_upengawai')->insert([
-        'legacy_id' => '24', 'source_table' => 'upengawai', 'name' => 'NORAINI BINTI OSMAN',
-        'userright' => 'Pengawai', 'loginname' => 'noraini', 'state' => 'Perlis',
+        'legacy_id' => '24', 'source_table' => 'upengawai', 'name' => 'PEGAWAI CONTOH SATU',
+        'userright' => 'Pengawai', 'loginname' => 'pegsatu', 'state' => 'Perlis',
         'imported_at' => now(),
     ]);
 

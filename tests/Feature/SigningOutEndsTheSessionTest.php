@@ -24,7 +24,7 @@ use App\Models\User;
 
 function signInParticipant($test): User
 {
-    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000']);
+    $user = User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000']);
     $test->post(route('login'), ['email' => $user->email, 'password' => 'password']);
     auth()->forgetGuards();
 
@@ -83,7 +83,7 @@ it('kills a "remember me" sign-in too, so the cookie cannot sign anyone back in'
     // copy of the cookie worthless. Both sign-in forms offer "Remember me".
     $guard = $who === 'participant' ? 'web' : 'admin';
     $model = $who === 'participant'
-        ? User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '890508-12-0000'])
+        ? User::factory()->create(['community_id' => '07-3-8', 'ic_number' => '900101-12-0000'])
         : Admin::factory()->super()->create(['password' => 'kraf1234']);
 
     $recaller = auth($guard)->getRecallerName();

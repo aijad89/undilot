@@ -82,7 +82,7 @@ return new class extends Migration
              *
              * INDEX, NOT UNIQUE, on `ic_number`, and that is a decision rather
              * than caution. A unique index compares STRINGS, and the office writes
-             * the same IC two ways — `890508-12-0000` and `890508120000` — so it
+             * the same IC two ways — `900101-12-0000` and `900101120000` — so it
              * would admit exactly the duplicates it appears to forbid while
              * rejecting nothing. The real uniqueness rule is "unique once reduced
              * to digits", which the importers enforce in PHP, where they can also

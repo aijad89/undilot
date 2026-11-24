@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
  *
  *   - a table name with spaces and brackets  `usahawan_19 feb 6pm`
  *   - an escaped apostrophe inside a value   'SITI O\'BRIEN'
- *   - commas and brackets inside a value     'No. 8, Jalan Metafasa, U 16/3A'
+ *   - commas and brackets inside a value     'No. 8, Jalan Contoh, U 1/1A'
  *   - several rows in one INSERT
  *   - an unquoted NULL beside quoted ''
  *   - '0000-00-00 00:00:00' as a value
@@ -45,7 +45,7 @@ it('keeps the original id and the table the row came from', function () {
     $row = DB::table('legacy_usahawan')->where('legacy_id', '204')->first();
 
     expect($row->source_table)->toBe('usahawan')
-        ->and($row->companyname)->toBe('WARDAHAMIRAH LEGACY');
+        ->and($row->companyname)->toBe('CONTOH KRAF LEGACY');
 
     // A table name with spaces is data here, so it cannot break anything.
     expect(DB::table('legacy_usahawan')->where('source_table', 'usahawan_19 feb 6pm')->count())
@@ -59,9 +59,9 @@ it('reads an escaped apostrophe and a value full of commas without tearing the r
 
     // If the apostrophe had ended the string early, every later value would be
     // off by one and this name would be truncated.
-    expect($row->name)->toBe("SITI O'BRIEN BINTI ABDULLAH")
+    expect($row->name)->toBe("SITI O'CONTOH BINTI ABU")
         ->and($row->state)->toBe('Kedah')
-        ->and($row->companyname)->toBe('BINTARA KRAF')
+        ->and($row->companyname)->toBe('CONTOH DUA KRAF')
         ->and($row->byuser)->toBe('4');
 });
 
@@ -73,8 +73,8 @@ it('takes several rows out of one INSERT', function () {
         ->orderBy('legacy_id')
         ->pluck('name', 'legacy_id');
 
-    expect($rows['2'])->toBe('Leena binti Hassan')
-        ->and($rows['3'])->toBe('Rosmawati binti Said');
+    expect($rows['2'])->toBe('Lina binti Contoh')
+        ->and($rows['3'])->toBe('Rosma binti Contoh');
 });
 
 it('tells an unquoted NULL from a quoted empty string, and keeps a zero date', function () {
@@ -94,13 +94,13 @@ it('tells an unquoted NULL from a quoted empty string, and keeps a zero date', f
 it('does not clean the values, because trimming is a decision', function () {
     loadFixture();
 
-    // 'TBA06 ' and '10-1-62  ' are real values in the dump. Staging keeps them
+    // 'TBA06 ' and '99-1-02  ' are real values in the dump. Staging keeps them
     // as they are so the transform can decide, and be tested deciding.
     expect(DB::table('legacy_ukhemah')->where('source_table', 'ukhemah_fkj2024')->value('boothid'))
         ->toBe('TBA06 ');
 
     expect(DB::table('legacy_usahawan')->where('legacy_id', '205')->value('comid'))
-        ->toBe('10-1-62  ');
+        ->toBe('99-1-02  ');
 });
 
 it('fills what a narrower table has and leaves the rest null', function () {
@@ -169,9 +169,9 @@ it('carries the one UserRight value through, since that is the role answer', fun
 
     $row = DB::table('legacy_upengawai')->where('legacy_id', '24')->first();
 
-    expect($row->name)->toBe('NORAINI BINTI OSMAN')
+    expect($row->name)->toBe('PEGAWAI CONTOH SATU')
         ->and($row->userright)->toBe('Pengawai')
-        ->and($row->loginname)->toBe('noraini')
+        ->and($row->loginname)->toBe('pegsatu')
         ->and($row->jawatan)->toBe('Penolong Pegawai Kraf')
         ->and($row->state)->toBe('Perlis');
 });

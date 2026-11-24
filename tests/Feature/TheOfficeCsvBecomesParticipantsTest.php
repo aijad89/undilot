@@ -16,8 +16,8 @@ use App\Support\AdminZones;
  *
  *   MATCHED ON IC, because nothing else can be. Across those 858 rows the IC is
  *   filled on every one and unique on every one once normalised to digits — and
- *   it has to be normalised, because the sheets hold both 890508-12-0000 and
- *   890508120000.
+ *   it has to be normalised, because the sheets hold both 900101-12-0000 and
+ *   900101120000.
  */
 
 function csvFile(array $lines): string
@@ -41,14 +41,14 @@ it('writes a participant and their company from one row', function () {
     $exit = Artisan::call('import:participants', [
         'path' => csvFile([
             CSV_HEAD,
-            'SITI BINTI ALI,890508-12-0000,0123456789,siti@gmail.com,Batik Warisan,Johor,TBPS,3x3,,07-3-8',
+            'SITI BINTI ALI,900101-12-0000,0123456789,siti@gmail.com,Batik Warisan,Johor,TBPS,3x3,,07-3-8',
         ]),
         '--force' => true,
     ]);
 
     expect($exit)->toBe(0);
 
-    $user = User::where('ic_number', '890508-12-0000')->first();
+    $user = User::where('ic_number', '900101-12-0000')->first();
 
     expect($user->name)->toBe('SITI BINTI ALI')
         ->and($user->phone)->toBe('0123456789')
@@ -66,11 +66,11 @@ it('writes a participant and their company from one row', function () {
 
 it('stores a blank cell as nothing rather than guessing', function () {
     Artisan::call('import:participants', [
-        'path' => csvFile([CSV_HEAD, 'SALMAH BINTI AZIZ,660814-02-0000,,,ABAS SAL BATIK,Johor,,,,']),
+        'path' => csvFile([CSV_HEAD, 'SALMAH BINTI AZIZ,660101-02-0000,,,ABAS SAL BATIK,Johor,,,,']),
         '--force' => true,
     ]);
 
-    $user = User::where('ic_number', '660814-02-0000')->first();
+    $user = User::where('ic_number', '660101-02-0000')->first();
     $company = Company::where('user_id', $user->id)->first();
 
     expect($user->phone)->toBeNull()
@@ -144,8 +144,8 @@ it('drops both rows when one IC names two people', function () {
     $exit = Artisan::call('import:participants', [
         'path' => csvFile([
             CSV_HEAD,
-            'FIRST PERSON,890508-12-0000,,,Company One,Johor,,,,',
-            'SECOND PERSON,890508120000,,,Company Two,Kedah,,,,',
+            'FIRST PERSON,900101-12-0000,,,Company One,Johor,,,,',
+            'SECOND PERSON,900101120000,,,Company Two,Kedah,,,,',
         ]),
         '--force' => true,
     ]);
@@ -159,17 +159,17 @@ it('drops both rows when one IC names two people', function () {
 });
 
 it('updates the same person on a re-run instead of adding a second one', function () {
-    $file = csvFile([CSV_HEAD, 'SITI BINTI ALI,890508-12-0000,,,Batik Warisan,Johor,TBPS,3x3,,']);
+    $file = csvFile([CSV_HEAD, 'SITI BINTI ALI,900101-12-0000,,,Batik Warisan,Johor,TBPS,3x3,,']);
 
     Artisan::call('import:participants', ['path' => $file, '--force' => true]);
     Artisan::call('import:participants', ['path' => $file, '--force' => true]);
 
-    expect(User::where('ic_number', '890508-12-0000')->count())->toBe(1)
+    expect(User::where('ic_number', '900101-12-0000')->count())->toBe(1)
         ->and(Company::count())->toBe(1);
 
     // A corrected sheet changes the row rather than adding a second one.
     Artisan::call('import:participants', [
-        'path' => csvFile([CSV_HEAD, 'SITI BINTI ALI,890508-12-0000,,,Batik Warisan Baharu,Kedah,TBP,3x6,,']),
+        'path' => csvFile([CSV_HEAD, 'SITI BINTI ALI,900101-12-0000,,,Batik Warisan Baharu,Kedah,TBP,3x6,,']),
         '--force' => true,
     ]);
 
@@ -183,10 +183,10 @@ it('updates the same person on a re-run instead of adding a second one', functio
 
 it('reads a file Excel saved, byte-order mark and all', function () {
     $path = tempnam(sys_get_temp_dir(), 'bom').'.csv';
-    file_put_contents($path, "\xEF\xBB\xBF".CSV_HEAD."\nSITI,890508-12-0000,,,Kraf Siti,Johor,,,,\n");
+    file_put_contents($path, "\xEF\xBB\xBF".CSV_HEAD."\nSITI,900101-12-0000,,,Kraf Siti,Johor,,,,\n");
 
     expect(Artisan::call('import:participants', ['path' => $path, '--force' => true]))->toBe(0)
-        ->and(User::where('ic_number', '890508-12-0000')->exists())->toBeTrue();
+        ->and(User::where('ic_number', '900101-12-0000')->exists())->toBeTrue();
 });
 
 it('reads a backslash as an ordinary character, not as an escape', function () {
@@ -195,20 +195,20 @@ it('reads a backslash as an ordinary character, not as an escape', function () {
     // escaped quote: the quoted field never closes and the WHOLE REST OF THE LINE
     // becomes one value —
     //
-    //     escape '\\'  =>  ["Kraf A\",890508120000\n"]
-    //     escape ''    =>  ["Kraf A\", "890508120000"]
+    //     escape '\\'  =>  ["Kraf A\",900101120000\n"]
+    //     escape ''    =>  ["Kraf A\", "900101120000"]
     //
     // so the IC column disappears, and a row the office can see plainly is
     // reported as having no IC and skipped. PHP 9 changes that default to '',
     // which is why the importer names it rather than inheriting it.
     $path = tempnam(sys_get_temp_dir(), 'bslash').'.csv';
-    file_put_contents($path, "nama,ic,syarikat\n".'SITI,890508-12-0000,"Kraf A\\"'."\n");
+    file_put_contents($path, "nama,ic,syarikat\n".'SITI,900101-12-0000,"Kraf A\\"'."\n");
 
     $exit = Artisan::call('import:participants', ['path' => $path, '--force' => true]);
 
     expect($exit)->toBe(0);
 
-    $user = User::where('ic_number', '890508-12-0000')->first();
+    $user = User::where('ic_number', '900101-12-0000')->first();
 
     expect($user)->not->toBeNull('The IC column was swallowed by the backslash.')
         ->and($user->company->name)->toBe('Kraf A\\');
@@ -216,19 +216,19 @@ it('reads a backslash as an ordinary character, not as an escape', function () {
 
 it('writes nothing on a dry run', function () {
     $exit = Artisan::call('import:participants', [
-        'path' => csvFile([CSV_HEAD, 'SITI,890508-12-0000,,,Kraf Siti,Johor,,,,']),
+        'path' => csvFile([CSV_HEAD, 'SITI,900101-12-0000,,,Kraf Siti,Johor,,,,']),
         '--dry-run' => true,
     ]);
 
     expect($exit)->toBe(0)
-        ->and(User::where('ic_number', '890508-12-0000')->exists())->toBeFalse();
+        ->and(User::where('ic_number', '900101-12-0000')->exists())->toBeFalse();
 });
 
 it('names a column it does not read, because a misspelling looks like an extra one', function () {
     Artisan::call('import:participants', [
         'path' => csvFile([
             'nama,ic,emal,syarikat',
-            'SITI,890508-12-0000,siti@gmail.com,Kraf Siti',
+            'SITI,900101-12-0000,siti@gmail.com,Kraf Siti',
         ]),
         '--force' => true,
     ]);
@@ -252,26 +252,26 @@ it('reads the address, commas and all, onto the participant', function () {
     $exit = Artisan::call('import:participants', [
         'path' => csvFile([
             CSV_HEAD.',alamat',
-            'SITI BINTI ALI,890508-12-0000,,,,Johor,,,,,"No 12, Jalan Kraf, 81100 Johor Bahru"',
+            'SITI BINTI ALI,900101-12-0000,,,,Johor,,,,,"No 12, Jalan Kraf, 81100 Johor Bahru"',
         ]),
         '--force' => true,
     ]);
 
     expect($exit)->toBe(0)
-        ->and(User::where('ic_number', '890508-12-0000')->value('address'))->toBe('No 12, Jalan Kraf, 81100 Johor Bahru');
+        ->and(User::where('ic_number', '900101-12-0000')->value('address'))->toBe('No 12, Jalan Kraf, 81100 Johor Bahru');
 });
 
 it('takes only the office\'s two business types', function () {
     $exit = Artisan::call('import:participants', [
         'path' => csvFile([
             CSV_HEAD,
-            'SITI BINTI ALI,890508-12-0000,,,,Johor,,,Pemborong,',
-            'ALI BIN ABU,800601-10-0000,,,,Johor,,,"Micro, Small & Medium (MSM)",',
+            'SITI BINTI ALI,900101-12-0000,,,,Johor,,,Pemborong,',
+            'ALI BIN ABU,800101-10-0000,,,,Johor,,,"Micro, Small & Medium (MSM)",',
         ]),
         '--force' => true,
     ]);
 
     expect($exit)->toBe(1)
-        ->and(Company::whereHas('user', fn ($q) => $q->where('ic_number', '890508-12-0000'))->value('business_type'))->toBe('Pemborong')
-        ->and(User::where('ic_number', '800601-10-0000')->exists())->toBeFalse();
+        ->and(Company::whereHas('user', fn ($q) => $q->where('ic_number', '900101-12-0000'))->value('business_type'))->toBe('Pemborong')
+        ->and(User::where('ic_number', '800101-10-0000')->exists())->toBeFalse();
 });
