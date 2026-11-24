@@ -18,7 +18,7 @@ audit trail. Pepijat sederhana K03–K10 semuanya dibaiki. Suite: Pest 658 lulus
 | 🔴 Penghalang go-live | 6 | 1 selesai (B5) |
 | 🐞 Pepijat sederhana (K03–K10) | 8 | **8 selesai** |
 | 🟡 Patut dibuat | 3 | 1 selesai |
-| 🟢 Selepas go-live | 12 pepijat rendah | — |
+| 🟢 Pepijat rendah (K12–K29) | 13 | 12 selesai |
 
 ---
 
@@ -167,31 +167,32 @@ Playwright berulang kali tanpa flaky, kerja 2026-11-16 di-commit.
 
 ---
 
-## 4. 🟢 Selepas go-live (pepijat rendah)
+## 4. 🟢 Pepijat rendah (helaian *Known Issues*)
 
-Butiran dalam helaian *Known Issues* manual ujian.
+Disemak satu per satu terhadap kod pada 2026-11-24. Ujian:
+`tests/Feature/LowBugsK12ToK29Test.php`, setiap satu dibuktikan menggigit.
 
-| ID | Ringkas |
-|---|---|
-| K12 | *Set aside* boleh menindih lot yang peserta baru dapat (tiada kunci) |
-| K13 | Auto-buka mengabaikan tarikh tamat |
-| K14 | Lokasi berbeza huruf besar sahaja memberi nombor lot berganda |
-| K15 | Peringatan tutup tidak dihantar semula untuk tetingkap baharu |
-| K16 | Simpan kad kod kraf mengosongkan kod / saiz yang sudah ditarik balik |
-| K22 | Dua super menurunkan pangkat satu sama lain serentak boleh tinggalkan tiada super |
-| K24 | Kalendar hanya guna penapis pertama |
-| K26 | "Maximum participants" disimpan tetapi tidak digunakan |
-| K27 | Papan pemuka dan halaman acara tidak sepadan untuk syarikat yang ditambah semula |
-| K28 | Notifikasi pembuangan ada label butang salah |
-| K29 | Halaman acara awam memaparkan zon admin |
-| — | Semasa *login as*, admin yang membuka notifikasi menandanya "dibaca" untuk peserta |
+| ID | Ringkas | Status |
+|---|---|---|
+| K12 | *Set aside* boleh menindih lot yang peserta baru dapat | **Dibaiki** 2026-11-24 — baca semula dengan kunci dalam transaksi |
+| K13 | Auto-buka mengabaikan tarikh tamat | **Dibaiki** 2026-11-24 — `PollingGuard::deadlinePassed()`, kedua-dua pintu |
+| K14 | Lokasi berbeza huruf besar memberi nombor lot berganda | **Dibaiki** 2026-11-15 (`3039de9`); nombor lot kini tanpa lokasi |
+| K15 | Peringatan tutup tidak dihantar semula untuk tetingkap baharu | **Dibaiki** 2026-11-24 — stem sebelum tetingkap semasa dikira lama |
+| K16 | Simpan kad kod kraf mengosongkan kod / saiz yang ditarik balik | **Dibaiki** 2026-11-15 (`88a8f88`) |
+| K17 | Jenis perniagaan lama dikosongkan bila simpan | **Dibaiki** 2026-11-17 — `ManagedList::rule($keep)` |
+| K22 | Dua super menurunkan pangkat satu sama lain serentak | **Terbuka** — perlu kunci + ujian serentak MySQL; sangat jarang |
+| K24 | Kalendar hanya guna penapis pertama | **Dibaiki** 2026-11-24 — URL suapan tidak lagi ditulis `&amp;` |
+| K26 | "Maximum participants" disimpan tetapi tidak digunakan | **Dibaiki** 2026-11-24 — dipaparkan sebagai panduan di senarai cabutan ("85 / 100 participants"), tiada had keras (keputusan pemilik) |
+| K27 | Papan pemuka dan halaman acara tidak sepadan untuk syarikat ditambah semula | **Dibaiki** 2026-11-24 |
+| K28 | Notifikasi pembuangan ada label butang salah | **Dibaiki** — label kini "Open the event" |
+| K29 | Halaman acara awam memaparkan zon admin | **Dibaiki** 2026-11-24 |
+| — | Semasa *login as*, notifikasi ditanda "dibaca" | **Dibaiki** 2026-11-24 (`c4d595f`) |
 
-- K17 (jenis perniagaan lama dikosongkan bila simpan) — **dibaiki** 2026-11-17:
-  `ManagedList::rule($keep)` menerima nilai semasa rekod itu.
-- K11, K20, K21, K25 dahulu ditutup kerana merujuk permohonan sertai, yang
-  dibuang. **Permohonan sertai dipulihkan 2026-11-19** — semak semula sama ada
-  item itu masih berlaku. K18 (sebahagian) merujuk laporan, yang masih dibuang.
-
+Belum disemak semula: K18 (sebahagian padam bertingkat tiada rekod audit —
+permohonan sertai kini dipulihkan, jadi relevan), K21 (tindakan tetapan dan
+log masuk admin tidak diaudit), K23 (pelayar dikongsi: tindakan peserta dikira
+admin — kini sengaja semasa *login as*, tetapi bukan di luarnya). K20
+(pengumuman) tidak berkaitan: modul itu dibuang.
 ---
 
 ## 5. Turutan dicadangkan

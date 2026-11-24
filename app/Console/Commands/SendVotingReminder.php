@@ -37,7 +37,12 @@ class SendVotingReminder extends Command
             $registrations = $event->registrations()
                 ->whereNotNull('user_id')
                 ->whereNotIn('user_id', $drawn)
-                ->whereNull('reminded_at')
+                // Reminded for THIS window, or not at all. A stamp from before this
+                // window opened belongs to an older deadline — moved, or a lot
+                // taken back — and is reminded again (K15). One rule here, rather
+                // than clearing the stamp at every door that opens a new window.
+                ->where(fn ($q) => $q->whereNull('reminded_at')
+                    ->orWhere('reminded_at', '<', $event->polling_deadline->copy()->subMinutes(35)))
                 ->with('user')
                 ->get();
 

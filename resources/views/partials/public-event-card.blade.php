@@ -24,7 +24,8 @@
         </div>
         <div class="ev-meta">
             <i class="bi bi-geo-alt" aria-hidden="true"></i>
-            <span>{{ $event->location }}@if($event->state), {{ $event->state }}@endif</span>
+            {{-- The location only: the zone is the office's, and the public search does not match it (K29). --}}
+            <span>{{ $event->location }}</span>
         </div>
         @if($event->description)
             <p class="ev-desc">{{ $event->description }}</p>

@@ -111,6 +111,11 @@ class HomeController extends Controller
             ->reject(fn ($jr) => $jr->event->isCalledOff() && ! $jr->event->registration_close_at?->isPast())
             // An ended event is done with, as for the draw entries above.
             ->reject(fn ($jr) => $jr->event->end_date->isPast())
+            // Taken off, then added back by the office and waiting for HQ: the
+            // event page says it is being added, so this does not offer "Ask to
+            // join again" (K27). The new row is not announced yet, so $onList
+            // above does not hold it.
+            ->reject(fn ($jr) => $jr->status === 'approved' && $company->eventRegistrations()->where('event_id', $jr->event_id)->exists())
             ->values();
 
         $drawn = \App\Models\Poll::where('user_id', $user->id)->pluck('event_id')->flip();

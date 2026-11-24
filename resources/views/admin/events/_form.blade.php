@@ -100,6 +100,7 @@
             <label class="mac-label" for="max_participants">Maximum participants</label>
             <input type="number" id="max_participants" name="max_participants" class="mac-form-control"
                    value="{{ $value('max_participants', 100) }}" min="1" required>
+            <small class="mac-muted">A guide: the draw list shows how many companies are on it against this. Nothing is refused when it is reached.</small>
         </div>
 
         <div class="col-md-6">

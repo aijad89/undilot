@@ -51,7 +51,9 @@ class UpdateEventStatuses extends Command
             ->get();
 
         foreach ($due as $event) {
-            if ($blocker = PollingGuard::blocker($event)) {
+            // The same two questions as the Open voting button. Past its deadline
+            // it would open and close in one tick, and nobody draws (K13).
+            if ($blocker = PollingGuard::blocker($event) ?? PollingGuard::deadlinePassed($event)) {
                 // Left in draft on purpose: the switch stays on, so it opens by
                 // itself the moment somebody fixes what is missing.
                 Log::warning('Auto-open skipped a lot draw that is not ready', [

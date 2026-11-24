@@ -223,7 +223,11 @@
             },
             {{-- Carry the active filters into the feed so the calendar shows the same result
                  set the filter bar describes — see EventController::calendarData(). --}}
-            events: '{{ route('admin.events.calendar-data', request()->only('search', 'status', 'state')) }}',
+            // JSON-encoded, not an escaped echo: the escaped echo wrote & as &amp;, so
+            // every filter after the first reached the feed as `amp;status` and was
+            // ignored (K24). json_encode, not the json directive: that splits its
+            // argument on commas.
+            events: {!! json_encode(route('admin.events.calendar-data', request()->only('search', 'status', 'state')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!},
             // A day can carry several registration windows plus the event itself. Cap the
             // rows and let FullCalendar add its own "+N more" link (Google Calendar style)
             // rather than letting one busy day stretch the whole month grid.

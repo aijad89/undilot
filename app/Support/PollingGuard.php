@@ -49,6 +49,20 @@ class PollingGuard
      * A draft draw is not checked: it is still being built, and Start Polling
      * will ask every question before it opens.
      */
+    /**
+     * Opening now would be pointless: the deadline has passed, so every
+     * participant is told the draw is not open. Asked by BOTH doors — the
+     * Open voting button and the scheduler's auto-open (K13) — and kept out
+     * of blocker(), which also guards draws already running.
+     */
+    public static function deadlinePassed(Event $event): ?string
+    {
+        return $event->polling_deadline?->isPast()
+            ? 'The voting deadline ('.$event->polling_deadline->format('d M Y, H:i')
+                .') has already passed, so nobody could draw. Set a new deadline first, then open voting.'
+            : null;
+    }
+
     public static function refuseIfStartedAndBroken(Event $event): void
     {
         $event->refresh();

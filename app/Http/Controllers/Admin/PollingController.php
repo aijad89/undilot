@@ -404,13 +404,10 @@ class PollingController extends Controller
                 return back()->withErrors(['error' => $blocker]);
             }
 
-            // PollingGuard asks only that a deadline EXISTS. A draw opened past
-            // it reads "Open" to HQ while every participant is told "The lot
-            // draw is not open." — LotDrawController checks the clock.
-            if ($event->polling_deadline->isPast()) {
-                return back()->withErrors(['error' => 'The voting deadline ('
-                    .$event->polling_deadline->format('d M Y, H:i')
-                    .') has already passed, so nobody could draw. Set a new deadline first, then open voting.']);
+            // A draw opened past its deadline reads "Open" to HQ while every
+            // participant is told "The lot draw is not open."
+            if ($passed = PollingGuard::deadlinePassed($event)) {
+                return back()->withErrors(['error' => $passed]);
             }
 
             // The draw CAN finish. Whether it finishes well is a different
@@ -545,7 +542,22 @@ class PollingController extends Controller
 
         // One act or neither. Half of it — plot held, registration still at
         // plot_id NULL — makes LotAllocator hand that company a SECOND lot.
-        DB::transaction(function () use ($plot, $registration) {
+        //
+        // Read again UNDER LOCK and checked again (K12): the reads above are
+        // unlocked, and a participant's Confirm (LotAllocator, which locks the
+        // same plot rows) may take this plot, or give this company a lot, in
+        // between. Without this both ended up holding one plot.
+        $taken = DB::transaction(function () use ($event, $plot, $registration) {
+            $plot = $event->plots()->lockForUpdate()->find($plot->id);
+            $registration = $event->registrations()->lockForUpdate()->find($registration->id);
+
+            if ($plot->is_allocated) {
+                return "Plot {$plot->plot_code} was taken a moment ago. Choose another.";
+            }
+            if ($registration->plot_id) {
+                return 'That company was given a lot a moment ago.';
+            }
+
             $plot->update([
                 'company_id' => $registration->company_id,
                 'allocated_to' => $registration->user_id,
@@ -556,7 +568,13 @@ class PollingController extends Controller
             ]);
 
             $registration->update(['plot_id' => $plot->id]);
+
+            return null;
         });
+
+        if ($taken) {
+            return back()->withErrors(['error' => $taken]);
+        }
 
         return back()->with('success', "Plot {$plot->plot_code} set aside for {$registration->company->name}.");
     }

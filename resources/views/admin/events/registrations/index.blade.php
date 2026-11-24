@@ -20,6 +20,14 @@
                 The zone checks each company and puts it on this list; HQ verifies it.
                 The company is told, and the draw can open, only once HQ has verified every row.
             </p>
+            {{-- A guide, not a limit (owner, 2026-11-24, K26): the whole event,
+                 every zone, against Maximum participants. Nothing is refused. --}}
+            @php $onList = $event->registrations()->count(); @endphp
+            <span class="mac-badge {{ $onList > $event->max_participants ? 'mac-badge-orange' : 'mac-badge-gray' }} mt-2 d-inline-block"
+                  title="Companies on this draw list, all zones, against the event's Maximum participants. A guide only.">
+                {{ $onList }} / {{ $event->max_participants }} participants
+                @if($onList > $event->max_participants) — over the maximum @endif
+            </span>
             @if($waitingCount)
                 <a href="{{ route('admin.events.registrations.index', [$event, 'status' => 'waiting']) }}" class="mac-badge mac-badge-orange mt-2 d-inline-block">
                     {{ $waitingCount }} waiting for HQ

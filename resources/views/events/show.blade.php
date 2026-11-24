@@ -435,7 +435,8 @@
                 <i class="bi bi-geo-alt" aria-hidden="true"></i>
                 <div>
                     <div class="evd-fact-label">Where</div>
-                    <div class="evd-fact-value">{{ $event->location }}@if($event->state), {{ $event->state }}@endif</div>
+                    {{-- The location only: the zone is the office's (K29). --}}
+                    <div class="evd-fact-value">{{ $event->location }}</div>
                 </div>
             </div>
             @if($event->polling_start_date && $event->polling_deadline)
