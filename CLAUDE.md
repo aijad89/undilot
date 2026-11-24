@@ -209,6 +209,12 @@ Tiada Vite/npm build/Alpine. Stylesheet inline dalam partial; pustaka dari CDN
 dengan versi dipin. `npm` hanya untuk Playwright. Node tidak diperlukan di
 produksi.
 
+### Halaman ralat berdiri sendiri (2026-11-24)
+`resources/views/errors/` (403, 404, 419, 429, 500, 503) memakai `errors.layout`:
+tiada layout aplikasi, tiada query DB — halaman 500 yang memerlukan DB ialah ralat
+kedua. URL tanpa route dijawab tanpa sesi, jadi "siapa log masuk" tidak boleh
+dipercayai di sana.
+
 ### Dua design system
 `.mac-` (admin, amber) dan `.ap-` (peserta, biru). Tiada halaman menggunakan
 kedua-duanya. View auth berupa sendiri.

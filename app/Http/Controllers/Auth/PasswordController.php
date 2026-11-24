@@ -16,14 +16,20 @@ class PasswordController extends Controller
 {
     public function edit(Request $request)
     {
-        abort_if(\App\Support\Impersonation::active(), 403, 'Only the participant chooses their password.');
+        // A rule, not an error: back inside the portal, with the reason.
+        if (\App\Support\Impersonation::active()) {
+            return redirect()->route('profile')->with('error', 'Only the participant can change their password.');
+        }
 
         return view('auth.change-password', ['first' => $request->user('web')->password_changed_at === null]);
     }
 
     public function update(Request $request)
     {
-        abort_if(\App\Support\Impersonation::active(), 403, 'Only the participant chooses their password.');
+        // A rule, not an error: back inside the portal, with the reason.
+        if (\App\Support\Impersonation::active()) {
+            return redirect()->route('profile')->with('error', 'Only the participant can change their password.');
+        }
 
         $user = $request->user('web');
         $first = $user->password_changed_at === null;

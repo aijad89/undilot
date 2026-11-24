@@ -81,9 +81,9 @@ it('never lets the admin choose the participant\'s password, nor holds them on t
 
     // A participant who has not chosen one yet: the admin is not held there...
     $this->get(route('dashboard'))->assertOk();
-    // ...and cannot reach it.
-    $this->get(route('password.edit'))->assertForbidden();
-    $this->put(route('password.change'), ['password' => 'admin2026', 'password_confirmation' => 'admin2026'])->assertForbidden();
+    // ...and cannot reach it: back to the profile, with the reason, still in the portal.
+    $this->get(route('password.edit'))->assertRedirect(route('profile'))->assertSessionHas('error', 'Only the participant can change their password.');
+    $this->put(route('password.change'), ['password' => 'admin2026', 'password_confirmation' => 'admin2026'])->assertRedirect(route('profile'));
     $this->get(route('profile'))->assertOk()->assertDontSee(route('password.edit'), false);
 
     expect($company->user->fresh()->password_changed_at)->toBeNull();
