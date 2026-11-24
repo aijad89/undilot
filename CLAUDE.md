@@ -10,6 +10,13 @@ Cerita panjang di sebalik peraturan ada dalam:
 - `docs/testing/e2e-notes.md` — suite pelayar dan MySQL: port, yatim, pekerja
 - `docs/sedia-go-live.md` — senarai semak deploy
 
+**Menambah ke fail ini** (pemilik 2026-11-24): satu keputusan = satu `###`,
+**3–5 baris** — peraturannya, satu ayat sebab, tarikh keputusan pemilik, dan
+nama kelas/ujian yang memegangnya. Cerita ukuran, sejarah pepijat dan cara kod
+berfungsi pergi ke `docs/`, dengan pautan dari sini. Keputusan yang berubah
+**menggantikan** bahagian lamanya, tidak ditambah di bawahnya. Sasaran: fail
+ini kekal bawah ~400 baris.
+
 ---
 
 ## Apa ini
