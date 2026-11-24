@@ -80,7 +80,35 @@ class Company extends Model
             ? array_filter($joinRequest->answers ?? [], fn ($answer) => $answer !== null && $answer !== [])
             : [];
 
-        return array_merge($this->credentials ?? [], $draft);
+        return array_merge($this->profile(false), $draft);
+    }
+
+    /**
+     * The profile as one array: `credentials` with the dated certificates from
+     * company_certificates over it — `classification_cert` / `quality_cert`
+     * (the current one, or null) and, unless $history is false, their
+     * `_history` lists, newest replaced first. A request to join copies it
+     * without the history.
+     */
+    public function profile(bool $history = true): array
+    {
+        $held = $this->credentials ?? [];
+        $rows = $this->certificates()->orderByDesc('replaced_at')->orderByDesc('id')->get();
+
+        foreach (CompanyCertificate::TYPES as $type) {
+            $mine = $rows->where('type', $type);
+            $held["{$type}_cert"] = $mine->firstWhere('replaced_at', null)?->toCert();
+            if ($history) {
+                $held["{$type}_history"] = $mine->whereNotNull('replaced_at')->map->toCert()->values()->all();
+            }
+        }
+
+        return $held;
+    }
+
+    public function certificates()
+    {
+        return $this->hasMany(CompanyCertificate::class);
     }
 
     /**
@@ -306,7 +334,9 @@ class Company extends Model
         return [
             'cascade_deleted' => [
                 'event_registrations' => $mine('event_registrations'),
-                'company_krafs' => $mine('company_krafs'),            ],
+                'company_krafs' => $mine('company_krafs'),
+                'company_certificates' => $mine('company_certificates'),
+            ],
 
             'links_cleared' => [
                 'plots.company_id' => $mine('plots'),

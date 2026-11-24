@@ -34,11 +34,12 @@
         <h3 class="mac-card-title" id="dash-attention">Needs attention</h3>
 
         @forelse($attention as [$tone, $text, $link])
-            <a href="{{ $link }}" class="dash-row dash-{{ $tone }}">
+            {{-- A row with no link (a server problem) is fixed off-screen. --}}
+            <{{ $link ? 'a' : 'div' }} @if($link) href="{{ $link }}" @endif class="dash-row dash-{{ $tone }}">
                 <i class="bi {{ $tone === 'bad' ? 'bi-x-octagon' : ($tone === 'warn' ? 'bi-exclamation-triangle' : 'bi-info-circle') }}" aria-hidden="true"></i>
                 <span>{{ $text }}</span>
-                <i class="bi bi-chevron-right ms-auto" aria-hidden="true"></i>
-            </a>
+                @if($link)<i class="bi bi-chevron-right ms-auto" aria-hidden="true"></i>@endif
+            </{{ $link ? 'a' : 'div' }}>
         @empty
             <p class="dash-row dash-ok mb-0">
                 <i class="bi bi-check-circle" aria-hidden="true"></i>

@@ -18,8 +18,7 @@ $tenunan = \App\Models\KrafSubBidang::firstOrCreate(['bidang_id' => $tekstil->id
 
 foreach (['Logam E2E', 'Kayu E2E'] as $name) {
     Company::where('name', $name)->firstOrFail()->forceFill(['credentials' => [
-        'recognition' => 'none', 'classification' => 'no', 'classification_cert' => null,
-        'quality' => null, 'quality_cert' => null,
+        'recognition' => 'none', 'classification' => 'no', 'quality' => null,
         'entrepreneur_category' => 'Mikro, Kecil & Sederhana (MKS)', 'oku' => 'no',
         'staff' => [['name' => 'Siti Aminah', 'phone' => '012-345 6789']], 'product_images' => [],
     ]])->save();

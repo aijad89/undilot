@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\EventJoinRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -69,7 +70,7 @@ final class CompanyCredentials
      */
     public static function rules(Request $request, Company $company): array
     {
-        $held = $company->credentials ?? [];
+        $held = $company->profile(false);
 
         $rules = [
             'recognition' => ['required', Rule::in(array_keys(Company::RECOGNITIONS))],
@@ -146,12 +147,13 @@ final class CompanyCredentials
     }
 
     /**
-     * The company's credentials with these answers, new certificate files
-     * stored. The staff and product photos on record are kept as they are.
+     * Saves the recognition and certificates card: the answers to
+     * `credentials`, the dated certificates to company_certificates. New files
+     * are stored. Staff, OKU and product photos on record are kept as they are.
      */
-    public static function build(Request $request, array $data, Company $company): array
+    public static function save(Request $request, array $data, Company $company): void
     {
-        $held = $company->credentials ?? [];
+        $held = $company->profile(false);
 
         // A certificate keeps the file on record unless a new one was sent, and
         // only while it is the same certificate (same number, same end date).
@@ -183,37 +185,50 @@ final class CompanyCredentials
             default => null,
         };
 
-        $classification = $data['classification'] === 'yes' ? $certificate('classification') : null;
-        $quality = in_array($data['quality'] ?? null, [null, 'none'], true) ? null : $certificate('quality');
+        $quality = in_array($data['quality'] ?? null, [null, 'none'], true) ? null : $data['quality'];
 
-        // A certificate replaced or dropped goes to the top of its history,
-        // file and all, so the office can see what was held before.
-        $history = function (string $field, ?array $new) use ($held) {
-            $old = $held["{$field}_cert"] ?? null;
-            $past = $held["{$field}_history"] ?? [];
-            $key = fn (?array $c) => [$c['number'] ?? null, $c['end'] ?? null, $c['path'] ?? null];
-            if (! empty($old['number']) && $key($old) !== $key($new)) {
-                array_unshift($past, $old + ($field === 'quality' ? ['standard' => $held['quality'] ?? null] : []));
-            }
+        DB::transaction(function () use ($company, $data, $recognitionCert, $certificate, $quality) {
+            $company->update(['credentials' => [
+                'recognition' => $data['recognition'],
+                'recognition_cert' => $recognitionCert,
+                'classification' => $data['classification'],
+                'quality' => $data['quality'] ?? null,
+            ] + ($company->credentials ?? [])]);
 
-            return $past;
-        };
+            self::saveCertificate($company, 'classification', $data['classification'] === 'yes' ? $certificate('classification') : null);
+            self::saveCertificate($company, 'quality', $quality ? $certificate('quality') + ['standard' => $quality] : null);
+        });
+    }
 
-        return [
-            'recognition' => $data['recognition'],
-            'recognition_cert' => $recognitionCert,
-            'classification' => $data['classification'],
-            'classification_cert' => $classification,
-            'classification_history' => $history('classification', $classification),
-            'quality' => $data['quality'] ?? null,
-            'quality_cert' => $quality,
-            'quality_history' => $history('quality', $quality),
-            'entrepreneur_category' => $held['entrepreneur_category'] ?? null,
-            'oku' => $held['oku'] ?? null,
-            'oku_cert' => $held['oku_cert'] ?? null,
-            'staff' => $held['staff'] ?? [],
-            'product_images' => $held['product_images'] ?? [],
-        ];
+    /**
+     * Makes $cert the company's current certificate of this type. The same
+     * certificate (number, end date, file, standard) is updated in place; a
+     * different one, or none, moves the current one to the history, file kept.
+     */
+    private static function saveCertificate(Company $company, string $type, ?array $cert): void
+    {
+        $current = $company->certificates()->where('type', $type)->whereNull('replaced_at')->first();
+        $key = fn (?array $c) => $c ? [$c['number'], $c['end'], $c['path'] ?? null, $c['standard'] ?? null] : null;
+
+        if ($current && $key($current->toCert()) === $key($cert)) {
+            $current->update(['starts_on' => $cert['start']]);
+
+            return;
+        }
+
+        $current?->update(['replaced_at' => now()]);
+
+        if ($cert) {
+            $company->certificates()->create([
+                'type' => $type,
+                'standard' => $cert['standard'] ?? null,
+                'number' => $cert['number'],
+                'starts_on' => $cert['start'],
+                'ends_on' => $cert['end'],
+                'path' => $cert['path'] ?? null,
+                'original' => $cert['original'] ?? null,
+            ]);
+        }
     }
 
     /**
@@ -223,7 +238,7 @@ final class CompanyCredentials
      */
     public static function missing(Company $company): array
     {
-        $held = $company->credentials ?? [];
+        $held = $company->profile(false);
         $valid = fn (?array $cert) => ! empty($cert['path'])
             && ! empty($cert['end'])
             && ! Carbon::parse($cert['end'])->endOfDay()->isPast();
@@ -281,7 +296,7 @@ final class CompanyCredentials
      */
     public static function deleteUnused(Company $company, array $before): void
     {
-        $inUse = self::filePaths($company->fresh()->credentials ?? []);
+        $inUse = self::filePaths($company->fresh()->profile());
         foreach (EventJoinRequest::where('company_id', $company->id)->get(['answers', 'documents']) as $jr) {
             array_push($inUse, ...self::filePaths($jr->answers ?? []), ...array_column($jr->documents ?? [], 'path'));
         }
@@ -295,7 +310,7 @@ final class CompanyCredentials
      */
     public static function certOnFile(array $held, string $field, ?string $answer): ?array
     {
-        if ($field === 'quality' && ($held['quality'] ?? null) !== $answer) {
+        if ($field === 'quality' && ($held['quality_cert']['standard'] ?? null) !== $answer) {
             return null;
         }
 

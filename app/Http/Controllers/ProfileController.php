@@ -31,7 +31,7 @@ class ProfileController extends Controller
         return view('profile', [
             'user' => $user,
             'company' => $company,
-            'held' => $company?->credentials ?? [],
+            'held' => $company?->profile() ?? [],
             'standards' => $company?->qualityStandards() ?? [],
             'missing' => $company ? CompanyCredentials::missing($company) : [],
             'picker' => $company ? KrafPicker::data($company) : null,
@@ -123,9 +123,9 @@ class ProfileController extends Controller
             CompanyCredentials::ATTRIBUTES,
         );
 
-        $before = CompanyCredentials::filePaths($company->credentials ?? []);
+        $before = CompanyCredentials::filePaths($company->profile());
 
-        $company->update(['credentials' => CompanyCredentials::build($request, $data, $company)]);
+        CompanyCredentials::save($request, $data, $company);
 
         // A replaced certificate goes once no request still points at it.
         CompanyCredentials::deleteUnused($company, $before);
@@ -179,10 +179,12 @@ class ProfileController extends Controller
             404
         );
 
-        // ?history=N: a certificate held before (classification and quality only).
-        $file = $request->has('history')
-            ? ($company->credentials["{$key}_history"][(int) $request->query('history')] ?? null)
-            : ($company->credentials["{$key}_cert"] ?? null);
+        // ?history=<id>: a certificate held before (classification and quality only).
+        $file = match (true) {
+            $request->has('history') => $company->certificates()->where('type', $key)->whereNotNull('replaced_at')
+                ->find((int) $request->query('history'))?->toCert(),
+            default => $company->profile(false)["{$key}_cert"] ?? null,
+        };
         abort_unless(! empty($file['path']) && Storage::disk('local')->exists($file['path']), 404);
 
         return Storage::disk('local')->response($file['path'], $file['original'] ?? basename($file['path']));

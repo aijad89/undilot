@@ -7,8 +7,11 @@ use App\Models\Admin;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Support\DevEnvironment;
 use App\Support\PollingGuard;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -53,6 +56,48 @@ class DashboardController extends Controller
     }
 
     /**
+     * The server setup that fails without an error (docs/sedia-go-live.md):
+     * no queue worker, so no notification goes out; no scheduler, so draws do
+     * not open or close; no storage:link, so banners vanish. Each row has no
+     * link — the fix is on the server. Never on a dev machine, which runs none
+     * of the three.
+     *
+     * @return array<int, array{0: string, 1: string, 2: null}>
+     */
+    public static function serverProblems(): array
+    {
+        if (DevEnvironment::here()) {
+            return [];
+        }
+
+        $rows = [];
+
+        $oldest = DB::table('jobs')->min('created_at');
+        if ($oldest && $oldest < now()->subMinutes(10)->timestamp) {
+            $rows[] = ['bad', 'Server: '.DB::table('jobs')->count().' notifications waiting since '.Carbon::createFromTimestamp($oldest)->diffForHumans()
+                .' — the queue worker is not running. Participants are not being told.', null];
+        }
+        if ($failed = DB::table('failed_jobs')->count()) {
+            $rows[] = ['bad', "Server: {$failed} ".str('notification')->plural($failed).' could not be sent (failed_jobs).', null];
+        }
+
+        $beat = Cache::get(self::SCHEDULER_HEARTBEAT);
+        if (! $beat || $beat < now()->subMinutes(5)->timestamp) {
+            $rows[] = ['bad', 'Server: the scheduler has not run '.($beat ? 'since '.Carbon::createFromTimestamp($beat)->diffForHumans() : 'yet')
+                .' — draws will not open or close on their own.', null];
+        }
+
+        if (! file_exists(public_path('storage'))) {
+            $rows[] = ['bad', 'Server: php artisan storage:link has not been run — event banners do not show.', null];
+        }
+
+        return $rows;
+    }
+
+    /** Written every minute by the scheduler (routes/console.php). */
+    public const SCHEDULER_HEARTBEAT = 'scheduler.heartbeat';
+
+    /**
      * Upcoming and running events, soonest first, each with its draw-list counts
      * (in this admin's zone) and its plots (event-wide — plots have no zone).
      */
@@ -92,7 +137,8 @@ class DashboardController extends Controller
      */
     private function attention(bool $global, \Closure $inZone, \Closure $companies, $events): array
     {
-        $rows = [];
+        // Server setup first: when it is broken, nothing below happens on time.
+        $rows = $global ? self::serverProblems() : [];
 
         // A1 — draw-list rows with no craft code, per event.
         foreach ($events as $event) {

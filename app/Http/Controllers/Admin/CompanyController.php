@@ -197,7 +197,7 @@ class CompanyController extends Controller
             'password' => ['nullable', 'confirmed', Password::defaults()],
         ], self::IC_MESSAGES + CompanyCredentials::MESSAGES, CompanyCredentials::ATTRIBUTES);
 
-        $before = CompanyCredentials::filePaths($company->credentials ?? []);
+        $before = CompanyCredentials::filePaths($company->profile());
 
         DB::transaction(function () use ($request, $data, $company, $user) {
             $user->update([

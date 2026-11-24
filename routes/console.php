@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -9,3 +11,7 @@ use Illuminate\Support\Facades\Schedule;
  */
 Schedule::command('events:update-statuses')->everyMinute();
 Schedule::command('voting:send-reminder')->everyMinute();
+
+// Proof the scheduler runs: the admin dashboard warns when this goes stale.
+Schedule::call(fn () => Cache::forever(DashboardController::SCHEDULER_HEARTBEAT, now()->timestamp))
+    ->everyMinute()->name('scheduler-heartbeat');

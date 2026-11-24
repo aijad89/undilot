@@ -63,8 +63,8 @@ it('saves the contact details and answers, and a request to join starts from the
         ->and($company->office_phone)->toBe('03-3344 5566')
         ->and($company->facebook)->toBe('https://www.facebook.com/seramikklang')
         ->and($company->credentials['recognition'])->toBe('adiguru')
-        ->and($company->credentials['classification_cert']['number'])->toBe('PKT-001');
-    Storage::disk('local')->assertExists($company->credentials['classification_cert']['path']);
+        ->and($company->profile()['classification_cert']['number'])->toBe('PKT-001');
+    Storage::disk('local')->assertExists($company->profile()['classification_cert']['path']);
 
     $this->get(route('profile'))
         ->assertDontSee('Still needed before you can join')
@@ -155,12 +155,12 @@ it('keeps the certificate file while it is the same certificate, and wants a new
     $company = Company::factory()->create();
     $this->actingAs($company->user, 'web');
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification')));
-    $path = $company->fresh()->credentials['classification_cert']['path'];
+    $path = $company->fresh()->profile()['classification_cert']['path'];
 
     // The same certificate, no file sent: the one on file stays.
     $this->put(route('profile.update'), profileForm(['classification' => 'yes', 'staff' => [['name' => 'Ahmad', 'phone' => '019-111 2222']]] + profileCert('classification', file: false)))
         ->assertSessionHasNoErrors();
-    expect($company->fresh()->credentials['classification_cert']['path'])->toBe($path);
+    expect($company->fresh()->profile()['classification_cert']['path'])->toBe($path);
 
     // Renewed (a new end date): its new file is needed.
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', end: now()->addYears(2)->toDateString(), file: false)))
@@ -170,29 +170,39 @@ it('keeps the certificate file while it is the same certificate, and wants a new
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', 'PKT-002')))
         ->assertSessionHasNoErrors();
     Storage::disk('local')->assertExists($path);
-    $history = $company->fresh()->credentials['classification_history'];
+    $history = $company->fresh()->profile()['classification_history'];
     expect(array_column($history, 'number'))->toBe(['PKT-001'])
         ->and($history[0]['path'])->toBe($path);
     $this->get(route('profile'))->assertSeeInOrder(['Previous certificates', 'PKT-001', 'classification.pdf']);
-    $this->get(route('companies.certificate', [$company, 'classification', 'history' => 0]))->assertOk();
-    $this->get(route('companies.certificate', [$company, 'classification', 'history' => 1]))->assertNotFound();
+    // Linked by its row id; the current certificate's id is no history entry.
+    $this->get(route('companies.certificate', [$company, 'classification', 'history' => $history[0]['id']]))->assertOk();
+    $this->get(route('companies.certificate', [$company, 'classification', 'history' => $company->fresh()->profile()['classification_cert']['id']]))->assertNotFound();
 
     // The office sees it too, on the company's page.
     $this->actingAs(superAdmin(), 'admin')->get(route('admin.companies.edit', $company))
         ->assertSeeInOrder(['Classification certificate', 'PKT-002', 'Previous certificates', 'PKT-001'])
-        ->assertSee(route('companies.certificate', [$company, 'classification', 'history' => 0]), false);
+        ->assertSee(route('companies.certificate', [$company, 'classification', 'history' => $history[0]['id']]), false);
     auth()->forgetGuards();
     $this->actingAs($company->user, 'web');
 
     // Saving the same certificate again adds nothing.
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', 'PKT-002', file: false)))
         ->assertSessionHasNoErrors();
-    expect($company->fresh()->credentials['classification_history'])->toHaveCount(1);
+    expect($company->fresh()->profile()['classification_history'])->toHaveCount(1);
 
     // No certificate any more: its answer is no, and the last one joins the history.
     $this->put(route('profile.update'), profileForm())->assertSessionHasNoErrors();
-    expect($company->fresh()->credentials['classification_cert'])->toBeNull()
-        ->and(array_column($company->fresh()->credentials['classification_history'], 'number'))->toBe(['PKT-002', 'PKT-001']);
+    expect($company->fresh()->profile()['classification_cert'])->toBeNull()
+        ->and(array_column($company->fresh()->profile()['classification_history'], 'number'))->toBe(['PKT-002', 'PKT-001']);
+});
+
+it('shows the office a quality history even once the main craft has no standard', function () {
+    // No craft picked, so no quality question: only the history is left to see.
+    $company = Company::factory()->withProfile()->create(['state' => 'Perak']);
+    \App\Models\CompanyCertificate::factory()->create(['company_id' => $company->id, 'type' => 'quality', 'standard' => 'batik', 'number' => 'SPB-OLD', 'replaced_at' => now()]);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.companies.edit', $company))
+        ->assertSeeInOrder(['Quality compliance', 'Previous certificates', 'Batik Standard entrepreneur', 'SPB-OLD']);
 });
 
 it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or Tenunan only', function () {
@@ -217,7 +227,7 @@ it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or T
     $this->put(route('profile.update'), profileForm(['quality' => 'songket_tenun']))->assertSessionHasErrors('quality_number');
     $this->put(route('profile.update'), profileForm(['quality' => 'songket_tenun'] + profileCert('quality', 'SPK-9')))
         ->assertSessionHasNoErrors();
-    expect($tenun->fresh()->credentials['quality_cert']['number'])->toBe('SPK-9');
+    expect($tenun->fresh()->profile()['quality_cert']['number'])->toBe('SPK-9');
 
     // Batik as a second craft: not the main one, so its standard is not offered.
     $second = $makes($tenun, $batik, false);
@@ -230,7 +240,7 @@ it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or T
         ->assertDontSee('value="SPK-9"', false);
 
     // The Songket / Tenunan answer stays on record, now counted as missing...
-    $kept = $tenun->fresh()->credentials;
+    $kept = $tenun->fresh()->profile();
     expect($kept['quality'])->toBe('songket_tenun')->and($kept['quality_cert']['number'])->toBe('SPK-9')
         ->and(\App\Support\CompanyCredentials::missing($tenun->fresh()))->toContain('quality compliance');
     // ...and its certificate is no Batik one, even sent back with the same number and dates.
@@ -238,7 +248,7 @@ it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or T
         ->assertSessionHasErrors('quality_file');
 
     $this->put(route('profile.update'), profileForm(['quality' => 'batik'] + profileCert('quality', 'SPB-1')))->assertSessionHasNoErrors();
-    expect($tenun->fresh()->credentials['quality_cert']['path'])->not->toBe($kept['quality_cert']['path']);
+    expect($tenun->fresh()->profile()['quality_cert']['path'])->not->toBe($kept['quality_cert']['path']);
 
     // Tekatan has no standard: not asked, and not missing.
     auth()->forgetGuards();

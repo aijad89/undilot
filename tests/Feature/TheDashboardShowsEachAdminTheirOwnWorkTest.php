@@ -162,3 +162,31 @@ it('shows HQ what the zones rejected, with the reason, and not what HQ rejected 
     $this->actingAs($zone, 'admin')->get(route('admin.dashboard'))->assertDontSee('rejected by zones');
     $this->get(route('admin.events.registrations.index', $event))->assertDontSee('Rejected by zones');
 });
+
+it('warns super and HQ of server setup that fails without an error, never on a dev machine', function () {
+    // A notification stuck for an hour, one failed, and no scheduler heartbeat.
+    \Illuminate\Support\Facades\DB::table('jobs')->insert(['queue' => 'default', 'payload' => '{}', 'attempts' => 0, 'reserved_at' => null, 'available_at' => now()->subHour()->timestamp, 'created_at' => now()->subHour()->timestamp]);
+    \Illuminate\Support\Facades\DB::table('failed_jobs')->insert(['uuid' => (string) str()->uuid(), 'connection' => 'database', 'queue' => 'default', 'payload' => '{}', 'exception' => 'x', 'failed_at' => now()]);
+
+    // Here (testing) none of it is asked: a dev machine runs no worker or scheduler.
+    expect(\App\Http\Controllers\Admin\DashboardController::serverProblems())->toBe([]);
+
+    app()->detectEnvironment(fn () => 'production');
+    $texts = array_column(\App\Http\Controllers\Admin\DashboardController::serverProblems(), 1);
+    expect($texts[0])->toStartWith('Server: 1 notifications waiting since 1 hour ago — the queue worker is not running')
+        ->and($texts[1])->toBe('Server: 1 notification could not be sent (failed_jobs).')
+        ->and($texts[2])->toBe('Server: the scheduler has not run yet — draws will not open or close on their own.');
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('the queue worker is not running')->assertDontSee('All clear');
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertDontSee('the queue worker is not running');
+
+    // A fresh heartbeat and an empty queue: the scheduler and queue rows go.
+    \Illuminate\Support\Facades\DB::table('jobs')->delete();
+    \Illuminate\Support\Facades\DB::table('failed_jobs')->delete();
+    \Illuminate\Support\Facades\Cache::forever(\App\Http\Controllers\Admin\DashboardController::SCHEDULER_HEARTBEAT, now()->timestamp);
+    expect(array_column(\App\Http\Controllers\Admin\DashboardController::serverProblems(), 1))
+        ->toBe(file_exists(public_path('storage')) ? [] : ['Server: php artisan storage:link has not been run — event banners do not show.']);
+});

@@ -7,7 +7,7 @@
       $company — the company being edited
 --}}
 @php
-    $held = $company->credentials ?? [];
+    $held = $company->profile();
     $missing = \App\Support\CompanyCredentials::missing($company);
     $standards = $company->qualityStandards();
     $date = fn (?string $d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '—';
@@ -15,12 +15,12 @@
         ? '<a href="'.e(route('companies.certificate', [$company, $key])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($held["{$key}_cert"]['original'] ?? 'File').'</a>'
         : '<span class="mac-muted">no file</span>';
     // Certificates held before, newest first, each with its file.
-    $history = fn (string $key) => collect($held["{$key}_history"] ?? [])->map(fn ($c, $i) => implode(' · ', array_filter([
+    $history = fn (string $key) => collect($held["{$key}_history"] ?? [])->map(fn ($c) => implode(' · ', array_filter([
         $key === 'quality' ? e(\App\Models\Company::QUALITY_STANDARDS[$c['standard'] ?? ''] ?? ($c['standard'] ?? '')) : null,
         e($c['number'] ?? '—'),
         $date($c['start'] ?? null).' – '.$date($c['end'] ?? null),
         ! empty($c['path'])
-            ? '<a href="'.e(route('companies.certificate', [$company, $key, 'history' => $i])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($c['original'] ?? 'File').'</a>'
+            ? '<a href="'.e(route('companies.certificate', [$company, $key, 'history' => $c['id']])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($c['original'] ?? 'File').'</a>'
             : '<span class="mac-muted">no file</span>',
     ])));
 @endphp
@@ -89,7 +89,8 @@
                 </ul>
             @endif
         </dd>
-        @if($standards)
+        {{-- Asked while the main craft has a standard; shown too while there is a history to see. --}}
+        @if($standards || ! empty($held['quality_history']))
             <dt>Quality compliance</dt>
             <dd>
                 @if(in_array($held['quality'] ?? null, $standards, true))

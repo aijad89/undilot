@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Company;
+use App\Models\CompanyCertificate;
 use App\Models\Event;
 use App\Models\EventJoinRequest;
 use App\Models\EventRegistration;
@@ -274,10 +275,8 @@ it('sends a participant whose profile is not complete to fill it in first', func
     expect(EventJoinRequest::count())->toBe(0);
 
     // An expired certificate on the profile counts as missing.
-    $company->update(['credentials' => array_merge(Company::factory()->withProfile()->make()->credentials, [
-        'classification' => 'yes',
-        'classification_cert' => ['number' => 'PKT-1', 'start' => now()->subYears(2)->toDateString(), 'end' => now()->subDay()->toDateString(), 'path' => 'certificates/x.pdf', 'original' => 'x.pdf'],
-    ])]);
+    $company->update(['credentials' => array_merge(Company::factory()->withProfile()->make()->credentials, ['classification' => 'yes'])]);
+    CompanyCertificate::factory()->create(['company_id' => $company->id, 'number' => 'PKT-1', 'starts_on' => now()->subYears(2), 'ends_on' => now()->subDay(), 'path' => 'certificates/x.pdf', 'original' => 'x.pdf']);
     // A fresh user: the signed-in one still holds the company it loaded before.
     $this->actingAs($company->user->fresh(), 'web')
         ->post(route('events.join', $event), payment())
@@ -751,7 +750,7 @@ it('deletes a replaced certificate or photo once nothing points at it, and not b
     $this->put(route('profile.update'), profile(['classification' => 'yes'] + certificate('classification')));
     $first = joinable();
     $this->post(route('events.join', $first), payment());
-    $old = $company->fresh()->credentials;
+    $old = $company->fresh()->profile();
 
     // Renewed on the profile: the first request still shows the old file.
     $this->put(route('profile.update'), profile(['classification' => 'yes'] + certificate('classification', 'PKT-002')))
@@ -770,7 +769,7 @@ it('deletes a replaced certificate or photo once nothing points at it, and not b
     // The first request, not approved and sent again with new photos: it now
     // carries the renewed certificate, and nothing points at the old photos,
     // so they go. The old certificate stays: the profile's history keeps it.
-    $secondCert = $company->fresh()->credentials['classification_cert']['path'];
+    $secondCert = $company->fresh()->profile()['classification_cert']['path'];
     $first->joinRequests()->sole()->update(['status' => 'rejected']);
     $this->post(route('events.join', $first), payment())->assertSessionHas('success');
     Storage::disk('local')->assertExists($old['classification_cert']['path']);
@@ -808,11 +807,10 @@ it('names a product photo that is really another kind of file, whatever it is ca
 
 it('puts what to do first on the dashboard, beside what is open and what is on record', function () {
     $company = Company::factory()->withProfile()->create(['name' => 'Seramik Klang Studio', 'state' => 'Selangor', 'credentials' => [
-        'recognition' => 'tokoh', 'classification' => 'yes',
-        'classification_cert' => ['number' => 'PKT-555', 'start' => now()->subYear()->toDateString(), 'end' => now()->subDay()->toDateString()],
-        'quality' => null, 'quality_cert' => null,
+        'recognition' => 'tokoh', 'classification' => 'yes', 'quality' => null,
         'staff' => [['name' => 'Siti Aminah', 'phone' => '012-345 6789']], 'product_images' => [],
     ]]);
+    CompanyCertificate::factory()->create(['company_id' => $company->id, 'number' => 'PKT-555', 'ends_on' => now()->subDay()]);
     $draw = joinable(['title' => 'Pesta Kraf Utara', 'polling_status' => 'polling', 'polling_deadline' => now()->addDay()]);
     EventRegistration::factory()->create(['event_id' => $draw->id, 'company_id' => $company->id]);
     $drafted = joinable(['title' => 'Karnival Batik']);
@@ -858,8 +856,8 @@ it('says nothing is waiting when nothing is, and that no company record exists y
 it('warns on the dashboard of a certificate that runs out within two months', function () {
     $company = Company::factory()->withProfile()->create(['credentials' => [
         'recognition' => 'none', 'classification' => 'yes',
-        'classification_cert' => ['number' => 'PKT-1', 'start' => now()->subYear()->toDateString(), 'end' => now()->addMonth()->toDateString()],
     ]]);
+    CompanyCertificate::factory()->create(['company_id' => $company->id, 'ends_on' => now()->addMonth()]);
 
     $this->actingAs($company->user, 'web')->get(route('dashboard'))
         ->assertSee('Your classification certificate expires on '.now()->addMonth()->format('d M Y'));

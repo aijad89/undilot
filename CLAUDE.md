@@ -507,13 +507,20 @@ pengesahan butiran (langkah 2 memaparkan seluruh profil; `details_confirmed`
 wajib ditanda, disemak pelayan juga), lima foto produk dan bayaran; `CompanyCredentials::missing()` menolak menghantar
 (draf masih boleh) selagi profil belum lengkap atau sijil tamat tempoh. Setiap
 permohonan menyimpan **salinan** profil dalam `answers`, supaya perubahan
-kemudian tidak menulis semula apa yang pejabat semak. Sijil klasifikasi dan
-kualiti yang diganti atau digugurkan masuk ke **sejarah**
-(`classification_history` / `quality_history`, terbaru dahulu, fail disimpan),
-dipaparkan sebagai jadual di bawah inputnya dan dihidang melalui
-`companies.certificate?history=N` (keputusan pemilik 2026-11-24). Jadi failnya
-tidak dipadam; `deleteUnused()` hanya memadam fail yang tiada profil, sejarah
-atau permohonan menunjuk kepadanya.
+kemudian tidak menulis semula apa yang pejabat semak.
+
+**Sijil klasifikasi dan kualiti tinggal dalam jadual `company_certificates`**,
+bukan `credentials` (keputusan pemilik 2026-11-24) — supaya tamat tempoh boleh
+ditanya kepada pangkalan data. `replaced_at` NULL = sijil semasa; selebihnya
+**sejarah**, fail disimpan, dipaparkan di profil dan halaman syarikat admin,
+dihidang melalui `companies.certificate?history=<id>`. Jawapan ya/tidak
+(`classification`, `quality`) kekal dalam `credentials`. **Baca melalui
+`Company::profile()`**, bukan `credentials` terus: ia memberi bentuk tatasusunan
+lama (`classification_cert`, `quality_cert`, `_history`), dan salinan dalam
+permohonan sertai (`answers`) masih bentuk itu. Tulis hanya melalui
+`CompanyCredentials::save()`. Lajur `original` dibaca dengan `getAttribute()` —
+`$this->original` ialah sifat Eloquent sendiri. `deleteUnused()` hanya memadam
+fail yang tiada profil, sejarah atau permohonan menunjuk kepadanya.
 
 `EventController::storeBanner()` ialah satu-satunya muat naik ke cakera
 `public`. Pengesahan

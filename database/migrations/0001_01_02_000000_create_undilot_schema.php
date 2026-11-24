@@ -272,6 +272,32 @@ return new class extends Migration
         // The classifications a company ticked under one selection's sub-category.
         // Goes with its selection; a classification still ticked here cannot be
         // deleted — the database refuses, and Settings refuses first, by name.
+        // A company's dated certificates: the classification one and the
+        // quality one. One row per certificate held; `replaced_at` NULL is the
+        // one on the profile now, the rest are its history (owner, 2026-11-24).
+        // A table and not companies.credentials, so expiry can be asked of the
+        // database ("who expires next month"). The yes/no answers stay in
+        // credentials; a request to join still copies the current ones there.
+        Schema::create('company_certificates', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            // CompanyCertificate::TYPES — classification, quality. A string, not an enum.
+            $table->string('type', 20);
+            // Quality only: the Company::QUALITY_STANDARDS key it was given for.
+            $table->string('standard', 30)->nullable();
+            $table->string('number', 100);
+            $table->date('starts_on')->nullable();
+            $table->date('ends_on')->nullable();
+            // On the `local` disk; served by ProfileController::certificate().
+            $table->string('path')->nullable();
+            $table->string('original')->nullable();
+            $table->timestamp('replaced_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['company_id', 'type', 'replaced_at']);
+            $table->index('ends_on');
+        });
+
         Schema::create('company_kraf_pengelasan', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_kraf_id')->constrained('company_krafs')->cascadeOnDelete();
@@ -857,6 +883,7 @@ return new class extends Migration
             'events',
             'company_kraf_produk',
             'company_kraf_pengelasan',
+            'company_certificates',
             'company_krafs',
             'companies',
             'kraf_produks',

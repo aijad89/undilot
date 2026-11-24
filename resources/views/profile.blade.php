@@ -425,7 +425,7 @@
                                                 <th>Number</th><th>Valid from</th><th>Valid until</th><th>File</th>
                                             </tr></thead>
                                             <tbody>
-                                                @foreach($held[$field.'_history'] as $i => $past)
+                                                @foreach($held[$field.'_history'] as $past)
                                                     <tr>
                                                         @if($field === 'quality')<td>{{ \App\Models\Company::QUALITY_STANDARDS[$past['standard'] ?? ''] ?? ($past['standard'] ?? '—') }}</td>@endif
                                                         <td>{{ $past['number'] ?? '—' }}</td>
@@ -433,7 +433,7 @@
                                                         <td class="ap-tabular">{{ ! empty($past['end']) ? \Illuminate\Support\Carbon::parse($past['end'])->format('d M Y') : '—' }}</td>
                                                         <td>
                                                             @if(! empty($past['path']))
-                                                                <a href="{{ route('companies.certificate', [$company, $field, 'history' => $i]) }}" target="_blank" rel="noopener">{{ $past['original'] ?? 'View' }}</a>
+                                                                <a href="{{ route('companies.certificate', [$company, $field, 'history' => $past['id']]) }}" target="_blank" rel="noopener">{{ $past['original'] ?? 'View' }}</a>
                                                             @else — @endif
                                                         </td>
                                                     </tr>

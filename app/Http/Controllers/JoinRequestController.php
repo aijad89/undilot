@@ -85,7 +85,7 @@ class JoinRequestController extends Controller
         $held = $company->answersFor($existing);
         // The photo files on record before this save, so the ones it replaces
         // can go once nothing points at them.
-        $before = [...CompanyCredentials::filePaths($company->credentials ?? []), ...CompanyCredentials::filePaths($existing?->answers ?? [])];
+        $before = [...CompanyCredentials::filePaths($company->profile()), ...CompanyCredentials::filePaths($existing?->answers ?? [])];
 
         $rules = [
             'declaration' => ['accepted'],
@@ -141,7 +141,7 @@ class JoinRequestController extends Controller
         if (! $isDraft) {
             $company->update(['credentials' => array_merge($company->credentials ?? [], ['product_images' => $photos])]);
         }
-        $answers = $isDraft ? ['product_images' => $photos] : $company->credentials;
+        $answers = $isDraft ? ['product_images' => $photos] : $company->profile(false);
 
         $keep = fn ($file, $name) => [
             'name' => $name,

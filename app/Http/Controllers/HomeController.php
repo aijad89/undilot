@@ -222,8 +222,9 @@ class HomeController extends Controller
         }
 
         // A certificate on record: expired, or within two months of it.
+        $held = $company?->profile(false) ?? [];
         foreach (['classification_cert' => 'classification certificate', 'quality_cert' => 'quality compliance certificate'] as $key => $name) {
-            $end = $company?->credentials[$key]['end'] ?? null;
+            $end = $held[$key]['end'] ?? null;
             if (! $end) {
                 continue;
             }

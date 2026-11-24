@@ -2,7 +2,7 @@
      Changed on the profile; product photos with each request.
      Takes $company (may be null). --}}
 @php
-    $held = $company?->credentials ?? [];
+    $held = $company?->profile(false) ?? [];
     // A certificate on record, and how near its end is.
     $certState = function (?array $cert) {
         if (empty($cert['end'])) {
@@ -15,7 +15,7 @@
 @endphp
 <section class="ap-card ap-card-padded">
     <h2 class="ap-section-title">Your company on record</h2>
-    @if($held)
+    @if($company?->credentials)
         <dl class="ap-facts">
             <dt>Entrepreneur category</dt>
             <dd>{{ $held['entrepreneur_category'] ?? '—' }}</dd>

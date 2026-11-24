@@ -77,6 +77,10 @@ Senarai semak penuh: [`serahan-pembangun.md` seksyen 13](serahan-pembangun.md#13
 - [ ] Penjadual dari `/etc/cron.d/undilot` (bukan crontab `www-data`)
 - [ ] Pekerja baris gilir (systemd `queue:work database`) — tanpanya **tiada
       notifikasi dihantar**
+- [ ] Log masuk sebagai super selepas deploy: kad *Needs attention* tidak
+      menunjukkan baris `Server:` (pekerja, penjadual, `storage:link` —
+      `DashboardController::serverProblems()`). Penjadual dianggap mati jika
+      tiada denyutan dalam 5 minit; tunggu seminit selepas cron dipasang.
 - [ ] Sandaran pangkalan data automatik (harian) dan uji pulih sekali
 - [ ] Tulis skrip deploy dan simpan prosedur dalam `serahan-pembangun.md`
 
