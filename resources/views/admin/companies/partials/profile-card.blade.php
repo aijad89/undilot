@@ -14,12 +14,24 @@
     $file = fn (string $key) => ! empty($held["{$key}_cert"]['path'])
         ? '<a href="'.e(route('companies.certificate', [$company, $key])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($held["{$key}_cert"]['original'] ?? 'File').'</a>'
         : '<span class="mac-muted">no file</span>';
+    // Certificates held before, newest first, each with its file.
+    $history = fn (string $key) => collect($held["{$key}_history"] ?? [])->map(fn ($c, $i) => implode(' · ', array_filter([
+        $key === 'quality' ? e(\App\Models\Company::QUALITY_STANDARDS[$c['standard'] ?? ''] ?? ($c['standard'] ?? '')) : null,
+        e($c['number'] ?? '—'),
+        $date($c['start'] ?? null).' – '.$date($c['end'] ?? null),
+        ! empty($c['path'])
+            ? '<a href="'.e(route('companies.certificate', [$company, $key, 'history' => $i])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($c['original'] ?? 'File').'</a>'
+            : '<span class="mac-muted">no file</span>',
+    ])));
 @endphp
 <style>
     .pc-facts { display: grid; grid-template-columns: minmax(150px, 28%) 1fr; gap: 6px 16px; margin: 0; font-size: 0.875rem; }
     .pc-facts dt { font-weight: 600; color: var(--ui-muted); }
     .pc-facts dd { margin: 0; overflow-wrap: anywhere; }
     .pc-head { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--ui-border); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    .pc-history-head { margin: 8px 0 0; font-size: 0.75rem; font-weight: 600; color: var(--ui-muted); }
+    .pc-history { margin: 2px 0 0; padding: 0; list-style: none; font-size: 0.8125rem; color: var(--ui-muted); }
+    .pc-history li + li { margin-top: 2px; }
     .pc-head:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
     @media (max-width: 640px) { .pc-facts { grid-template-columns: 1fr; gap: 0; } .pc-facts dd { margin-bottom: 8px; } }
 </style>
@@ -70,6 +82,12 @@
             @else
                 {{ ($held['classification'] ?? null) === 'no' ? 'None' : '—' }}
             @endif
+            @if($history('classification')->isNotEmpty())
+                <p class="pc-history-head">Previous certificates</p>
+                <ul class="pc-history">
+                    @foreach($history('classification') as $line)<li>{!! $line !!}</li>@endforeach
+                </ul>
+            @endif
         </dd>
         @if($standards)
             <dt>Quality compliance</dt>
@@ -79,6 +97,12 @@
                 @else
                     {{ ($held['quality'] ?? null) === 'none' ? 'Not applicable' : '—' }}
                 @endif
+            @if($history('quality')->isNotEmpty())
+                <p class="pc-history-head">Previous certificates</p>
+                <ul class="pc-history">
+                    @foreach($history('quality') as $line)<li>{!! $line !!}</li>@endforeach
+                </ul>
+            @endif
             </dd>
         @endif
     </dl>

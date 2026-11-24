@@ -507,9 +507,13 @@ pengesahan butiran (langkah 2 memaparkan seluruh profil; `details_confirmed`
 wajib ditanda, disemak pelayan juga), lima foto produk dan bayaran; `CompanyCredentials::missing()` menolak menghantar
 (draf masih boleh) selagi profil belum lengkap atau sijil tamat tempoh. Setiap
 permohonan menyimpan **salinan** profil dalam `answers`, supaya perubahan
-kemudian tidak menulis semula apa yang pejabat semak. Fail sijil yang diganti
-dipadam hanya bila tiada permohonan lagi menunjuk kepadanya
-(`CompanyCredentials::deleteUnused()`).
+kemudian tidak menulis semula apa yang pejabat semak. Sijil klasifikasi dan
+kualiti yang diganti atau digugurkan masuk ke **sejarah**
+(`classification_history` / `quality_history`, terbaru dahulu, fail disimpan),
+dipaparkan sebagai jadual di bawah inputnya dan dihidang melalui
+`companies.certificate?history=N` (keputusan pemilik 2026-11-24). Jadi failnya
+tidak dipadam; `deleteUnused()` hanya memadam fail yang tiada profil, sejarah
+atau permohonan menunjuk kepadanya.
 
 `EventController::storeBanner()` ialah satu-satunya muat naik ke cakera
 `public`. Pengesahan

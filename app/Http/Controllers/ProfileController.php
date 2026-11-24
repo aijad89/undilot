@@ -179,7 +179,10 @@ class ProfileController extends Controller
             404
         );
 
-        $file = $company->credentials["{$key}_cert"] ?? null;
+        // ?history=N: a certificate held before (classification and quality only).
+        $file = $request->has('history')
+            ? ($company->credentials["{$key}_history"][(int) $request->query('history')] ?? null)
+            : ($company->credentials["{$key}_cert"] ?? null);
         abort_unless(! empty($file['path']) && Storage::disk('local')->exists($file['path']), 404);
 
         return Storage::disk('local')->response($file['path'], $file['original'] ?? basename($file['path']));

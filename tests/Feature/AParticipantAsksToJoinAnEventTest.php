@@ -768,12 +768,12 @@ it('deletes a replaced certificate or photo once nothing points at it, and not b
     }
 
     // The first request, not approved and sent again with new photos: it now
-    // carries the renewed certificate, nothing points at the old file or the
-    // old photos, and they go.
+    // carries the renewed certificate, and nothing points at the old photos,
+    // so they go. The old certificate stays: the profile's history keeps it.
     $secondCert = $company->fresh()->credentials['classification_cert']['path'];
     $first->joinRequests()->sole()->update(['status' => 'rejected']);
     $this->post(route('events.join', $first), payment())->assertSessionHas('success');
-    Storage::disk('local')->assertMissing($old['classification_cert']['path']);
+    Storage::disk('local')->assertExists($old['classification_cert']['path']);
     foreach (array_column($old['product_images'], 'path') as $path) {
         Storage::disk('local')->assertMissing($path);
     }

@@ -15,6 +15,10 @@
     .pf-group-split { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--ui-sep); }
     .pf-cert { margin-top: 12px; padding: 14px; border: 1px solid var(--ui-sep); border-radius: var(--ui-r); }
     .pf-cert[hidden] { display: none; }
+    .pf-history { margin-top: 12px; }
+    .pf-history-scroll { overflow-x: auto; border: 1px solid var(--ui-sep); border-radius: var(--ui-r); }
+    .pf-history .ap-table tbody td { padding: 10px 16px; font-size: 0.9375rem; }
+    .pf-history .ap-table tbody tr:last-child td { border-bottom: 0; }
     .pf-staff-phone { display: flex; gap: 8px; }
     .pf-staff-phone .ap-input { flex: 1; min-width: 0; }
     .pf-staff-phone .ap-btn { flex: none; width: 44px; padding: 0; }
@@ -409,6 +413,36 @@
                                     @error($field.'_file')<p class="ap-field-error">{{ $message }}</p>@enderror
                                 </div>
                             </div>
+
+                            {{-- Certificates held before, newest first: kept with their files. --}}
+                            @if(! empty($held[$field.'_history']))
+                                <div class="pf-history">
+                                    <p class="ap-label">Previous certificates</p>
+                                    <div class="pf-history-scroll">
+                                        <table class="ap-table">
+                                            <thead><tr>
+                                                @if($field === 'quality')<th>Standard</th>@endif
+                                                <th>Number</th><th>Valid from</th><th>Valid until</th><th>File</th>
+                                            </tr></thead>
+                                            <tbody>
+                                                @foreach($held[$field.'_history'] as $i => $past)
+                                                    <tr>
+                                                        @if($field === 'quality')<td>{{ \App\Models\Company::QUALITY_STANDARDS[$past['standard'] ?? ''] ?? ($past['standard'] ?? '—') }}</td>@endif
+                                                        <td>{{ $past['number'] ?? '—' }}</td>
+                                                        <td class="ap-tabular">{{ ! empty($past['start']) ? \Illuminate\Support\Carbon::parse($past['start'])->format('d M Y') : '—' }}</td>
+                                                        <td class="ap-tabular">{{ ! empty($past['end']) ? \Illuminate\Support\Carbon::parse($past['end'])->format('d M Y') : '—' }}</td>
+                                                        <td>
+                                                            @if(! empty($past['path']))
+                                                                <a href="{{ route('companies.certificate', [$company, $field, 'history' => $i]) }}" target="_blank" rel="noopener">{{ $past['original'] ?? 'View' }}</a>
+                                                            @else — @endif
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
                         </fieldset>
                     @endforeach
 

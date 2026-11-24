@@ -183,13 +183,31 @@ final class CompanyCredentials
             default => null,
         };
 
+        $classification = $data['classification'] === 'yes' ? $certificate('classification') : null;
+        $quality = in_array($data['quality'] ?? null, [null, 'none'], true) ? null : $certificate('quality');
+
+        // A certificate replaced or dropped goes to the top of its history,
+        // file and all, so the office can see what was held before.
+        $history = function (string $field, ?array $new) use ($held) {
+            $old = $held["{$field}_cert"] ?? null;
+            $past = $held["{$field}_history"] ?? [];
+            $key = fn (?array $c) => [$c['number'] ?? null, $c['end'] ?? null, $c['path'] ?? null];
+            if (! empty($old['number']) && $key($old) !== $key($new)) {
+                array_unshift($past, $old + ($field === 'quality' ? ['standard' => $held['quality'] ?? null] : []));
+            }
+
+            return $past;
+        };
+
         return [
             'recognition' => $data['recognition'],
             'recognition_cert' => $recognitionCert,
             'classification' => $data['classification'],
-            'classification_cert' => $data['classification'] === 'yes' ? $certificate('classification') : null,
+            'classification_cert' => $classification,
+            'classification_history' => $history('classification', $classification),
             'quality' => $data['quality'] ?? null,
-            'quality_cert' => in_array($data['quality'] ?? null, [null, 'none'], true) ? null : $certificate('quality'),
+            'quality_cert' => $quality,
+            'quality_history' => $history('quality', $quality),
             'entrepreneur_category' => $held['entrepreneur_category'] ?? null,
             'oku' => $held['oku'] ?? null,
             'oku_cert' => $held['oku_cert'] ?? null,
@@ -252,6 +270,8 @@ final class CompanyCredentials
             $answers['classification_cert']['path'] ?? null,
             $answers['quality_cert']['path'] ?? null,
             ...array_column($answers['product_images'] ?? [], 'path'),
+            ...array_column($answers['classification_history'] ?? [], 'path'),
+            ...array_column($answers['quality_history'] ?? [], 'path'),
         ]));
     }
 

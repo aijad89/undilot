@@ -166,14 +166,33 @@ it('keeps the certificate file while it is the same certificate, and wants a new
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', end: now()->addYears(2)->toDateString(), file: false)))
         ->assertSessionHasErrors('classification_file');
 
-    // Renewed with its file: the old one goes, since no request points at it.
+    // Renewed with its file: the old one moves to the history, file kept.
     $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', 'PKT-002')))
         ->assertSessionHasNoErrors();
-    Storage::disk('local')->assertMissing($path);
+    Storage::disk('local')->assertExists($path);
+    $history = $company->fresh()->credentials['classification_history'];
+    expect(array_column($history, 'number'))->toBe(['PKT-001'])
+        ->and($history[0]['path'])->toBe($path);
+    $this->get(route('profile'))->assertSeeInOrder(['Previous certificates', 'PKT-001', 'classification.pdf']);
+    $this->get(route('companies.certificate', [$company, 'classification', 'history' => 0]))->assertOk();
+    $this->get(route('companies.certificate', [$company, 'classification', 'history' => 1]))->assertNotFound();
 
-    // No certificate any more: its answer is no, and nothing is kept for it.
+    // The office sees it too, on the company's page.
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.companies.edit', $company))
+        ->assertSeeInOrder(['Classification certificate', 'PKT-002', 'Previous certificates', 'PKT-001'])
+        ->assertSee(route('companies.certificate', [$company, 'classification', 'history' => 0]), false);
+    auth()->forgetGuards();
+    $this->actingAs($company->user, 'web');
+
+    // Saving the same certificate again adds nothing.
+    $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', 'PKT-002', file: false)))
+        ->assertSessionHasNoErrors();
+    expect($company->fresh()->credentials['classification_history'])->toHaveCount(1);
+
+    // No certificate any more: its answer is no, and the last one joins the history.
     $this->put(route('profile.update'), profileForm())->assertSessionHasNoErrors();
-    expect($company->fresh()->credentials['classification_cert'])->toBeNull();
+    expect($company->fresh()->credentials['classification_cert'])->toBeNull()
+        ->and(array_column($company->fresh()->credentials['classification_history'], 'number'))->toBe(['PKT-002', 'PKT-001']);
 });
 
 it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or Tenunan only', function () {
