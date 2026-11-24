@@ -27,8 +27,8 @@ ini kekal bawah ~400 baris.
 Pecahan daripada **`undilotlook`** (2026-11-13), yang dipecah daripada
 **`daftar`** (`f:\herd\daftar`, 2026-10-13). undilot hanya membawa log masuk
 peserta dan admin, acara, cabutan lot, dan permohonan sertai (dipulihkan
-2026-11-19). Pengumuman, footer, pautan sosial, skrin audit dan laporan CSV
-dibuang; jejak audit (`Auditable`) masih direkod. Data sebenar dimuat dari
+2026-11-19). Pengumuman, footer, pautan sosial dan laporan CSV dibuang. Skrin
+audit trail dibuang kemudian dipulihkan (2026-11-24, super sahaja). Data sebenar dimuat dari
 dump lama.
 
 **`daftar` kekal sebagai arkib.** Jangan tulis semula sesuatu yang boleh
@@ -278,6 +278,16 @@ Menggantikan ID Komuniti + IC (17 Nov), kerana kedua-duanya tercetak pada slip.
 - Lupa kata laluan → pautan reset melalui emel. Borang memberi jawapan yang sama
   sama ada emel wujud atau tidak.
 - Had cuba: 5 per emel + IP.
+
+### Admin boleh membuka portal sebagai peserta (pemilik 2026-11-24)
+`App\Support\Impersonation`: admin negeri untuk zonnya, HQ/super semua. Admin kekal
+log masuk; setiap tulis direkod atas nama admin; kata laluan peserta **tidak**
+boleh ditukar dari situ. *Sign out* = kembali ke admin, dengan
+`logoutCurrentDevice()` (bukan `logout()`, yang mengusir "remember me" peserta).
+
+### Skrin audit trail: super sahaja (pemilik 2026-11-24)
+Gate `read-audit-trail` = `isSuperAdmin()` — bukan HQ. Dipulihkan supaya apa
+yang admin buat semasa *login as* boleh dibaca; tapis `?admin=` atau `?user=`.
 
 ### Pegawai log masuk dengan nama pengguna + kata laluan (pemilik 2026-11-17)
 `admins.username` disimpan huruf kecil, dipotong — SQLite peka huruf, MySQL

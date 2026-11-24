@@ -254,6 +254,7 @@
                         ['label' => 'Craft Category Code', 'route' => 'admin.settings.kraf-codes', 'when' => $globalOnly],
                         ['label' => 'Craft Hierarchy', 'route' => 'admin.settings.kraf-hierarchy', 'when' => $globalOnly],
                         ['label' => 'Lot Draw', 'route' => 'admin.settings.lot-draw', 'when' => $globalOnly],
+                        ['label' => 'Audit Trail', 'route' => 'admin.audit-trails.index', 'match' => ['admin.audit-trails.*'], 'when' => fn ($admin) => $admin->can('read-audit-trail')],
                     ],
                 ],
             ];

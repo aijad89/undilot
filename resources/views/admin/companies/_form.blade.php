@@ -216,6 +216,18 @@
          its own form, outside this one (edit.blade.php). --}}
     <h4 class="mac-card-title mt-4 pt-3 mb-3" style="border-top:1px solid var(--ui-sep);font-size:0.9375rem;">Sign-in</h4>
     <div class="row g-3">
+        @if($editing && $user->is_active && $company->is_active)
+            <div class="col-12">
+                {{-- Posts its own form, outside this one (edit.blade.php). --}}
+                <button type="submit" form="login-as-form" class="mac-btn-secondary">
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Log in as this participant
+                </button>
+                <small class="mac-muted d-block mt-1">Opens their portal as they see it. You stay signed in as admin, and what you do is recorded under your name. Their password cannot be changed from there.</small>
+                @can('read-audit-trail')
+                    <a href="{{ route('admin.audit-trails.index', ['user' => $user->id]) }}" class="mac-text-sm d-inline-block mt-1">Audit trail for this account</a>
+                @endcan
+            </div>
+        @endif
         <div class="col-12">
             @if(! $editing)
                 <p class="mac-muted mac-text-sm mb-0">The participant signs in the first time with this email and their IC number, then chooses a password.</p>

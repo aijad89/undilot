@@ -145,7 +145,9 @@
                     <p class="ap-side-note">Zone, IC number, Community ID and email are kept by the office. You sign in with your email, so if it is wrong, contact the Kraftangan office.</p>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">
                         <button type="submit" class="ap-btn ap-btn-primary">Save account</button>
-                        <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
+                        @unless(\App\Support\Impersonation::active())
+                            <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
+                        @endunless
                     </div>
                 </form>
             @else
@@ -155,7 +157,9 @@
                     <dt>Community ID</dt><dd class="ap-tabular">{{ $user->community_id ?: '—' }}</dd>
                     <dt>Email</dt><dd>{{ $user->email ?: '—' }}</dd>
                 </dl>
-                <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
+                @unless(\App\Support\Impersonation::active())
+                    <a href="{{ route('password.edit') }}" class="ap-btn ap-btn-secondary">Change password</a>
+                @endunless
             @endif
         </section>
 

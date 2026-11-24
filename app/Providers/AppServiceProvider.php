@@ -228,6 +228,9 @@ class AppServiceProvider extends ServiceProvider
             return $admin->hasGlobalAccess();
         });
 
+        /* The audit trail: super only (owner, 2026-11-24). */
+        Gate::define('read-audit-trail', fn (Admin $admin) => $admin->isSuperAdmin());
+
         /*
          * ┌─ THE VIEWS THAT READ $unreadNotificationCount. ADD A THIRD HERE. ─┐
          *

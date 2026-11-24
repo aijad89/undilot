@@ -65,6 +65,9 @@ class AuditTrail extends Model
             'plan_rewrite'    => ['bg-warning text-dark', 'Plan rewritten'],
             'plan_cleared'    => ['bg-danger', 'Plan cleared'],
             'plots_generated' => ['bg-info', 'Plots generated'],
+            // An admin opening the portal as a participant (Impersonation).
+            'impersonation_started' => ['bg-warning text-dark', 'Logged in as participant'],
+            'impersonation_ended'   => ['bg-secondary', 'Returned to admin'],
             default    => ['bg-dark', ucfirst(str_replace('_', ' ', $this->action))],
         };
     }

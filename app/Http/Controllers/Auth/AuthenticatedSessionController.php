@@ -36,6 +36,13 @@ class AuthenticatedSessionController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        // An admin viewing as the participant: back to the admin, still signed in.
+        if (\App\Support\Impersonation::active()) {
+            $user = \App\Support\Impersonation::end($request);
+
+            return redirect()->route('admin.companies.edit', $user->company)->with('success', 'Back to your admin account.');
+        }
+
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

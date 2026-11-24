@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EntRegistrationController;
@@ -195,6 +196,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
         Route::delete('companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
         Route::post('companies/{company}/reset-password', [CompanyController::class, 'resetPassword'])->name('companies.reset-password');
+        Route::post('companies/{company}/login-as', [CompanyController::class, 'loginAs'])->name('companies.login-as');
+
+        /* The audit trail: read-only, super only. */
+        Route::middleware('can:read-audit-trail')->group(function () {
+            Route::get('audit-trails', [AuditTrailController::class, 'index'])->name('audit-trails.index');
+            Route::get('audit-trails/{auditTrail}', [AuditTrailController::class, 'show'])->name('audit-trails.show');
+        });
 
         Route::post('companies/{company}/kraf', [CompanyController::class, 'storeKraf'])->name('companies.kraf.store');
         Route::put('companies/{company}/kraf/{selection}/primary', [CompanyController::class, 'makeKrafPrimary'])

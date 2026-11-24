@@ -55,6 +55,11 @@ class EnforceUserIsActive
                     : 'Your account has been deactivated. Please contact the administrator.']);
             }
 
+            // An admin viewing as them is not the participant being seen.
+            if (\App\Support\Impersonation::active()) {
+                return $next($request);
+            }
+
             Cache::put("online_status_web_{$user->id}", now(), now()->addMinutes(5));
 
             $dbKey = "last_seen_db_user_{$user->id}";

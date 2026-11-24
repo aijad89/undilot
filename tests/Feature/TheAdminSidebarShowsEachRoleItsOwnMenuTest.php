@@ -29,7 +29,7 @@ it('gives a super admin every item, admins in two lists', function () {
         'Dashboard',
         'User', 'Companies', 'HQ Admins', 'State Admins',
         'The Event', 'Events', 'Lot Draw',
-        'Setting', 'Dropdown Lists', 'Craft Category Code', 'Craft Hierarchy', 'Lot Draw',
+        'Setting', 'Dropdown Lists', 'Craft Category Code', 'Craft Hierarchy', 'Lot Draw', 'Audit Trail',
         'Sign Out',
     ]);
 });
@@ -39,6 +39,8 @@ it('gives an hq admin the state admins but not the hq list', function () {
 
     expect($labels)->toContain('State Admins', 'Setting', 'Craft Hierarchy')
         ->not->toContain('HQ Admins');
+    // The audit trail is super only (2026-11-24).
+    expect(in_array('Audit Trail', $labels, true))->toBeFalse();
 });
 
 it('gives a state admin no admin lists, and no Setting group', function () {

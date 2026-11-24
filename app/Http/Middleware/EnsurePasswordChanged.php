@@ -14,7 +14,8 @@ class EnsurePasswordChanged
 {
     public function handle(Request $request, Closure $next)
     {
-        if ($request->user('web')?->password_changed_at === null && $request->user('web')) {
+        // An admin viewing as the participant is not held: the password is the participant's to choose.
+        if ($request->user('web') && $request->user('web')->password_changed_at === null && ! \App\Support\Impersonation::active()) {
             return redirect()->route('password.edit');
         }
 

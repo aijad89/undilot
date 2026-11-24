@@ -62,6 +62,21 @@
 @auth
 @include('partials.portal-bar')
 
+{{-- An admin running the portal as this participant (App\Support\Impersonation):
+     never mistaken for the participant's own session. --}}
+@if(\App\Support\Impersonation::active())
+    <div role="status" style="position:sticky;top:0;z-index:1040;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px var(--ui-page-pad);background:var(--ui-warn-tint);border-bottom:1px solid var(--ui-warn-border);color:var(--ui-warn-text);font-weight:600;">
+        <i class="bi bi-person-badge" aria-hidden="true"></i>
+        <span style="flex:1;min-width:200px;">
+            You are viewing undilot as {{ auth('web')->user()->name }}@if(auth('web')->user()->company) ({{ auth('web')->user()->company->name }})@endif.
+            Everything you do is recorded under {{ auth('admin')->user()->name }}.
+        </span>
+        <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-warning fw-semibold">Return to admin</button>
+        </form>
+    </div>
+@endif
 <div class="ap-main" id="apMain">
     {{-- Page Content --}}
     <main id="main-content" class="ap-content">

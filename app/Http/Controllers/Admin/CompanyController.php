@@ -263,6 +263,24 @@ class CompanyController extends Controller
             ->with('success', 'Password reset. The participant signs in next with their IC number and chooses a new password.');
     }
 
+    /**
+     * Opens the portal as this company's participant, the admin still signed
+     * in (App\Support\Impersonation). Their zone only for a state admin.
+     */
+    public function loginAs(Request $request, Company $company)
+    {
+        $this->authorizeScope($request, $company);
+
+        $user = $company->user;
+        if (! $user || ! $user->is_active || ! $company->is_active) {
+            return back()->with('error', 'This account or company is switched off, so it cannot be opened.');
+        }
+
+        \App\Support\Impersonation::start($request, $request->user('admin'), $user);
+
+        return redirect()->route('dashboard');
+    }
+
     public function destroy(Request $request, Company $company)
     {
         $this->authorizeScope($request, $company);
