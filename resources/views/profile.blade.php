@@ -425,35 +425,20 @@
 
                             {{-- Certificates held before, newest first: kept with their files. --}}
                             @if(! empty($held[$field.'_history']))
-                                <div class="pf-history">
-                                    <p class="ap-label">Previous certificates</p>
-                                    <div class="pf-history-scroll">
-                                        <table class="ap-table">
-                                            <thead><tr>
-                                                @if($field === 'quality')<th>Standard</th>@endif
-                                                <th>Number</th><th>Valid from</th><th>Valid until</th><th>File</th>
-                                            </tr></thead>
-                                            <tbody>
-                                                @foreach($held[$field.'_history'] as $past)
-                                                    <tr>
-                                                        @if($field === 'quality')<td>{{ \App\Models\Company::QUALITY_STANDARDS[$past['standard'] ?? ''] ?? ($past['standard'] ?? '—') }}</td>@endif
-                                                        <td>{{ $past['number'] ?? '—' }}</td>
-                                                        <td class="ap-tabular">{{ ! empty($past['start']) ? \Illuminate\Support\Carbon::parse($past['start'])->format('d M Y') : '—' }}</td>
-                                                        <td class="ap-tabular">{{ ! empty($past['end']) ? \Illuminate\Support\Carbon::parse($past['end'])->format('d M Y') : '—' }}</td>
-                                                        <td>
-                                                            @if(! empty($past['path']))
-                                                                <a href="{{ route('companies.certificate', [$company, $field, 'history' => $past['id']]) }}" target="_blank" rel="noopener">{{ $past['original'] ?? 'View' }}</a>
-                                                            @else — @endif
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                                @include('partials.cert-history', ['rows' => $held[$field.'_history']])
                             @endif
                         </fieldset>
                     @endforeach
+
+                    {{-- Not asked for this main craft any more, but the certificates held
+                         before are still the participant's record (owner, 2026-11-24). --}}
+                    @if(! $standards && ! empty($held['quality_history']))
+                        <div class="ap-field">
+                            <p class="ap-label">Quality compliance</p>
+                            <p class="ap-field-hint">Not asked for your main craft now; kept as your record.</p>
+                            @include('partials.cert-history', ['field' => 'quality', 'rows' => $held['quality_history']])
+                        </div>
+                    @endif
 
                     <button type="submit" class="ap-btn ap-btn-primary">Save details</button>
                 </section>

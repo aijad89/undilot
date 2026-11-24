@@ -200,13 +200,19 @@ it('keeps the certificate file while it is the same certificate, and wants a new
         ->and(array_column($company->fresh()->profile()['classification_history'], 'number'))->toBe(['PKT-002', 'PKT-001']);
 });
 
-it('shows the office a quality history even once the main craft has no standard', function () {
+it('shows the office and the participant a quality history even once the main craft has no standard', function () {
     // No craft picked, so no quality question: only the history is left to see.
     $company = Company::factory()->withProfile()->create(['state' => 'Perak']);
     \App\Models\CompanyCertificate::factory()->create(['company_id' => $company->id, 'type' => 'quality', 'standard' => 'batik', 'number' => 'SPB-OLD', 'replaced_at' => now()]);
 
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.companies.edit', $company))
         ->assertSeeInOrder(['Quality compliance', 'Previous certificates', 'Batik Standard entrepreneur', 'SPB-OLD']);
+
+    // The participant sees the same record, with no question to answer.
+    auth()->forgetGuards();
+    $this->actingAs($company->user, 'web')->get(route('profile'))
+        ->assertSeeInOrder(['Quality compliance', 'Not asked for your main craft now', 'Batik Standard entrepreneur', 'SPB-OLD'])
+        ->assertDontSee('name="quality"', false);
 });
 
 it('asks the quality question of a main craft of TEKSTIL › Batik, Songket or Tenunan only', function () {
