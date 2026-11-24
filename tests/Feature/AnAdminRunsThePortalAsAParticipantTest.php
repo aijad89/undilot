@@ -129,3 +129,20 @@ it('offers the button on the company page, and not for a switched-off account', 
     $off = zoneCompany('Johor', ['is_active' => false]);
     $this->get(route('admin.companies.edit', $off))->assertDontSee('Log in as this participant');
 });
+
+it('leaves the participant\'s notifications unread', function () {
+    $company = zoneCompany();
+    $company->user->notify(new \App\Notifications\VotingCloseReminder(\App\Models\Event::factory()->create()));
+    $id = $company->user->notifications()->sole()->id;
+
+    $this->actingAs(stateAdmin('Johor'), 'admin')->post(route('admin.companies.login-as', $company));
+
+    // Read, but no button to mark it, and the server refuses it anyway.
+    $this->get(route('notifications.index'))->assertOk()
+        ->assertDontSee('Mark as read')
+        ->assertDontSee('Mark all as read');
+    $this->post(route('notifications.read', $id));
+    $this->post(route('notifications.read-all'));
+
+    expect($company->user->notifications()->sole()->read_at)->toBeNull();
+});

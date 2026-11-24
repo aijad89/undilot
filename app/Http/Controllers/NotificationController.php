@@ -10,6 +10,12 @@ use Illuminate\Http\Request;
  */
 class NotificationController extends Controller
 {
+    /**
+     * An admin signed in as the participant reads the inbox but leaves it as
+     * it was: what is unread is the participant's to see unread.
+     */
+    private const NOT_YOURS = 'Only the participant can mark their notifications as read.';
+
     public function index(Request $request)
     {
         $notifications = $request->user()->notifications()->latest()->paginate(15);
@@ -19,6 +25,10 @@ class NotificationController extends Controller
 
     public function read(Request $request, string $id)
     {
+        if (\App\Support\Impersonation::active()) {
+            return back()->with('error', self::NOT_YOURS);
+        }
+
         $request->user()->notifications()->findOrFail($id)->markAsRead();
 
         return back();
@@ -31,6 +41,10 @@ class NotificationController extends Controller
      */
     public function readAll(Request $request)
     {
+        if (\App\Support\Impersonation::active()) {
+            return back()->with('error', self::NOT_YOURS);
+        }
+
         $request->user()->unreadNotifications()->update(['read_at' => now()]);
 
         return back();

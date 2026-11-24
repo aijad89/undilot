@@ -23,7 +23,7 @@
             @foreach(['admin', 'user'] as $kept)
                 @if(request($kept))<input type="hidden" name="{{ $kept }}" value="{{ request($kept) }}">@endif
             @endforeach
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-xl-2">
                 <label class="mac-label" for="at-action">Action</label>
                 <select name="action" id="at-action" class="mac-select">
                     <option value="">All</option>
@@ -34,7 +34,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-xl-2">
                 <label class="mac-label" for="at-model">Model</label>
                 <select name="model" id="at-model" class="mac-select">
                     <option value="">All</option>
@@ -45,19 +45,19 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-xl-2">
                 <label class="mac-label" for="at-from">From</label>
                 <input type="date" name="from" id="at-from" class="mac-input" value="{{ request('from') }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-xl-2">
                 <label class="mac-label" for="at-to">To</label>
                 <input type="date" name="to" id="at-to" class="mac-input" value="{{ request('to') }}">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-4 col-xl-2">
                 <label class="mac-label" for="at-search">Search (IP/URL)</label>
                 <input type="text" name="search" id="at-search" class="mac-input" value="{{ request('search') }}" placeholder="Search...">
             </div>
-            <div class="col-md-2 d-flex gap-2">
+            <div class="col-12 col-md-4 col-xl-2 d-flex gap-2">
                 <button type="submit" class="mac-filter-btn w-100">Filter</button>
                 <a href="{{ route('admin.audit-trails.index') }}" class="mac-clear-btn">Clear</a>
             </div>
@@ -67,16 +67,17 @@
     <div class="mac-card">
         <div class="table-responsive">
             <table class="mac-table">
+                {{-- Five columns, the short ones on one line: eight wrapping columns
+                     made every row three or four lines tall. The date opens the row
+                     (no separate View column); IP only on a wide screen. Under 768px
+                     mac-table turns rows into cards by itself. --}}
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Performer</th>
+                        <th>When</th>
+                        <th style="min-width: 9rem">Who</th>
                         <th>Action</th>
-                        <th>Model</th>
-                        <th>ID</th>
-                        <th>IP Address</th>
-                        <th>Date</th>
-                        <th class="text-end">Details</th>
+                        <th>Record</th>
+                        <th class="d-none d-xl-table-cell">IP address</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -92,29 +93,28 @@
                             };
                         @endphp
                         <tr>
-                            <td>{{ $loop->iteration + ($audits->currentPage() - 1) * $audits->perPage() }}</td>
+                            <td class="text-nowrap">
+                                <a href="{{ route('admin.audit-trails.show', $audit) }}" class="fw-semibold">{{ $audit->created_at->format('d M Y') }}</a>
+                                <div class="mac-muted mac-text-sm">{{ $audit->created_at->format('H:i:s') }}</div>
+                            </td>
                             <td>
                                 @if($audit->performer)
-                                    <span class="mac-status mac-status-gray"><span class="mac-status-dot"></span>{{ class_basename($audit->performer_type) }}</span>
-                                    {{ $audit->performer->name ?? $audit->performer->email ?? '—' }}
+                                    {{ $audit->performer->name ?? '—' }}
+                                    <div class="mac-muted mac-text-sm">{{ class_basename($audit->performer_type) }}</div>
                                 @else
                                     <span class="mac-muted">System</span>
                                 @endif
                             </td>
-                            <td><span class="mac-status {{ $macStatus }}"><span class="mac-status-dot"></span>{{ $badgeLabel }}</span></td>
-                            <td>{{ $audit->model_label }}</td>
-                            <td><code>{{ $audit->auditable_id ?? '—' }}</code></td>
-                            <td class="mac-muted">{{ $audit->ip_address ?? '—' }}</td>
-                            <td class="mac-muted">{{ $audit->created_at->format('d M Y, H:i') }}</td>
-                            <td class="text-end">
-                                <a href="{{ route('admin.audit-trails.show', $audit) }}" class="mac-action-btn">
-                                    View
-                                </a>
+                            <td class="text-nowrap"><span class="mac-status {{ $macStatus }}"><span class="mac-status-dot"></span>{{ $badgeLabel }}</span></td>
+                            <td>
+                                {{ $audit->model_label }}
+                                <div class="mac-muted mac-text-sm">#{{ $audit->auditable_id ?? '—' }}</div>
                             </td>
+                            <td class="mac-muted d-none d-xl-table-cell">{{ $audit->ip_address ?? '—' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8">
+                            <td colspan="5">
                                 <div class="mac-empty">
                                     <div class="mac-empty-icon">📋</div>
                                     <div class="mac-empty-text">No audit records found.</div>

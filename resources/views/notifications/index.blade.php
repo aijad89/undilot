@@ -12,7 +12,7 @@
         <h2 class="ap-page-title">Notifications</h2>
         <p class="ap-page-subtitle">Reminders from the office.</p>
     </div>
-    @if($unreadNotificationCount > 0)
+    @if($unreadNotificationCount > 0 && ! \App\Support\Impersonation::active())
         <form method="POST" action="{{ route('notifications.read-all') }}">
             @csrf
             <button type="submit" class="ap-btn ap-btn-outline ap-btn-sm">Mark all as read</button>
@@ -46,7 +46,7 @@
             @if($joinLink)
                 <a href="{{ $joinLink }}" class="ap-btn ap-btn-primary ap-btn-sm">{{ $joinLabel }}</a>
             @endif
-            @unless($notification->read_at)
+            @unless($notification->read_at || \App\Support\Impersonation::active())
                 <form method="POST" action="{{ route('notifications.read', $notification->id) }}">
                     @csrf
                     <button type="submit" class="ap-btn ap-btn-outline ap-btn-sm">Mark as read</button>
