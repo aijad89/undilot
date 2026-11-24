@@ -43,8 +43,6 @@ final class CompanyCredentials
         'recognition.required' => 'Choose the recognition you have received, or Not applicable.',
         'classification.required' => 'Say whether you hold a classification certificate.',
         'quality.required' => 'Choose your quality compliance standard, or Not applicable.',
-        'classification_end.after_or_equal' => 'This certificate has expired. Renew it first.',
-        'quality_end.after_or_equal' => 'This certificate has expired. Renew it first.',
         'recognition_file.required' => 'Upload proof of the recognition.',
         'classification_file.required' => 'Upload the certificate.',
         'quality_file.required' => 'Upload the certificate.',
@@ -233,15 +231,15 @@ final class CompanyCredentials
 
     /**
      * What the profile still lacks before the company may ask to join, as
-     * labels to show. Empty when it is complete. A certificate counts only
-     * with its file and while it is in date.
+     * labels to show. Empty when it is complete. A declared certificate counts
+     * with its file; an EXPIRED one still counts (owner, 2026-11-24 — the
+     * certificates are the participant's choice and bring their own
+     * privileges; the office weighs an expired one when it reviews).
      */
     public static function missing(Company $company): array
     {
         $held = $company->profile(false);
-        $valid = fn (?array $cert) => ! empty($cert['path'])
-            && ! empty($cert['end'])
-            && ! Carbon::parse($cert['end'])->endOfDay()->isPast();
+        $valid = fn (?array $cert) => ! empty($cert['path']) && ! empty($cert['end']);
 
         $missing = in_array($held['entrepreneur_category'] ?? null, self::ENTREPRENEUR_CATEGORIES, true) ? [] : ['entrepreneur category'];
 
@@ -331,7 +329,8 @@ final class CompanyCredentials
         return [
             "{$field}_number" => ['required', 'string', 'max:100'],
             "{$field}_start" => ['required', 'date'],
-            "{$field}_end" => ['required', 'date', "after:{$field}_start", 'after_or_equal:today'],
+            // An expired one may be kept: it does not hold anything up (owner, 2026-11-24).
+            "{$field}_end" => ['required', 'date', "after:{$field}_start"],
             "{$field}_file" => $same ? ['nullable', ...array_slice(self::FILE_RULE, 1)] : self::FILE_RULE,
         ];
     }

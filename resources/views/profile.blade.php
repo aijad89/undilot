@@ -408,7 +408,7 @@
                                     </div>
                                     <div class="ap-field">
                                         <label class="ap-label" for="{{ $field }}_end">Valid until</label>
-                                        <input class="ap-input" type="date" id="{{ $field }}_end" name="{{ $field }}_end" min="{{ now()->toDateString() }}" data-required
+                                        <input class="ap-input" type="date" id="{{ $field }}_end" name="{{ $field }}_end" data-required
                                                value="{{ old($field.'_end', $onFile['end'] ?? '') }}">
                                         @error($field.'_end')<p class="ap-field-error">{{ $message }}</p>@enderror
                                     </div>

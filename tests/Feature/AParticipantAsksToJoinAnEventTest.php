@@ -274,18 +274,26 @@ it('sends a participant whose profile is not complete to fill it in first', func
         ->assertSessionHas('error', 'Complete your profile first: entrepreneur category, recognition, classification certificate, staff to contact.');
     expect(EventJoinRequest::count())->toBe(0);
 
-    // An expired certificate on the profile counts as missing.
+    // A draft can still be saved while the profile is being finished.
+    $this->post(route('events.join', $event), ['draft' => 1, 'payment_method' => 'cash'])
+        ->assertSessionHas('success');
+    expect(EventJoinRequest::sole()->status)->toBe('draft');
+
+    // An EXPIRED certificate does not hold the request up (owner, 2026-11-24):
+    // the certificates are the participant's choice, and the office weighs it.
     $company->update(['credentials' => array_merge(Company::factory()->withProfile()->make()->credentials, ['classification' => 'yes'])]);
     CompanyCertificate::factory()->create(['company_id' => $company->id, 'number' => 'PKT-1', 'starts_on' => now()->subYears(2), 'ends_on' => now()->subDay(), 'path' => 'certificates/x.pdf', 'original' => 'x.pdf']);
     // A fresh user: the signed-in one still holds the company it loaded before.
     $this->actingAs($company->user->fresh(), 'web')
         ->post(route('events.join', $event), payment())
-        ->assertSessionHas('error', 'Complete your profile first: classification certificate.');
-
-    // A draft can still be saved while the profile is being finished.
-    $this->post(route('events.join', $event), ['draft' => 1, 'payment_method' => 'cash'])
         ->assertSessionHas('success');
-    expect(EventJoinRequest::sole()->status)->toBe('draft');
+    expect(EventJoinRequest::sole()->status)->toBe('pending');
+
+    // The office sees it marked, where it reviews the request.
+    auth()->forgetGuards();
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.events.registrations.index', $event))
+        ->assertSee('PKT-1, valid until '.now()->subDay()->format('d M Y').' (expired)');
+    $this->get(route('admin.companies.edit', $company))->assertSee('mac-badge-red">Expired', false);
 });
 
 it('refuses a request that is not declared, even with everything else in order', function () {

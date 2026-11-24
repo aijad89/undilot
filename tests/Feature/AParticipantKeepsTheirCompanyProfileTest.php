@@ -132,7 +132,7 @@ it('wants proof of a recognition, keeps it while the answer stands, and drops it
     Storage::disk('local')->assertMissing($path);
 });
 
-it('asks for the certificate in full while the answer is yes, and refuses an expired one', function () {
+it('asks for the certificate in full while the answer is yes, and keeps an expired one', function () {
     $company = Company::factory()->create();
     $this->actingAs($company->user, 'web');
 
@@ -145,10 +145,14 @@ it('asks for the certificate in full while the answer is yes, and refuses an exp
 
     $this->put(route('profile.update'), profileForm(['classification' => 'yes']))
         ->assertSessionHasErrors(['classification_number', 'classification_start', 'classification_end', 'classification_file']);
-    $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', end: now()->subDay()->toDateString())))
-        ->assertSessionHasErrors(['classification_end' => 'This certificate has expired. Renew it first.']);
-
     expect($company->fresh()->credentials)->toBeNull();
+
+    // An expired one is kept, not refused (owner, 2026-11-24), and the profile
+    // still counts as complete for it.
+    $this->put(route('profile.update'), profileForm(['classification' => 'yes'] + profileCert('classification', end: now()->subDay()->toDateString())))
+        ->assertSessionHasNoErrors();
+    expect($company->fresh()->profile()['classification_cert']['end'])->toBe(now()->subDay()->toDateString())
+        ->and(\App\Support\CompanyCredentials::missing($company->fresh()))->not->toContain('classification certificate');
 });
 
 it('keeps the certificate file while it is the same certificate, and wants a new one for a renewal', function () {

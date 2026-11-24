@@ -11,6 +11,9 @@
     $missing = \App\Support\CompanyCredentials::missing($company);
     $standards = $company->qualityStandards();
     $date = fn (?string $d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('d M Y') : '—';
+    // An expired certificate does not stop a request (owner, 2026-11-24); the office weighs it.
+    $expired = fn (?array $c) => ! empty($c['end']) && \Illuminate\Support\Carbon::parse($c['end'])->endOfDay()->isPast()
+        ? ' <span class="mac-badge mac-badge-red">Expired</span>' : '';
     $file = fn (string $key) => ! empty($held["{$key}_cert"]['path'])
         ? '<a href="'.e(route('companies.certificate', [$company, $key])).'" target="_blank" rel="noopener"><i class="bi bi-file-earmark" aria-hidden="true"></i> '.e($held["{$key}_cert"]['original'] ?? 'File').'</a>'
         : '<span class="mac-muted">no file</span>';
@@ -78,7 +81,7 @@
         <dt>Classification certificate</dt>
         <dd>
             @if(($held['classification'] ?? null) === 'yes')
-                {{ $held['classification_cert']['number'] ?? '—' }} · {{ $date($held['classification_cert']['start'] ?? null) }} – {{ $date($held['classification_cert']['end'] ?? null) }} · {!! $file('classification') !!}
+                {{ $held['classification_cert']['number'] ?? '—' }} · {{ $date($held['classification_cert']['start'] ?? null) }} – {{ $date($held['classification_cert']['end'] ?? null) }}{!! $expired($held['classification_cert'] ?? null) !!} · {!! $file('classification') !!}
             @else
                 {{ ($held['classification'] ?? null) === 'no' ? 'None' : '—' }}
             @endif
@@ -94,7 +97,7 @@
             <dt>Quality compliance</dt>
             <dd>
                 @if(in_array($held['quality'] ?? null, $standards, true))
-                    {{ \App\Models\Company::QUALITY_STANDARDS[$held['quality']] }} · {{ $held['quality_cert']['number'] ?? '—' }} · {{ $date($held['quality_cert']['start'] ?? null) }} – {{ $date($held['quality_cert']['end'] ?? null) }} · {!! $file('quality') !!}
+                    {{ \App\Models\Company::QUALITY_STANDARDS[$held['quality']] }} · {{ $held['quality_cert']['number'] ?? '—' }} · {{ $date($held['quality_cert']['start'] ?? null) }} – {{ $date($held['quality_cert']['end'] ?? null) }}{!! $expired($held['quality_cert'] ?? null) !!} · {!! $file('quality') !!}
                 @else
                     {{ ($held['quality'] ?? null) === 'none' ? 'Not applicable' : '—' }}
                 @endif

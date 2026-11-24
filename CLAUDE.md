@@ -234,7 +234,11 @@ terpakai. Kedua-dua pintu masuk — pejabat atau permohonan — melalui
 - Setiap permohonan sertai bermula daripada profil dan menyimpan **salinan**
   dalam `answers`. Permohonan hanya meminta pengakuan, pengesahan butiran, lima
   foto dan bayaran. `CompanyCredentials::missing()` menyekat menghantar (draf
-  boleh) selagi profil belum lengkap atau sijil tamat.
+  boleh) selagi profil belum lengkap.
+- **Sijil ialah pilihan peserta**, dengan keistimewaan sendiri (pemilik
+  2026-11-24). Yang diisytiharkan mesti ada fail, tetapi **sijil tamat tidak
+  menyekat** apa-apa — ia boleh disimpan dan permohonan tetap dihantar.
+  Peserta diberi amaran; pejabat nampak tanda *Expired* semasa menyemak.
 - **Setiap kad menyimpan bahagiannya sahaja.**
 - **Kategori usahawan** (pilihan MICF peserta) ≠ **jenis perniagaan**
   (`business_type`, pejabat sahaja). Dua medan, dua soalan.
