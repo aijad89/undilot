@@ -1,63 +1,60 @@
-# Kesediaan Go-Live — undilot2026
+# Kesediaan Go-Live — undilot
 
-*Penilaian 2026-11-16 pada commit `a152c14`. Kemas kini fail ini setiap kali
-satu perkara selesai: tanda `[x]`, tulis tarikh dan commit.*
+*Penilaian asal 2026-11-16; dikemas kini 2026-11-24 (commit `8a6f18c`). Kemas
+kini fail ini setiap kali satu perkara selesai: tanda `[x]`, tulis tarikh dan
+commit.*
 
 ## Keputusan
 
-**Belum sedia untuk go-live.** Ciri teras sudah dibina dan diuji (log masuk,
-senarai cabutan dengan semakan zon → HQ, pelan lot, cabutan, pendedahan, QR,
-slip PDF). Yang menghalang ialah data sebenar, persediaan pelayan, ujian manual
-yang belum siap, dan 5 pepijat sederhana yang masih terbuka.
+**Belum sedia untuk go-live — yang tinggal ialah kerja pejabat dan pelayan,
+bukan kod.** Ciri teras sudah dibina dan diuji: log masuk (peserta emel + kata
+laluan, pegawai nama pengguna), senarai cabutan dengan semakan zon → HQ,
+permohonan sertai, pelan lot, cabutan, slip PDF, *login as* untuk admin, skrin
+audit trail. Pepijat sederhana K03–K10 semuanya dibaiki. Suite: Pest 658 lulus
+(SQLite), 657 + 1 dilangkau (MySQL), Playwright 28/28.
 
 | Kategori | Jumlah | Status |
 |---|---|---|
-| 🔴 Penghalang go-live | 6 | 0 selesai |
-| 🐞 Pepijat sederhana (K04–K10) | 7 | **7 selesai** (K04–K08 PR #1, K09 PR #2, K10 belum push) |
-| 🟡 Patut dibuat | 5 | 0 selesai |
-| 🟢 Selepas go-live | 18 pepijat rendah | — |
+| 🔴 Penghalang go-live | 6 | 1 selesai (B5) |
+| 🐞 Pepijat sederhana (K03–K10) | 8 | **8 selesai** |
+| 🟡 Patut dibuat | 3 | 1 selesai |
+| 🟢 Selepas go-live | 12 pepijat rendah | — |
 
 ---
 
 ## 1. 🔴 Penghalang go-live
 
 ### B1. Data peserta sebenar belum dimuat
-- [ ] Dapatkan CSV senarai peserta daripada pejabat
-- [ ] Pastikan setiap baris ada `no_komuniti` **dan** `ic` (lihat B2) — tiada
-      emel dalam projek ini
-- [ ] `php artisan import:participants <fail.csv>` — semak laporan, tiada baris gagal
+- [ ] Dapatkan CSV senarai peserta daripada pejabat — **dengan lajur `emel`**
+- [ ] `php artisan import:participants <fail.csv>` — semak laporan: tiada baris
+      gagal, dan bilangan "no valid email (emel) and CANNOT SIGN IN"
+- [ ] Atau, untuk data lama: `php artisan legacy:migrate <dump.sql>` dengan dump
+      segar `digitalCraft` (butiran: [`legacy-import.md`](legacy-import.md)).
+      Dump lama **tiada emel** — setiap akaun lama perlu emel diisi pejabat.
 
-Lajur CSV: wajib `nama`, `ic`; pilihan `telefon`, `syarikat`, `zon`,
-`kod_kraf`, `saiz_gerai`, `kategori_usahawan` (`Pengeluar atau Pedagang` / `Pemborong`),
-`no_komuniti`, `alamat`. Seluruh fail
-disemak dahulu — jika satu baris salah, tiada apa disimpan.
+Lajur CSV: wajib `nama`, `ic`; pilihan `telefon`, `emel`, `syarikat`, `zon`,
+`kod_kraf`, `saiz_gerai`, `kategori_usahawan` (`Pengeluar atau Pedagang` /
+`Pemborong`), `no_komuniti`, `alamat`. Seluruh fail disemak dahulu — jika satu
+baris salah, tiada apa disimpan.
 
-### B2. Peserta perlukan ID Komuniti + IC; tiada emel
-**Dikemas kini 2026-11-17:** peserta kini log masuk dengan **ID Komuniti + IC**,
-tanpa kata laluan dan tanpa emel (keputusan pemilik). Emel tidak lagi
-diperlukan untuk log masuk.
+### B2. Akaun dan log masuk
+**Dikemas kini 2026-11-24** (menggantikan "ID Komuniti + IC" 17 Nov): peserta
+log masuk dengan **emel + kata laluan**. Kali pertama, **IC ialah kata laluan**,
+dan peserta wajib memilih kata laluan sendiri sebelum boleh ke mana-mana. Lupa
+kata laluan → pautan reset melalui emel — **satu-satunya emel yang aplikasi
+hantar**; notifikasi kekal dalam aplikasi.
 
-- [ ] Setiap peserta dalam CSV ada `no_komuniti` **dan** `ic` — tanpa ID
-      Komuniti, peserta **tidak boleh log masuk** (import memberi amaran).
-- [ ] Pasukan menyemak semula keselamatan log masuk ID + IC (IC dicetak pada
-      slip, bukan rahsia) — ditangguhkan atas arahan pemilik.
-
-**Aplikasi tidak menghantar emel langsung** (keputusan pemilik 2026-11-17):
-notifikasi dalam aplikasi sahaja, aliran lupa/reset kata laluan dibuang. Tiada
-pelayan mel, ujian hantar atau rekod PTR diperlukan; biarkan `MAIL_MAILER=log`.
-
-- [ ] Putuskan: bagaimana peserta tahu akaun mereka sudah wujud dan bila perlu
-      log masuk? (SMS / taklimat / pengumuman pejabat — sistem tidak
-      menghantar apa-apa sendiri; notifikasi hanya kelihatan selepas log masuk)
-
-**Pegawai (admin) log masuk dengan nama pengguna + kata laluan; tiada emel
-langsung dalam projek** (keputusan pemilik 2026-11-17, **sudah dibina**).
-Akaun pegawai dicipta **baharu** dalam aplikasi (HQ Admins / State Admins) —
-kata laluan aplikasi web lama tidak dibawa.
-
+- [ ] **Setiap peserta ada emel** (pejabat isi di halaman syarikat; hanya pejabat
+      boleh menukarnya). Tanpa emel, peserta tidak boleh log masuk langsung.
+- [ ] Putuskan: bagaimana peserta tahu akaun mereka sudah wujud, emel mana yang
+      didaftarkan, dan bahawa kata laluan pertama ialah IC (surat / WhatsApp /
+      taklimat pejabat — sistem tidak menghantar apa-apa sendiri).
 - [ ] Cipta akaun setiap pegawai negeri dan HQ di pelayan, serahkan nama
-      pengguna + kata laluan kepada mereka sendiri
-- [ ] `.env` pelayan: `ADMIN_SEED_USERNAME` (bukan lagi `ADMIN_SEED_EMAIL`)
+      pengguna + kata laluan kepada mereka sendiri.
+- [ ] `.env` pelayan: `ADMIN_SEED_USERNAME` + `ADMIN_SEED_PASSWORD`.
+
+Risiko yang diterima: sebelum peserta menukar kata laluan pertama, sesiapa yang
+tahu emel **dan** IC mereka boleh masuk dahulu. Emel tidak dicetak pada slip.
 
 ### B3. Persediaan pelayan dan deploy
 Senarai semak penuh: [`serahan-pembangun.md` seksyen 13](serahan-pembangun.md#13-deploy-ke-produksi).
@@ -78,19 +75,19 @@ Senarai semak penuh: [`serahan-pembangun.md` seksyen 13](serahan-pembangun.md#13
 - [ ] Pekerja baris gilir (systemd `queue:work database`) — tanpanya **tiada
       notifikasi dihantar**
 - [ ] `MAIL_*` sebenar dalam `.env` (SMTP pejabat). Tanpanya pautan reset kata
-      laluan tidak sampai — `MAIL_MAILER=log` menulisnya ke log sahaja. Uji
-      *Forgot password?* dengan satu akaun sebelum dibuka.
-- [ ] Setiap peserta ada emel (pejabat isi di halaman syarikat). Tanpa emel,
-      tiada log masuk. Kali pertama: emel + IC, kemudian wajib tukar.
+      laluan tidak sampai — `MAIL_MAILER=log` menulisnya ke log sahaja, dan
+      peserta tetap diberitahu "a link has been sent". Uji *Forgot password?*
+      dengan satu akaun sebelum dibuka.
 - [ ] Log masuk sebagai super selepas deploy: kad *Needs attention* tidak
       menunjukkan baris `Server:` (pekerja, penjadual, `storage:link` —
       `DashboardController::serverProblems()`). Penjadual dianggap mati jika
       tiada denyutan dalam 5 minit; tunggu seminit selepas cron dipasang.
+      (Mel **tidak** disemak di sini — keputusan pemilik 2026-11-24.)
 - [ ] Sandaran pangkalan data automatik (harian) dan uji pulih sekali
 - [ ] Tulis skrip deploy dan simpan prosedur dalam `serahan-pembangun.md`
 
 ### B4. Ujian manual baru 59% siap
-Sumber: `docs/testing/undilot-test-manual.xlsx`.
+Sumber: `docs/testing/undilot-test-manual.xlsx` (angka di bawah dari 2026-11-16).
 
 | Modul | Kes | Lulus | Gagal | Belum jalan |
 |---|---|---|---|---|
@@ -101,25 +98,28 @@ Sumber: `docs/testing/undilot-test-manual.xlsx`.
 | Log masuk & kata laluan | 19 | 13 | 1 | 5 |
 | **Keutamaan tinggi** | **82** | **51** | **1** | **30** |
 
-- [ ] Kemas kini helaian untuk undilot2026: buang kes modul yang sudah dibuang
-      (Join request, Reports, Announcements, Site content, Audit trail screen) —
-      helaian ini ditulis untuk `undilotlook`
-- [ ] Jalankan semua 30 kes keutamaan tinggi yang belum dijalankan
-- [ ] Jalankan 9 kes portal peserta **pada telefon sebenar** (pengguna utama
-      ialah usahawan berusia, di telefon)
-- [ ] Uji semula kes yang gagal selepas K04–K10 dibaiki
+- [ ] Kemas kini helaian untuk undilot hari ini:
+      - **buang** kes modul yang dibuang: Reports, Announcements, Site content;
+      - **kekalkan / tambah** kes untuk modul yang dipulihkan: permohonan sertai
+        (2026-11-19), skrin audit trail (2026-11-24, super sahaja);
+      - **tulis semula** kes log masuk peserta: emel + IC kali pertama, wajib
+        tukar, lupa kata laluan, "Reset password to IC";
+      - **tambah** kes baharu: *login as* (admin zon / HQ, jalur kuning, Return
+        to admin, kata laluan ditolak), sejarah sijil, halaman ralat.
+- [ ] Jalankan semua kes keutamaan tinggi yang belum dijalankan
+- [ ] Jalankan kes portal peserta **pada telefon sebenar** (pengguna utama ialah
+      usahawan berusia, di telefon) — termasuk log masuk pertama dan tukar
+      kata laluan
+- [ ] Uji semula kes yang gagal sebelum K04–K10 dibaiki
 
-### B5. Pepijat sederhana terbuka
-Lihat seksyen 2. Semua K04–K08 mesti dibaiki sebelum go-live.
-
-- [x] K04–K08 dibaiki 2026-11-16 (PR #1)
-- [x] K09 dibaiki 2026-11-16 (belum merge)
-- [x] K10 dibaiki 2026-11-16 (belum push)
+### B5. Pepijat sederhana
+- [x] K03–K10 semuanya dibaiki 2026-11-15/16 — lihat seksyen 2.
 
 ### B6. Tamatkan peraturan "satu baseline migration" pada hari data sebenar dimasukkan
 Sekarang perubahan skema dibuat dengan mengedit
-`database/migrations/0001_01_02_000000_create_undilot_schema.php` dan
-`migrate:fresh`. Selepas data sebenar wujud, cara itu **memadam data**.
+`database/migrations/0001_01_02_000000_create_undilot_schema.php` (dan
+`0001_01_01_000000_create_users_table.php`) dan `migrate:fresh`. Selepas data
+sebenar wujud, cara itu **memadam data**.
 
 - [ ] Pada hari go-live: kemas kini peraturan dalam `CLAUDE.md` — setiap
       perubahan skema selepas ini ialah migration baharu
@@ -127,85 +127,21 @@ Sekarang perubahan skema dibuat dengan mengedit
 
 ---
 
-## 2. 🐞 Pepijat sederhana (disahkan masih wujud dalam kod, 2026-11-16)
+## 2. 🐞 Pepijat sederhana — semua dibaiki
 
-Setiap pembaikan mesti ada ujian yang **dibuktikan menggigit** (buang
-pembaikan sementara → ujian gagal → pulihkan), mengikut peraturan `CLAUDE.md`.
+Setiap satu ada ujian yang dibuktikan menggigit. Butiran asal (apa berlaku,
+kod, cadangan) ada dalam sejarah git fail ini, commit sebelum 2026-11-24.
 
-### K04 — *Take back* berfungsi pada cabutan yang sudah tamat
-- [x] **Dibaiki** 2026-11-16 (PR #1) — `unassignPlot()` menolak bila `polling_status = completed`. Ujian: `TheLotPlanBuildsWhatItSaysTest` (refuses to take back… completed).
-- **Apa berlaku:** Dari tab lama, *Take back* pada cabutan `completed` mengosongkan
-  lot syarikat. Tiada apa boleh memberinya lot semula (`completed` tiada jalan
-  balik) dan mesej salah berkata ia boleh mengundi semula.
-- **Kod:** `PollingController::unassignPlot()` — tiada semakan `polling_status`.
-- **Cadangan:** tolak bila `polling_status === 'completed'` (dan `cancelled`).
-- **Kes ujian:** TC-136
-
-### K05 — Pelan boleh disunting / dicat semula selepas cabutan dibuka
-- [x] **Dibaiki** 2026-11-16 (PR #1) — Reka bentuk asal dikekalkan (pelan boleh disunting sehingga lot pertama dipegang), tetapi selepas cabutan bermula setiap tulis semula / cat semula menjalankan `PollingGuard::refuseIfStartedAndBroken()` dalam transaksi yang sama — jika cabutan tidak boleh selesai, semua dibatalkan. Ujian: `ARunningDrawsPlanCannotBreakItTest`.
-- **Apa berlaku:** Jika belum ada lot dipegang, *Edit plan* dan *Paint codes*
-  masih menyimpan semasa cabutan Open, tanpa menjalankan semula semakan
-  `PollingGuard` — cabutan boleh jadi tidak boleh selesai.
-- **Kod:** `PollingController::update()`, `PlotPainterController::update()`;
-  `planIsFrozen()` hanya menyemak lot dipegang.
-- **Cadangan:** bekukan pelan sebaik `polling_status` bukan `draft`, atau
-  jalankan `PollingGuard::blocker()` selepas simpan dan tolak jika gagal.
-- **Kes ujian:** TC-124
-
-### K06 — *Reopen voting* dengan tarikh tamat yang sudah lepas
-- [x] **Dibaiki** 2026-11-16 (PR #1) — `changeStatus()` menolak buka ke `polling` bila tarikh tamat sudah lepas. Pintu baharu `PUT admin/polling/{event}/deadline` (`updateDeadline()`) + borang "Change deadline" di halaman cabutan — berfungsi walaupun lot sudah dipegang. Ujian: `AReopenedDrawHasTimeLeftTest`.
-- **Apa berlaku:** HQ nampak "Open", tetapi setiap peserta mendapat "The lot
-  draw is not open." Tarikh tamat tidak boleh diubah sebaik ada lot dipegang.
-- **Kod:** `PollingController::changeStatus()` — `PollingGuard::noWindow()` hanya
-  menyemak tarikh tamat **wujud**, bukan masa depan.
-- **Cadangan:** tolak peralihan ke `polling` bila `polling_deadline` sudah
-  lepas, dengan mesej yang menyuruh HQ melanjutkan tarikh dahulu; benarkan
-  tarikh tamat dilanjutkan walaupun lot sudah dipegang.
-- **Kes ujian:** TC-143
-
-### K07 — Admin zon boleh memadam syarikat yang HQ sudah sahkan
-- [x] **Dibaiki** 2026-11-16 (PR #1) — `Company::booted()` menolak padam (untuk semua peranan) selagi syarikat ada baris yang sudah diberitahu dalam cabutan `draft`/`polling`/`closed`. HQ keluarkan baris dahulu (dengan sebab, `RemovedFromDraw` dihantar), kemudian padam. Ujian: `ACompanyToldItIsInADrawIsNotDeletedSilentlyTest`.
-- **Apa berlaku:** Memadam syarikat (skrin Companies) turut membuang baris
-  senarai cabutannya — memintas peraturan bahawa hanya HQ boleh mengeluarkan
-  syarikat yang sudah diberitahu, dan tiada `RemovedFromDraw` dihantar.
-- **Kod:** `CompanyController::destroy()`; `Company::booted()` hanya menyekat
-  bila ada lot dipegang (`plot_id`).
-- **Cadangan:** admin zon ditolak jika syarikat ada mana-mana baris dengan
-  `first_verified_at` diisi; HQ boleh, tetapi mesti memberi sebab dan
-  `RemovedFromDraw` dihantar.
-- **Kes ujian:** TC-040
-
-### K08 — Menamakan semula zon kepada nama sedia ada menggabungkan zon
-- [x] **Dibaiki** 2026-11-16 (PR #1) — `AdminZones::rename()` menolak nama zon lain (tidak peka huruf besar); tukar huruf besar/kecil nama sendiri dibenarkan. Ujian: `ZonesCarryTheirRowsWhenRenamedTest`.
-- **Apa berlaku:** Namakan "Perlis" kepada "Kedah": admin kedua-dua zon nampak
-  syarikat satu sama lain, tanpa amaran. Nama yang hanya berbeza huruf besar
-  menyebabkan admin zon mendapat 403 pada syarikatnya sendiri.
-- **Kod:** `AdminZones::rename()`; `SettingController::renameZone()` — nama
-  baharu tidak disemak terhadap senarai sedia ada.
-- **Cadangan:** tolak nama baharu yang sudah wujud (tidak peka huruf besar);
-  benarkan tukar huruf besar/kecil zon yang sama sahaja dengan sengaja.
-- **Kes ujian:** TC-053
-
-### K09 — Admin boleh mendarat di borang log masuk peserta selepas log masuk
-- [x] **Dibaiki** 2026-11-16 (belum merge) — `App\Support\IntendedUrl`: halaman intended dari sisi lain diabaikan dan dibuang, untuk kedua-dua log masuk (admin dan peserta). Ujian: `BothGuardsSignInTest` (+4).
-- **Apa berlaku:** Buka halaman peserta dahulu (dilantun ke `/login`), kemudian
-  log masuk di `/admin/login` — admin dihantar ke borang log masuk peserta
-  (URL "intended" yang basi).
-- **Kod:** `Auth/Admin/LoginController` (`redirect()->intended()`).
-- **Cadangan:** abaikan URL intended yang bukan di bawah `/admin`.
-- **Kes ujian:** TC-007 · *Keutamaan: rendah dalam kesan, tetapi mengelirukan*
-
-### K10 — Acara *Unpublished* masih di laman awam
-- [x] **Dibaiki** 2026-11-16 (belum push) — keputusan pemilik: Unpublished tidak boleh dibuka oleh pengguna, hanya admin. `Event::PUBLIC_STATUSES` = open, completed; senarai awam menyorok Unpublished untuk semua; halaman acara 404 kecuali admin yang log masuk (dengan sepanduk). Papan pemuka dan halaman lot peserta sendiri tidak terjejas. Ujian: `AnUnpublishedEventIsHiddenFromThePublicTest`.
-- **Apa berlaku:** Hanya acara Draf disembunyikan dari `/` dan `/events/{id}`;
-  acara Unpublished (`status = closed`) masih disenaraikan dan boleh dibuka.
-- **Kod:** `HomeController::index()`, `show()`.
-- **Cadangan:** sahkan dengan pejabat dahulu — adakah *Unpublished* bermaksud
-  "sembunyi dari awam"? Jika ya, tapis `status` kepada `open` (dan `completed`
-  untuk acara lepas).
-- **Kes ujian:** TC-071, TC-072
-
-*K03 (Undo selepas cabutan bermula) sudah dibaiki 2026-11-15.*
+| ID | Ringkas | Dibaiki | Ujian |
+|---|---|---|---|
+| K03 | *Undo* selepas cabutan bermula | 2026-11-15 | — |
+| K04 | *Take back* pada cabutan `completed` | 2026-11-16, PR #1 | `TheLotPlanBuildsWhatItSaysTest` |
+| K05 | Pelan disunting selepas cabutan dibuka | 2026-11-16, PR #1 | `ARunningDrawsPlanCannotBreakItTest` |
+| K06 | *Reopen voting* dengan tarikh tamat lepas | 2026-11-16, PR #1 | `AReopenedDrawHasTimeLeftTest` |
+| K07 | Zon memadam syarikat yang sudah diberitahu | 2026-11-16, PR #1 | `ACompanyToldItIsInADrawIsNotDeletedSilentlyTest` |
+| K08 | Rename zon menggabungkan dua zon | 2026-11-16, PR #1 | `ZonesCarryTheirRowsWhenRenamedTest` |
+| K09 | Admin mendarat di log masuk peserta | 2026-11-16, PR #2 | `BothGuardsSignInTest` |
+| K10 | Acara *Unpublished* di laman awam | 2026-11-16 | `AnUnpublishedEventIsHiddenFromThePublicTest` |
 
 ---
 
@@ -215,21 +151,25 @@ pembaikan sementara → ujian gagal → pulihkan), mengikut peraturan `CLAUDE.md
       pejabat bagaimana mereka mendapat senarai akhir "syarikat mana dapat lot
       mana" untuk hari acara (cetak / papan). Sekarang hanya slip PDF per
       peserta.
-- [ ] **21 ujian gagal** — `tests/Fixtures/legacy-dump-sample.sql` tiada dalam
-      repo. Dapatkan daripada mesin pembangun asal, semak tiada data peribadi
-      sebenar, tambah `!tests/Fixtures/*.sql` pada `.gitignore`, commit.
-- [ ] **Jalankan suite Pest pada MySQL** (`DB_CONNECTION=mysql DB_DATABASE=undilot2026_test`)
-      — produksi MySQL, mesin ini baru diuji pada SQLite.
-- [ ] **Jalankan Playwright** (`npx playwright test`, perlukan MySQL) lebih
-      daripada sekali; baca kiraan `flaky`.
-- [ ] **Commit kerja 2026-11-16** — pengawal seeder (`LocalOnlySeeder`,
-      `DevEnvironment`), dokumen aliran, panduan serahan, fail ini.
+- [ ] **Fixture `tests/Fixtures/legacy-dump-sample.sql` tidak dijejaki git**
+      (diabaikan oleh `*.sql` dalam `.gitignore`). Suite lulus pada mesin ini
+      kerana fail itu ada di sini; pada klon baharu, ujian import lama
+      (`TheLegacyLoaderTakesTheDumpApartTest`,
+      `LegacyAccountsCarryTheOfficeNamesTest`) gagal. Semak fail itu tiada data
+      peribadi sebenar, kemudian `git add -f` — seperti
+      `legacy-migrate-sample.sql`, yang sudah dijejaki.
+- [x] **Suite Pest pada MySQL** (`DB_CONNECTION=mysql DB_DATABASE=undilot_test`)
+      — 2026-11-24 selepas login-as, audit trail dan halaman ralat: 657 lulus,
+      1 dilangkau dengan sengaja. Jalankan sekali lagi sejurus sebelum go-live.
+
+Selesai sejak penilaian asal: suite Pest pada MySQL (2026-11-15, 2026-11-24),
+Playwright berulang kali tanpa flaky, kerja 2026-11-16 di-commit.
 
 ---
 
 ## 4. 🟢 Selepas go-live (pepijat rendah)
 
-Butiran dalam helaian *Known Issues* manual ujian. Antaranya:
+Butiran dalam helaian *Known Issues* manual ujian.
 
 | ID | Ringkas |
 |---|---|
@@ -238,16 +178,19 @@ Butiran dalam helaian *Known Issues* manual ujian. Antaranya:
 | K14 | Lokasi berbeza huruf besar sahaja memberi nombor lot berganda |
 | K15 | Peringatan tutup tidak dihantar semula untuk tetingkap baharu |
 | K16 | Simpan kad kod kraf mengosongkan kod / saiz yang sudah ditarik balik |
-| K17 | Kategori usahawan yang dibuang dari senarai dikosongkan bila simpan |
 | K22 | Dua super menurunkan pangkat satu sama lain serentak boleh tinggalkan tiada super |
 | K24 | Kalendar hanya guna penapis pertama |
 | K26 | "Maximum participants" disimpan tetapi tidak digunakan |
 | K27 | Papan pemuka dan halaman acara tidak sepadan untuk syarikat yang ditambah semula |
 | K28 | Notifikasi pembuangan ada label butang salah |
 | K29 | Halaman acara awam memaparkan zon admin |
+| — | Semasa *login as*, admin yang membuka notifikasi menandanya "dibaca" untuk peserta |
 
-Sesetengah item dalam helaian (K11, K20, K21, K18 sebahagian, K25) merujuk modul
-yang sudah dibuang (laporan, pengumuman, permohonan sertai) — sahkan dan tutup.
+- K17 (jenis perniagaan lama dikosongkan bila simpan) — **dibaiki** 2026-11-17:
+  `ManagedList::rule($keep)` menerima nilai semasa rekod itu.
+- K11, K20, K21, K25 dahulu ditutup kerana merujuk permohonan sertai, yang
+  dibuang. **Permohonan sertai dipulihkan 2026-11-19** — semak semula sama ada
+  item itu masih berlaku. K18 (sebahagian) merujuk laporan, yang masih dibuang.
 
 ---
 
@@ -255,12 +198,12 @@ yang sudah dibuang (laporan, pengumuman, permohonan sertai) — sahkan dan tutup
 
 | Langkah | Perkara | Bergantung pada |
 |---|---|---|
-| 1 | Minta CSV peserta (dengan emel) daripada pejabat — **mulakan sekarang**, ia paling lama | Pejabat |
-| 2 | Baiki K04–K08 (+ K09, K10) dengan ujian | Pembangun |
+| 1 | Minta CSV peserta **dengan emel** daripada pejabat — **mulakan sekarang**, ia paling lama | Pejabat |
+| 2 | Putuskan cara memberitahu peserta (emel akaun, IC sebagai kata laluan pertama) | Pemilik + pejabat |
 | 3 | Kemas kini helaian ujian; jalankan kes keutamaan tinggi + portal peserta di telefon | Pembangun + HQ |
-| 4 | Sediakan pelayan, sahkan emel boleh dihantar | Pentadbir pelayan |
-| 5 | Import data sebenar; tamatkan peraturan baseline migration | 1, 4 |
-| 6 | Cabutan perintis di pelayan sebenar bersama HQ + beberapa admin zon | 2–5 |
+| 4 | Sediakan pelayan, termasuk SMTP; uji *Forgot password?* | Pentadbir pelayan |
+| 5 | Import data sebenar; isi emel yang tiada; tamatkan peraturan baseline migration | 1, 4 |
+| 6 | Cabutan perintis di pelayan sebenar bersama HQ + beberapa admin zon | 3–5 |
 | 7 | **Go-live** | 6 |
 
 ---
@@ -269,12 +212,17 @@ yang sudah dibuang (laporan, pengumuman, permohonan sertai) — sahkan dan tutup
 
 | Tarikh | Perkara | Commit | Oleh |
 |---|---|---|---|
-| 2026-11-16 | Penilaian awal; pengawal seeder demo + `migrate:fresh` di pelayan (belum commit) | — | — |
-| 2026-11-16 | K04–K08 dibaiki, 22 ujian baharu, setiap satu dibuktikan menggigit. Suite: 479 lulus, 21 gagal (fixture lama sahaja) | PR #1 | — |
+| 2026-11-16 | Penilaian awal; pengawal seeder demo + `migrate:fresh` di pelayan | `c4afc84` | — |
+| 2026-11-16 | K04–K08 dibaiki, 22 ujian baharu, setiap satu dibuktikan menggigit | PR #1 | — |
 | 2026-11-16 | K09 dibaiki; label kod kraf pada slip dibetulkan; `.env.example` dibersihkan | PR #2 | — |
-| 2026-11-16 | K10 dibaiki; IC pada slip di belakang suis `SLIP_SHOWS_IC` (lalai **on** — IC dicetak, keputusan pemilik) | belum push | — |
-| 2026-11-17 | Medan data pejabat: `alamat` dalam import CSV; kategori usahawan = Pengeluar atau Pedagang / Pemborong; status bayaran (Paid / Not paid) di senarai cabutan; nombor lot `TBPS02`. Suite: 504 lulus, 21 gagal (fixture lama sahaja) | belum push | — |
-| 2026-11-17 | Log masuk peserta ditukar ke ID Komuniti + IC (tanpa kata laluan/emel); borang syarikat mewajibkan ID + IC, emel pilihan. Suite: 516 lulus, 21 gagal (fixture lama sahaja) | belum push | — |
-| 2026-11-17 | Borang pelan lot: bahagian "Booth sizes here" dibuang; jumlah lokasi dikira daripada peruntukan kod + baris plot simpanan pilihan. Suite: 516 lulus, 21 gagal (fixture lama sahaja) | belum push | — |
-| 2026-11-17 | Aplikasi tidak menghantar emel langsung: notifikasi dalam aplikasi sahaja, aliran lupa/reset kata laluan dibuang; kad dan route tukar kata laluan dibuang dari profil, profil memaparkan ID Komuniti; B1 dibetulkan (emel tidak wajib) | belum push | — |
-| 2026-11-17 | Tiada emel langsung: lajur `email` dibuang daripada `users` dan `admins` (dan `password_reset_tokens`); pegawai log masuk dengan nama pengguna + kata laluan baharu; import CSV tidak membaca `emel`; `legacy:emails` dibuang; legacy/demo dikenal pasti dengan `legacy_id` / ID Komuniti. Suite: 503 lulus, 22 gagal (fixture lama sahaja) | belum push | — |
+| 2026-11-16 | K10 dibaiki; IC pada slip di belakang suis `SLIP_SHOWS_IC` (lalai **on**) | — | — |
+| 2026-11-17 | Medan data pejabat: `alamat` dalam import CSV; jenis perniagaan dua nilai; status bayaran; nombor lot `TBPS02` | — | — |
+| 2026-11-17 | Log masuk peserta ID Komuniti + IC; tiada emel langsung (kemudian diganti 2026-11-24) | — | — |
+| 2026-11-17 | Borang pelan lot: jumlah lokasi dikira daripada peruntukan kod + plot simpanan | — | — |
+| 2026-11-19 | Permohonan sertai dipulihkan; profil memegang borang MICF | `dd52a40` | — |
+| 2026-11-20 | Profil: kategori usahawan, OKU, kakitangan; kad akaun peserta; sijil kualiti ikut kraf utama | `a050fbf` | — |
+| 2026-11-24 | Sijil dalam jadual `company_certificates` dengan sejarah; sijil tamat tidak menyekat | `31455b6`, `979c639` | — |
+| 2026-11-24 | Baris `Server:` di papan pemuka admin (queue, penjadual, `storage:link`) | `31455b6` | — |
+| 2026-11-24 | Log masuk peserta emel + kata laluan; IC kali pertama; reset melalui emel. CLAUDE.md dipendekkan | `d2200ee` | — |
+| 2026-11-24 | *Login as* untuk admin; skrin audit trail dipulihkan (super sahaja); halaman ralat sendiri. Pest 658, Playwright 28/28 | `801f50e`, `8a6f18c` | — |
+| 2026-11-24 | Fail ini dikemas kini: B2 log masuk emel, K03–K10 dimampatkan, seksyen 3 dan 4 disemak | — | — |
