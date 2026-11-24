@@ -162,7 +162,9 @@
     $apNav = [
         ['label' => 'Events', 'icon' => 'calendar-event', 'route' => 'home', 'key' => 'events', 'match' => ['home', 'events.show']],
     ];
-    if (auth()->check()) {
+    // Not while the participant must still choose a password: EnsurePasswordChanged
+    // would send these links straight back to the password page.
+    if (auth()->check() && auth('web')->user()?->password_changed_at !== null) {
         // The lot page belongs to the dashboard: every draw is listed there,
         // and the lot is reached from its row.
         $apNav[] = ['label' => 'Dashboard', 'icon' => 'house-door', 'route' => 'dashboard', 'key' => 'dashboard', 'match' => ['dashboard', 'zvote.*'], 'menu' => true];
