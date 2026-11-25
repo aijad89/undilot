@@ -322,7 +322,8 @@ diterima (`rule($keep)`), atau simpanan memadamnya senyap.
 Halaman per acara (`SalesBookController`): helaian kod dari cabutan, ditambah tab
 program luar cabutan (`sales_book_tabs`: nama + bilangan blok kosong). Empat baris
 bayaran per lot, satu lajur per hari. Jualan **tidak** disimpan dalam undilot.
-Gate `manage-sales-book` = HQ/super. Ringkasan belum diputuskan. `TheSalesBookListsEveryLotByCodeTest`.
+Ringkasan di depan: RINGKASAN (nilai tetap; 3x6 = 2 lot), RINGKASAN KESELURUHAN, RING1,
+SALEBYDAY (formula). Gate `manage-sales-book` = HQ/super. `TheSalesBookListsEveryLotByCodeTest`.
 
 ### `$unreadNotificationCount` disediakan oleh senarai view
 View baharu yang membacanya **mesti** ditambah pada composer dalam

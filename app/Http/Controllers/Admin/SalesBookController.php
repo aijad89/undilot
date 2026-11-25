@@ -38,10 +38,11 @@ class SalesBookController extends Controller
         $request->merge(['name' => Str::upper(trim((string) $request->input('name')))]);
 
         // A sheet name must be unique in the workbook, case aside — Excel
-        // refuses two sheets "Karyaneka" and "KARYANEKA".
+        // refuses two sheets "Karyaneka" and "KARYANEKA" — and the summary
+        // sheets' names are taken too.
         $taken = $event->salesBookTabs()->pluck('name')
             ->merge(KrafBidang::codes()->pluck('code'))
-            ->push(SalesBook::NO_CODE)
+            ->push(SalesBook::NO_CODE, ...SalesBook::SUMMARY_SHEETS)
             ->map(fn ($name) => Str::upper($name))->all();
 
         $data = $request->validate([
