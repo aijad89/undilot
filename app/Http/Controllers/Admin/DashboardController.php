@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Models\KrafBidang;
 use App\Models\Plot;
 use App\Support\DevEnvironment;
 use App\Support\PollingGuard;
@@ -393,6 +394,7 @@ class DashboardController extends Controller
             ->selectRaw('events.id, events.title, events.start_date, sum(amount) as total')
             ->groupBy('events.id', 'events.title', 'events.start_date')
             ->get();
+        $categories = KrafBidang::codes()->pluck('name', 'code');
 
         return [
             'latest' => $byEvent->sortByDesc('start_date')->first(),
@@ -401,7 +403,21 @@ class DashboardController extends Controller
             'byType' => DB::table('sales_book_entries')
                 ->selectRaw('payment_type, sum(amount) as total')->groupBy('payment_type')
                 ->pluck('total', 'payment_type'),
+            // A code sheet falls under its category, as on SALEBYDAY; a programme tab stands alone.
+            'byCategory' => $this->salesBy('sheet', fn (string $sheet) => $categories[$sheet] ?? $sheet),
+            // Typed into the sheet by hand: "Kelantan" and "KELANTAN " are one state.
+            'byState' => $this->salesBy('state', fn (?string $state) => mb_strtoupper(trim((string) $state)) ?: 'NO STATE'),
         ];
+    }
+
+    /** Sales summed by a column, its values folded by $label, biggest first. */
+    private function salesBy(string $column, \Closure $label)
+    {
+        return DB::table('sales_book_entries')
+            ->selectRaw("{$column} as k, sum(amount) as total")->groupBy($column)->get()
+            ->groupBy(fn ($r) => $label($r->k))
+            ->map(fn ($rows) => $rows->sum('total'))
+            ->sortDesc();
     }
 
     /** Totals, by craft category, and — for super and HQ — by zone. */

@@ -409,3 +409,20 @@ it('says how many of the companies still to confirm were already reminded', func
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
         ->assertSee('Open Draw: 2 companies not confirmed yet (1 already reminded), closes 2 days from now');
 });
+
+it('splits sales by category, a programme tab on its own, and by state however it was typed', function () {
+    KrafBidang::factory()->create(['name' => 'TEKSTIL', 'code' => 'TBPS']);
+    KrafBidang::factory()->create(['name' => 'TEKSTIL', 'code' => 'TBPB']);
+    $event = Event::factory()->create();
+    $upload = App\Models\SalesBookUpload::create(['event_id' => $event->id, 'admin_id' => null, 'filename' => 'x.xlsx', 'entries' => 4]);
+    foreach ([['TBPS', 'Kelantan', 100], ['TBPB', 'KELANTAN ', 50], ['KARYANEKA', 'Johor', 400], ['TBPS', null, 10]] as $i => [$sheet, $state, $amount]) {
+        Illuminate\Support\Facades\DB::table('sales_book_entries')->insert([
+            'upload_id' => $upload->id, 'event_id' => $event->id, 'sheet' => $sheet, 'sheet_index' => $i, 'block' => 1,
+            'state' => $state, 'payment_type' => 'TUNAI', 'sale_date' => now()->toDateString(), 'amount' => $amount,
+        ]);
+    }
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['By category', 'KARYANEKA', 'RM 400.00', 'TEKSTIL', 'RM 160.00'])
+        ->assertSeeInOrder(['By state', 'JOHOR', 'RM 400.00', 'KELANTAN', 'RM 150.00', 'NO STATE', 'RM 10.00']);
+});

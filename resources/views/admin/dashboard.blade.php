@@ -245,6 +245,19 @@
                             </div>
                         @endforeach
                     </div>
+                    @foreach(['By category' => $sales['byCategory'], 'By state' => $sales['byState']] as $heading => $split)
+                        <div>
+                            <h4 class="dash-sub">{{ $heading }}</h4>
+                            @php($maxSplit = max(1, (float) $split->max()))
+                            @foreach($split as $name => $total)
+                                <div class="dash-split">
+                                    <span>{{ $name }}</span>
+                                    <span class="dash-split-bar"><span style="width: {{ round($total / $maxSplit * 100) }}%"></span></span>
+                                    <strong>{{ $money($total) }}</strong>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endforeach
                 </div>
             @else
                 <p class="mac-muted mac-text-sm mb-0">No sales book uploaded yet.</p>
