@@ -115,6 +115,8 @@ class DashboardController extends Controller
             ->where(fn ($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', now()->startOfDay()))
             ->withCount([
                 'registrations as on_list' => $inZone,
+                // Capacity is event-wide, so the places taken are too.
+                'registrations as places_taken',
                 'registrations as coded' => fn ($q) => $inZone($q)->whereNotNull('code')->where('code', '!=', ''),
                 'registrations as confirmed' => fn ($q) => $inZone($q)->where('confirmed_participation', true),
                 // Event-wide on purpose: only super and HQ read it (rule A7).

@@ -88,6 +88,7 @@
                         <span>{{ $event->coded }} with a code</span>
                         <span>{{ $event->confirmed }} confirmed</span>
                         <span>{{ $event->plots_taken }}/{{ $event->plots_total }} plots taken</span>
+                        <span @class(['dash-full' => $event->places_taken >= $event->max_participants])>{{ $event->places_taken }}/{{ $event->max_participants }} places filled</span>
                     </div>
 
                     @if($event->join_pending + $event->join_approved + $event->join_rejected > 0)
@@ -246,6 +247,7 @@
     .dash-event-title { font-weight: 650; color: var(--ui-text); text-decoration: none; }
     .dash-event-title:hover { text-decoration: underline; }
     .dash-figures { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; color: var(--ui-text-2); }
+    .dash-full { color: var(--ui-bad-text); font-weight: 650; }
     .dash-bar { height: 8px; margin-top: 8px; border-radius: 99px; background: var(--ui-neutral-tint); overflow: hidden; }
     .dash-bar > span { display: block; height: 100%; background: var(--ui-ok-text); }
 

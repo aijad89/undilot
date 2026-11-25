@@ -340,3 +340,16 @@ it('flags officers not signed in for 30 days: state admins to HQ, everyone to su
     $list = $this->get(route('admin.admins.state', ['idle' => 1]))->assertOk()->viewData('admins');
     expect($list->pluck('state')->all())->toBe(['Perak']);
 });
+
+it('shows how many places of the event are filled, event-wide, even to a zone', function () {
+    $event = Event::factory()->create(['title' => 'MICF Test', 'max_participants' => 3]);
+    registered($event, 'Perak');
+    registered($event, 'Johor');
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 on draw list')
+        ->assertSee('2/3 places filled');
+
+    registered($event, 'Kedah');
+    $this->get(route('admin.dashboard'))->assertSee('<span class="dash-full">3/3 places filled</span>', false);
+});
