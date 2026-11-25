@@ -453,6 +453,8 @@ class DashboardController extends Controller
             'active' => $companies()->where('is_active', true)->count(),
             'inactive' => $companies()->where('is_active', false)->count(),
             'new' => $companies()->where('created_at', '>=', now()->startOfMonth())->count(),
+            // Signed in to the portal themselves; an admin's "login as" is not stamped.
+            'portal' => $companies()->active()->whereHas('user', fn ($u) => $u->where('last_seen_at', '>=', now()->subDays(30)))->count(),
 
             // A company with two selections in one category counts once there.
             'byCategory' => DB::table('company_krafs')

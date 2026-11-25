@@ -450,3 +450,17 @@ it('lists the exhibitors who sold most: a linked company as one, an outside one 
         ->assertSee(route('admin.companies.edit', $batras), false)
         ->assertDontSee('RM 999.00');
 });
+
+it('counts the companies that used the portal in the last 30 days, in the admin\'s zone', function () {
+    $seen = fn ($at, string $state = 'Perak', bool $active = true) => Company::factory()->create([
+        'state' => $state, 'is_active' => $active, 'user_id' => App\Models\User::factory()->create(['last_seen_at' => $at])->id,
+    ]);
+    $seen(now()->subDays(2));
+    $seen(now()->subDays(40));
+    $seen(null);
+    $seen(now()->subDay(), 'Johor');
+    $seen(now()->subDay(), 'Perak', false);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['<strong>1</strong><span>used the portal, 30 days</span>'], false);
+});

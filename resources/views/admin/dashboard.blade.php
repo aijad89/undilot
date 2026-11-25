@@ -135,6 +135,7 @@
                 <div><strong>{{ $companyStats['active'] }}</strong><span>active</span></div>
                 <div><strong>{{ $companyStats['inactive'] }}</strong><span>inactive</span></div>
                 <div><strong>{{ $companyStats['new'] }}</strong><span>new this month</span></div>
+                <div><strong>{{ $companyStats['portal'] }}</strong><span>used the portal, 30 days</span></div>
             </div>
 
             @php $max = max(1, $companyStats['byCategory']->max() ?? 1); @endphp
@@ -298,7 +299,7 @@
     .dash-bar { height: 8px; margin-top: 8px; border-radius: 99px; background: var(--ui-neutral-tint); overflow: hidden; }
     .dash-bar > span { display: block; height: 100%; background: var(--ui-ok-text); }
 
-    .dash-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 4px; }
+    .dash-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 8px 0 4px; }
     .dash-totals > div { padding: 10px; border-radius: var(--ui-r); background: var(--ui-neutral-tint); }
     .dash-totals strong { display: block; font-size: 1.5rem; line-height: 1.2; }
     .dash-totals span { font-size: 0.8125rem; color: var(--ui-muted); }
