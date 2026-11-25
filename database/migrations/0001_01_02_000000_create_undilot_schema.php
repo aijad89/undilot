@@ -567,6 +567,19 @@ return new class extends Migration
             $table->unique(['event_id', 'company_id']);
         });
 
+        // The sales book's extra tabs: programmes outside the draw (Karyaneka,
+        // Ready Eksport…), each an empty sheet of `blocks` exhibitors that HQ
+        // fills in Excel. Sales themselves are not kept here (owner, 2026-11-25).
+        Schema::create('sales_book_tabs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->string('name', 31); // Excel's limit for a sheet name
+            $table->unsignedSmallInteger('blocks');
+            $table->timestamps();
+
+            $table->unique(['event_id', 'name']);
+        });
+
         Schema::create('polls', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -875,6 +888,7 @@ return new class extends Migration
             'notifications',
             'preset_allocations',
             'polls',
+            'sales_book_tabs',
             'event_join_requests',
             'event_registrations',
             'plots',

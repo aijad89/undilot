@@ -69,12 +69,10 @@
                 };
             @endphp
             <div class="d-flex flex-wrap gap-2">
-                @can('export-sales-book')
-                    @if($event->plots->isNotEmpty())
-                        <a href="{{ route('admin.polling.sales-book', $event) }}" class="mac-btn-secondary">
-                            <i class="bi bi-file-earmark-spreadsheet me-1" aria-hidden="true"></i>Sales book (.xlsx)
-                        </a>
-                    @endif
+                @can('manage-sales-book')
+                    <a href="{{ route('admin.polling.sales-book.show', $event) }}" class="mac-btn-secondary">
+                        <i class="bi bi-journal-text me-1" aria-hidden="true"></i>Sales book
+                    </a>
                 @endcan
                 @if($stage === 'closed')
                     <form method="POST" action="{{ route('admin.polling.process', $event) }}">

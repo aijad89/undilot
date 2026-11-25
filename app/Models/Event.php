@@ -179,6 +179,12 @@ class Event extends Model
         return $this->hasMany(Poll::class);
     }
 
+    /** The sales book's tabs for programmes outside the draw. */
+    public function salesBookTabs()
+    {
+        return $this->hasMany(SalesBookTab::class);
+    }
+
     public function presetAllocations()
     {
         return $this->hasMany(PresetAllocation::class);

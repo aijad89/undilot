@@ -16,7 +16,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * The event's sales book (Buku Jualan) as HQ keeps it in Excel: one sheet per
  * craft code, one block of four payment rows per lot, one column per event day.
  * undilot fills in who holds which lot; HQ types the sales in from the paper
- * book and adds the sheets for exhibitors outside the draw by hand.
+ * book. Programmes outside the draw follow as the event's SalesBookTabs: the
+ * same sheet, its exhibitor blocks left empty for HQ.
  *
  * Shape copied from the MICF 2026 book (owner, 2026-11-25). Summary sheets
  * (SALEBYDAY, RINGKASAN) are not built yet — to be decided.
@@ -33,6 +34,9 @@ class SalesBook
         'JUMLAH RUNDINGAN (RM)',
     ];
 
+    /** Excel refuses these in a sheet name. */
+    public const SHEET_NAME_FORBIDDEN = ['\\', '/', '?', '*', '[', ']', ':'];
+
     /** Lots whose plot and draw entry both lack a code. */
     public const NO_CODE = 'TANPA KOD';
 
@@ -41,6 +45,39 @@ class SalesBook
     private const FIRST_LOT_ROW = 5;
 
     public static function for(Event $event): Spreadsheet
+    {
+        $event->loadMissing('salesBookTabs');
+        $byCode = self::lotsByCode($event);
+
+        $days = collect(CarbonPeriod::create($event->start_date->copy()->startOfDay(), $event->end_date->copy()->startOfDay()));
+
+        $book = new Spreadsheet;
+        $book->removeSheetByIndex(0);
+
+        foreach ($byCode as $code => $plots) {
+            $rows = $plots->values()->map(function ($plot) {
+                $company = $plot->is_allocated ? $plot->company : null;
+
+                return [$plot->plot_code, $company?->name, $company?->user?->name, $company?->state, $company?->user?->community_id];
+            });
+            self::sheet($book->createSheet(), (string) $code, "{$code} ({$plots->count()} lot)", $rows, $days);
+        }
+
+        foreach ($event->salesBookTabs->sortBy('id') as $tab) {
+            self::sheet($book->createSheet(), $tab->name, $tab->name, collect(array_fill(0, $tab->blocks, [])), $days);
+        }
+
+        $book->setActiveSheetIndex(0);
+
+        return $book;
+    }
+
+    /**
+     * The event's plots, one group per code sheet, in sheet order.
+     *
+     * @return \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, \App\Models\Plot>>
+     */
+    public static function lotsByCode(Event $event)
     {
         $event->loadMissing('plots.bidang', 'plots.company.user');
 
@@ -54,26 +91,14 @@ class SalesBook
 
         // Coding-sheet order, not alphabetical; anything off the sheet last.
         $order = KrafBidang::codes()->orderBy('bil')->orderBy('id')->pluck('code')->flip();
-        $byCode = $byCode->sortBy(fn ($plots, $code) => [$order[$code] ?? PHP_INT_MAX, $code]);
-
-        $days = collect(CarbonPeriod::create($event->start_date->copy()->startOfDay(), $event->end_date->copy()->startOfDay()));
-
-        $book = new Spreadsheet;
-        $book->removeSheetByIndex(0);
-
-        foreach ($byCode as $code => $plots) {
-            self::sheet($book->createSheet(), (string) $code, $plots, $days);
-        }
-
-        $book->setActiveSheetIndex(0);
-
-        return $book;
+        return $byCode->sortBy(fn ($plots, $code) => [$order[$code] ?? PHP_INT_MAX, $code]);
     }
 
-    private static function sheet(Worksheet $ws, string $code, $plots, $days): void
+    /** Each of $rows is [lot, company, entrepreneur, state, community ID], or [] for a blank block. */
+    private static function sheet(Worksheet $ws, string $name, string $heading, $rows, $days): void
     {
-        // Excel refuses these in a sheet name and caps it at 31 characters.
-        $ws->setTitle(mb_substr(str_replace(['\\', '/', '?', '*', '[', ']', ':'], '', $code), 0, 31));
+        // Excel caps a sheet name at 31 characters.
+        $ws->setTitle(mb_substr(str_replace(self::SHEET_NAME_FORBIDDEN, '', $name), 0, 31));
 
         $col = fn (int $i) => Coordinate::stringFromColumnIndex($i);
         $firstDay = $col(self::FIRST_DAY_COLUMN);
@@ -81,7 +106,7 @@ class SalesBook
         $total = $col(self::FIRST_DAY_COLUMN + $days->count());
         $grand = $col(self::FIRST_DAY_COLUMN + $days->count() + 1);
 
-        $ws->setCellValue('A1', "{$code} ({$plots->count()} lot)");
+        $ws->setCellValue('A1', $heading);
         $ws->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
         foreach (['BIL', 'NO.LOT', 'NAMA SYARIKAT', 'NAMA USAHAWAN', 'NEGERI', 'NO ID KOMUNITI', 'JENIS BAYARAN'] as $i => $heading) {
@@ -99,11 +124,10 @@ class SalesBook
         $ws->getStyle("{$firstDay}4:{$lastDay}4")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
 
         $row = self::FIRST_LOT_ROW;
-        foreach ($plots->values() as $n => $plot) {
-            $company = $plot->is_allocated ? $plot->company : null;
+        foreach ($rows->values() as $n => $details) {
             $block = $row + count(self::PAYMENT_TYPES) - 1;
 
-            foreach ([$n + 1, $plot->plot_code, $company?->name, $company?->user?->name, $company?->state, $company?->user?->community_id] as $i => $value) {
+            foreach ([$n + 1, ...array_pad($details, 5, null)] as $i => $value) {
                 // Explicit string: a community ID of digits must keep its zeros.
                 $i === 0
                     ? $ws->setCellValue($col($i + 1).$row, $value)

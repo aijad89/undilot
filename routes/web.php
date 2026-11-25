@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\EntRegistrationController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\PlotPainterController;
 use App\Http\Controllers\Admin\PollingController;
+use App\Http\Controllers\Admin\SalesBookController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Auth\Admin\LoginController as AdminLoginController;
 use App\Http\Controllers\DevAutoLoginController;
@@ -183,7 +184,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('{event}', [PollingController::class, 'show'])->name('show');
             Route::get('{event}/sizes/{plotSize}', [PollingController::class, 'viewPlotsBySize'])->name('plots.by-size');
-            Route::get('{event}/sales-book', [PollingController::class, 'salesBook'])->middleware('can:export-sales-book')->name('sales-book');
+            Route::middleware('can:manage-sales-book')->prefix('{event}/sales-book')->name('sales-book.')->scopeBindings()->group(function () {
+                Route::get('/', [SalesBookController::class, 'show'])->name('show');
+                Route::get('download', [SalesBookController::class, 'download'])->name('download');
+                Route::post('tabs', [SalesBookController::class, 'storeTab'])->name('tabs.store');
+                Route::delete('tabs/{salesBookTab}', [SalesBookController::class, 'destroyTab'])->name('tabs.destroy');
+            });
         });
 
         /*
