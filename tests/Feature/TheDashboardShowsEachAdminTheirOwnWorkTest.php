@@ -258,3 +258,85 @@ it('shows HQ the sales card, and never a state admin', function () {
     auth()->forgetGuards();
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('events with sales');
 });
+
+it('breaks each event\'s join requests down, in the admin\'s own zone', function () {
+    $event = Event::factory()->create(['title' => 'MICF Test']);
+    $perak = fn (array $row) => App\Models\EventJoinRequest::factory()->create($row + [
+        'event_id' => $event->id, 'company_id' => Company::factory()->create(['state' => 'Perak'])->id,
+    ]);
+    $perak(['status' => 'pending', 'payment_method' => 'waiver', 'waiver_category' => 'first_time']);
+    $perak(['status' => 'approved']);
+    $perak(['status' => 'rejected', 'reject_reason' => 'No receipt']);
+    App\Models\EventJoinRequest::factory()->create([
+        'event_id' => $event->id, 'company_id' => Company::factory()->create(['state' => 'Johor'])->id, 'status' => 'approved',
+    ]);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Join requests:', '1 to review', '1 approved', '1 rejected', '1 asking for a fee waiver']);
+
+    auth()->forgetGuards();
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Join requests:', '1 to review', '2 approved', '1 rejected']);
+});
+
+it('shows each event\'s lots by location and size, a set-aside lot free to a zone', function () {
+    $event = Event::factory()->create(['title' => 'MICF Test']);
+    $hall = App\Models\PlotSize::factory()->create(['event_id' => $event->id, 'location' => 'Dewan A', 'size' => '3x3', 'quantity' => 3]);
+    $field = App\Models\PlotSize::factory()->create(['event_id' => $event->id, 'location' => 'Padang', 'size' => '3x6', 'quantity' => 1]);
+    App\Models\Plot::factory()->create(['event_id' => $event->id, 'plot_size_id' => $hall->id, 'is_allocated' => true]);
+    App\Models\Plot::factory()->create(['event_id' => $event->id, 'plot_size_id' => $hall->id]);
+    // A preset nobody has confirmed yet: HQ sees it held, a zone sees it free.
+    App\Models\Plot::factory()->create(['event_id' => $event->id, 'plot_size_id' => $hall->id, 'is_allocated' => true,
+        'allocation_type' => 'preset', 'allocated_to' => App\Models\User::factory()->create()->id]);
+    App\Models\Plot::factory()->create(['event_id' => $event->id, 'plot_size_id' => $field->id]);
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Dewan A 3x3:', '2/3', 'Padang 3x6:', '0/1'], false);
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Dewan A 3x3:', '1/3'], false);
+});
+
+it('lists the last finished events with their draw list, lots and — for HQ — sales', function () {
+    $done = Event::factory()->create(['title' => 'Pameran Selesai', 'start_date' => now()->subMonth(), 'end_date' => now()->subMonth()->addDays(2)]);
+    Event::factory()->create(['title' => 'Pameran Datang', 'start_date' => now()->addMonth(), 'end_date' => now()->addMonth()->addDays(2)]);
+    registered($done, 'Perak');
+    registered($done, 'Johor');
+    $upload = App\Models\SalesBookUpload::create(['event_id' => $done->id, 'admin_id' => null, 'filename' => 'x.xlsx', 'entries' => 1]);
+    Illuminate\Support\Facades\DB::table('sales_book_entries')->insert([
+        'upload_id' => $upload->id, 'event_id' => $done->id, 'sheet' => 'TBPS', 'sheet_index' => 0, 'block' => 1,
+        'payment_type' => 'TUNAI', 'sale_date' => now()->toDateString(), 'amount' => 700,
+    ]);
+
+    $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Recently finished', 'Pameran Selesai', '2 on draw list', 'RM 700.00 sales'])
+        ->assertSee(route('admin.sales.show', $done), false);
+
+    auth()->forgetGuards();
+    $page = $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Recently finished', 'Pameran Selesai', '1 on draw list'])
+        ->assertDontSee('RM 700.00 sales');
+    expect(str($page->getContent())->after('Recently finished')->contains('Pameran Datang'))->toBeFalse();
+});
+
+it('flags officers not signed in for 30 days: state admins to HQ, everyone to super', function () {
+    stateAdmin('Perak', ['last_seen_at' => now()->subDays(40)]);
+    stateAdmin('Johor', ['last_seen_at' => now()->subDay()]);
+    stateAdmin('Kedah', ['last_seen_at' => null, 'is_active' => false]);
+    superAdmin(['role' => 'hq', 'last_seen_at' => now()->subDays(60)]);
+
+    $hq = superAdmin(['role' => 'hq', 'last_seen_at' => now()]);
+    $this->actingAs($hq, 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 state officer not signed in for 30 days')
+        ->assertDontSee('HQ/super officer');
+
+    auth()->forgetGuards();
+    $this->actingAs(superAdmin(['last_seen_at' => now()]), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 state officer not signed in for 30 days')
+        ->assertSee('1 HQ/super officer not signed in for 30 days')
+        ->assertSee(route('admin.admins.state', ['idle' => 1]), false);
+
+    $list = $this->get(route('admin.admins.state', ['idle' => 1]))->assertOk()->viewData('admins');
+    expect($list->pluck('state')->all())->toBe(['Perak']);
+});

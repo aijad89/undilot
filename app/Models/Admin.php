@@ -166,6 +166,13 @@ class Admin extends Authenticatable
      * looks like a state guard, because a guard on every admin route reads as
      * enforcement and would enforce nothing.
      */
+    /** Active, and not signed in for 30 days (or never). The dashboard's "idle" rows. */
+    public function scopeIdle($query)
+    {
+        return $query->where('is_active', true)->where(fn ($q) => $q->whereNull('last_seen_at')
+            ->orWhere('last_seen_at', '<', now()->subDays(30)));
+    }
+
     public function hasGlobalAccess(): bool
     {
         return in_array($this->role, ['super', 'hq'], true);

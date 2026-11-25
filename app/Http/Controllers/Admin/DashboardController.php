@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Models\Plot;
 use App\Support\DevEnvironment;
 use App\Support\PollingGuard;
 use Illuminate\Http\Request;
@@ -21,8 +22,8 @@ use Illuminate\Support\Facades\DB;
  * admin here, so this route existing is what keeps an already-signed-in admin
  * from being bounced to the PARTICIPANT login form when they open /admin/login.
  *
- * Five sections — what needs fixing, the events, the companies, sales (HQ and
- * super), and shortcuts.
+ * Six sections — what needs fixing, the events, the companies, recently
+ * finished events, sales (HQ and super), and shortcuts.
  * Every count is scoped the way the screen it links to is scoped: a state admin
  * counts their own zone (through `companies.state`) and never sees a draft
  * event; HQ and super count everything. Counts only, aggregated in SQL.
@@ -45,13 +46,16 @@ class DashboardController extends Controller
         $companies = fn () => Company::query()->unless($global, fn ($q) => $q->where('state', $admin->state));
 
         $events = $this->events($global, $inZone);
+        $shown = $events->take(self::EVENTS_SHOWN);
 
         return view('admin.dashboard', [
             'admin' => $admin,
             'global' => $global,
-            'attention' => $this->attention($global, $inZone, $companies, $events),
+            'attention' => array_merge($this->attention($global, $inZone, $companies, $events), $this->idleAdmins($admin)),
             // Every current event is checked for attention; the card lists the soonest few.
-            'events' => $events->take(self::EVENTS_SHOWN),
+            'events' => $shown,
+            'lots' => $this->lotsBySize($shown->pluck('id'), $global),
+            'completed' => $this->completed($admin, $global, $inZone),
             'companyStats' => $this->companyStats($global, $companies),
             'sales' => $admin->can('manage-sales-book') ? $this->sales() : null,
         ]);
@@ -124,6 +128,9 @@ class DashboardController extends Controller
                 'registrations as hq_waiting' => fn ($q) => $inZone($q)->whereNull('verified_at')->whereNull('hq_note'),
                 'registrations as hq_returned' => fn ($q) => $inZone($q)->whereNotNull('hq_note'),
                 'registrations as unpaid' => fn ($q) => $inZone($q)->where('payment_status', 'unpaid'),
+                'joinRequests as join_approved' => fn ($q) => $inZone($q)->where('status', 'approved'),
+                'joinRequests as join_rejected' => fn ($q) => $inZone($q)->where('status', 'rejected'),
+                'joinRequests as join_waiver' => fn ($q) => $inZone($q)->whereIn('status', ['pending', 'approved'])->where('payment_method', 'waiver'),
                 'joinRequests as zone_rejected' => fn ($q) => $q->rejectedByZone()->where('reviewed_at', '>=', now()->subDays(7)),
                 'plots as plots_total',
                 // A set-aside lot is a surprise to the zone until it is confirmed.
@@ -251,6 +258,83 @@ class DashboardController extends Controller
         if ($noCode > 0) {
             $rows[] = ['info', "{$noCode} ".str('company')->plural($noCode).' with no craft code — the draw list cannot fill one in',
                 route('admin.companies.index', ['missing' => 'code'])];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Lots per (location, size) for the events the card lists, keyed by event
+     * id, each row {location, size, taken, total}. Event-wide, as the plot
+     * counts are — and, like plots_taken, a set-aside lot looks free to a zone.
+     */
+    private function lotsBySize($eventIds, bool $global)
+    {
+        $count = fn ($q) => $q->join('plot_sizes', 'plot_sizes.id', '=', 'plots.plot_size_id')
+            ->whereIn('plots.event_id', $eventIds)
+            ->selectRaw('plots.event_id, plot_sizes.location, plot_sizes.size, count(*) as n')
+            ->groupBy('plots.event_id', 'plot_sizes.location', 'plot_sizes.size')
+            ->toBase()->get();
+        $key = fn ($r) => "{$r->event_id}|{$r->location}|{$r->size}";
+
+        $taken = $count(Plot::query()->where('plots.is_allocated', true)
+            ->unless($global, fn ($q) => $q->whereNot(fn ($w) => $w->secretPresets())))
+            ->keyBy($key);
+
+        return $count(Plot::query())
+            ->map(fn ($r) => (object) ['event_id' => $r->event_id, 'location' => $r->location, 'size' => $r->size,
+                'taken' => (int) ($taken[$key($r)]->n ?? 0), 'total' => (int) $r->n])
+            ->sortBy(fn ($r) => [$r->location, $r->size])
+            ->groupBy('event_id');
+    }
+
+    /**
+     * The last few events that have finished, with what came of them: the
+     * draw list (this admin's zone), the lots held, and — for HQ and super —
+     * the sales uploaded.
+     */
+    private function completed(Admin $admin, bool $global, \Closure $inZone)
+    {
+        $sales = $admin->can('manage-sales-book');
+
+        return Event::query()
+            ->unless($global, fn ($q) => $q->where('status', '!=', 'draft'))
+            ->where(fn ($q) => $q->where('status', 'completed')->orWhere('end_date', '<', now()->startOfDay()))
+            ->withCount([
+                'registrations as on_list' => $inZone,
+                'plots as plots_taken' => fn ($q) => $q->where('is_allocated', true)
+                    ->unless($global, fn ($q) => $q->whereNot(fn ($w) => $w->secretPresets())),
+            ])
+            ->when($sales, fn ($q) => $q->withSum('salesBookEntries as sales_total', 'amount'))
+            ->orderByDesc('end_date')
+            ->take(self::COMPLETED_SHOWN)
+            ->get();
+    }
+
+    /** How many finished events the card lists. */
+    private const COMPLETED_SHOWN = 3;
+
+    /**
+     * Officers who have not signed in for 30 days — an account nobody uses is
+     * one to switch off. HQ sees state admins (the ones it manages); super
+     * also sees HQ and super. The reader is never among them: TrackAdminLastSeen
+     * stamps last_seen_at before this runs.
+     */
+    private function idleAdmins(Admin $admin): array
+    {
+        if (! $admin->can('manage-admins')) {
+            return [];
+        }
+
+        $groups = $admin->isSuperAdmin() ? ['state' => ['admin'], 'hq' => ['super', 'hq']] : ['state' => ['admin']];
+        $rows = [];
+        foreach ($groups as $group => $roles) {
+            $n = Admin::query()->idle()->whereIn('role', $roles)->count();
+            if ($n > 0) {
+                $who = $group === 'hq' ? 'HQ/super' : 'state';
+                $rows[] = ['info', "{$n} {$who} ".str('officer')->plural($n).' not signed in for 30 days',
+                    route("admin.admins.{$group}", ['idle' => 1])];
+            }
         }
 
         return $rows;

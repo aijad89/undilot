@@ -47,6 +47,7 @@ class AdminController extends Controller
                 fn ($w) => $w->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%")
             ))
             ->when($group === 'state' && $request->input('state'), fn ($q, $zone) => $q->where('state', $zone))
+            ->when($request->boolean('idle'), fn ($q) => $q->idle())
             // Supers first in the hq list: they are the ones that manage everyone else.
             ->orderByRaw("case when role = 'super' then 0 else 1 end")
             ->orderBy('name')

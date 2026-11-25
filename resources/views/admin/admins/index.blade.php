@@ -40,9 +40,14 @@
             </select>
         @endunless
 
+        @if(request()->boolean('idle'))
+            <input type="hidden" name="idle" value="1">
+            <span class="mac-badge mac-badge-orange">Not signed in for 30 days</span>
+        @endif
+
         <button type="submit" class="mac-filter-btn">Filter</button>
 
-        @if(request()->hasAny(['search', 'state']))
+        @if(request()->hasAny(['search', 'state', 'idle']))
             <a href="{{ route('admin.admins.'.$group) }}" class="mac-clear-btn">Clear</a>
         @endif
     </form>

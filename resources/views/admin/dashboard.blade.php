@@ -90,6 +90,24 @@
                         <span>{{ $event->plots_taken }}/{{ $event->plots_total }} plots taken</span>
                     </div>
 
+                    @if($event->join_pending + $event->join_approved + $event->join_rejected > 0)
+                        <div class="dash-figures mac-text-sm">
+                            <a href="{{ route('admin.events.registrations.index', $event) }}#join-requests">Join requests:</a>
+                            <span>{{ $event->join_pending }} to review</span>
+                            <span>{{ $event->join_approved }} approved</span>
+                            <span>{{ $event->join_rejected }} rejected</span>
+                            @if($event->join_waiver > 0)<span>{{ $event->join_waiver }} asking for a fee waiver</span>@endif
+                        </div>
+                    @endif
+
+                    @if(isset($lots[$event->id]))
+                        <div class="dash-figures mac-text-sm">
+                            @foreach($lots[$event->id] as $lot)
+                                <span>{{ $lot->location ?: 'No location' }} {{ $lot->size }}: <strong>{{ $lot->taken }}/{{ $lot->total }}</strong></span>
+                            @endforeach
+                        </div>
+                    @endif
+
                     @if($event->polling_status === 'polling' && $event->on_list > 0)
                         <div class="dash-bar" role="img" aria-label="{{ $percent }}% confirmed">
                             <span style="width: {{ $percent }}%"></span>
@@ -140,6 +158,26 @@
             @endif
         </section>
     </div>
+
+    {{-- ── Finished events ─────────────────────────────────────────── --}}
+    @if($completed->isNotEmpty())
+        <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-completed">
+            <h3 class="mac-card-title" id="dash-completed">Recently finished</h3>
+            @foreach($completed as $event)
+                <div class="dash-event">
+                    <a href="{{ route('admin.polling.show', $event) }}" class="dash-event-title">{{ $event->title }}</a>
+                    <div class="mac-muted mac-text-sm">{{ $event->start_date->format('j M') }} – {{ $event->end_date->format('j M Y') }}@if($event->location) · {{ $event->location }}@endif</div>
+                    <div class="dash-figures mac-text-sm">
+                        <span>{{ $event->on_list }} on draw list</span>
+                        <span>{{ $event->plots_taken }} lots held</span>
+                        @isset($event->sales_total)
+                            <a href="{{ route('admin.sales.show', $event) }}">RM {{ number_format((float) $event->sales_total, 2) }} sales</a>
+                        @endisset
+                    </div>
+                </div>
+            @endforeach
+        </section>
+    @endif
 
     {{-- ── Sales (HQ and super) ───────────────────────────────────── --}}
     @if($sales)
