@@ -236,6 +236,13 @@ class DashboardController extends Controller
                 route('admin.companies.index', ['missing' => 'certificate'])];
         }
 
+        // A13 — profiles not complete: these companies cannot send a request to join.
+        $incomplete = $companies()->whereIntegerInRaw('id', \App\Support\CompanyCredentials::incompleteIds())->count();
+        if ($incomplete > 0) {
+            $rows[] = ['info', "{$incomplete} ".str('company')->plural($incomplete).' with an incomplete profile — they cannot ask to join an event',
+                route('admin.companies.index', ['missing' => 'profile'])];
+        }
+
         // A12 — accounts that cannot sign in: no email (the office sets it), or
         // an email but the first sign-in has not happened yet.
         $noEmail = $companies()->active()->missingAccount('email')->count();

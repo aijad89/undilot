@@ -366,3 +366,17 @@ it('says when registration opens or closes, before the draw dates', function () 
         ->assertSeeInOrder(['Sedang Buka', 'Registration closes 3 days from now'], false)
         ->assertSeeInOrder(['Sudah Tutup', 'Draw opens 2 days from now'], false);
 });
+
+it('counts companies whose profile is not complete, in the admin\'s own zone', function () {
+    $bare = Company::factory()->create(['state' => 'Perak']);
+    $ready = Company::factory()->withProfile()->create(['state' => 'Perak']);
+    Company::factory()->create(['state' => 'Johor']);
+    Company::factory()->create(['state' => 'Perak', 'is_active' => false]);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 company with an incomplete profile')
+        ->assertSee(route('admin.companies.index', ['missing' => 'profile']), false);
+
+    $this->get(route('admin.companies.index', ['missing' => 'profile']))->assertOk()
+        ->assertSee('Profile incomplete')->assertSee($bare->name)->assertDontSee($ready->name);
+});

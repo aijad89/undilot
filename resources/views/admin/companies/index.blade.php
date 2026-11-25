@@ -32,7 +32,7 @@
             </select>
         @endif
 
-        @php($missingLabels = ['category' => 'No craft category', 'code' => 'No craft code', 'certificate' => 'Certificate expired or expiring', 'email' => 'No email', 'login' => 'Never signed in'])
+        @php($missingLabels = ['category' => 'No craft category', 'code' => 'No craft code', 'certificate' => 'Certificate expired or expiring', 'email' => 'No email', 'login' => 'Never signed in', 'profile' => 'Profile incomplete'])
         @if(isset($missingLabels[request('missing')]))
             <input type="hidden" name="missing" value="{{ request('missing') }}">
             <span class="mac-badge mac-badge-orange">{{ $missingLabels[request('missing')] }}</span>

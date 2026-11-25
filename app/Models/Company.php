@@ -157,6 +157,7 @@ class Company extends Model
             ->when($request->input('missing') === 'category', fn ($q) => $q->whereDoesntHave('krafSelections'))
             ->when($request->input('missing') === 'code', fn ($q) => $q->whereNull('kraf_code'))
             ->when($request->input('missing') === 'certificate', fn ($q) => $q->expiringCertificate())
+            ->when($request->input('missing') === 'profile', fn ($q) => $q->whereIntegerInRaw('companies.id', \App\Support\CompanyCredentials::incompleteIds()))
             ->when(in_array($request->input('missing'), ['email', 'login'], true), fn ($q) => $q->missingAccount($request->input('missing')));
     }
 

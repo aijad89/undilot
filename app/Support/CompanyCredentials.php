@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\EventJoinRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -266,6 +267,22 @@ final class CompanyCredentials
         }
 
         return $missing;
+    }
+
+    /**
+     * Active companies whose profile is not complete — they cannot send a
+     * request to join. missing() is PHP over a few queries per company, so the
+     * list is worked out once and kept for ten minutes; the dashboard and the
+     * Companies "Profile incomplete" filter read the same list.
+     *
+     * ponytail: a full pass every 10 minutes; store a flag on companies when saved if the pass gets slow.
+     *
+     * @return array<int, int>
+     */
+    public static function incompleteIds(): array
+    {
+        return Cache::remember('companies.profile-incomplete', 600, fn () => Company::active()
+            ->lazyById(200)->filter(fn (Company $c) => self::missing($c) !== [])->pluck('id')->values()->all());
     }
 
     /** The staff to contact, as one line: "Siti (012-345 6789), Ahmad (019-111 2222)". */
