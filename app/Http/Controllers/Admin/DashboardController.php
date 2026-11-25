@@ -120,6 +120,8 @@ class DashboardController extends Controller
                 'registrations as places_taken',
                 'registrations as coded' => fn ($q) => $inZone($q)->whereNotNull('code')->where('code', '!=', ''),
                 'registrations as confirmed' => fn ($q) => $inZone($q)->where('confirmed_participation', true),
+                // Reminded by the scheduler (voting:remind) and still not confirmed: a phone call is next.
+                'registrations as reminded' => fn ($q) => $inZone($q)->where('confirmed_participation', false)->whereNotNull('reminded_at'),
                 // Event-wide on purpose: only super and HQ read it (rule A7).
                 'registrations as awaiting' => fn ($q) => $q->awaitingLot(),
                 // A request the zone has approved stays pending until HQ verifies,
@@ -204,7 +206,8 @@ class DashboardController extends Controller
             $waiting = $event->on_list - $event->confirmed;
             if ($waiting > 0) {
                 $deadline = $event->polling_deadline ? ', closes '.$event->polling_deadline->diffForHumans() : '';
-                $rows[] = ['warn', "{$event->title}: {$waiting} ".str('company')->plural($waiting)." not confirmed yet{$deadline}",
+                $reminded = $event->reminded > 0 ? " ({$event->reminded} already reminded)" : '';
+                $rows[] = ['warn', "{$event->title}: {$waiting} ".str('company')->plural($waiting)." not confirmed yet{$reminded}{$deadline}",
                     route('admin.events.registrations.index', $event)];
             }
         }

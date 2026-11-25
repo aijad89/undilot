@@ -398,3 +398,14 @@ it('shows HQ how long it takes to verify a zone\'s row, leaving out rows HQ plac
     auth()->forgetGuards();
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('HQ verification time');
 });
+
+it('says how many of the companies still to confirm were already reminded', function () {
+    $event = Event::factory()->create(['title' => 'Open Draw', 'polling_status' => 'polling', 'polling_deadline' => now()->addDays(2)->addHour()]);
+    registered($event, 'Perak', ['reminded_at' => now()->subHour()]);
+    registered($event, 'Perak');
+    registered($event, 'Perak', ['confirmed_participation' => true, 'reminded_at' => now()->subHour()]);
+    registered($event, 'Johor', ['reminded_at' => now()->subHour()]);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('Open Draw: 2 companies not confirmed yet (1 already reminded), closes 2 days from now');
+});
