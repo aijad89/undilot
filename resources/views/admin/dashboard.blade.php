@@ -245,6 +245,17 @@
                             </div>
                         @endforeach
                     </div>
+                    <div>
+                        <h4 class="dash-sub">Top exhibitors</h4>
+                        @php($maxEx = max(1, (float) $sales['exhibitors']->max('total')))
+                        @foreach($sales['exhibitors'] as $ex)
+                            <{{ $ex->company_id ? 'a' : 'div' }} class="dash-split" @if($ex->company_id) href="{{ route('admin.companies.edit', $ex->company_id) }}" @endif>
+                                <span title="{{ $ex->events }} {{ str('event')->plural($ex->events) }}">{{ $ex->name }}</span>
+                                <span class="dash-split-bar"><span style="width: {{ round($ex->total / $maxEx * 100) }}%"></span></span>
+                                <strong>{{ $money($ex->total) }}</strong>
+                            </{{ $ex->company_id ? 'a' : 'div' }}>
+                        @endforeach
+                    </div>
                     @foreach(['By category' => $sales['byCategory'], 'By state' => $sales['byState']] as $heading => $split)
                         <div>
                             <h4 class="dash-sub">{{ $heading }}</h4>

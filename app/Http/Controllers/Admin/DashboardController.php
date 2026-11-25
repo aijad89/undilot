@@ -405,9 +405,33 @@ class DashboardController extends Controller
                 ->pluck('total', 'payment_type'),
             // A code sheet falls under its category, as on SALEBYDAY; a programme tab stands alone.
             'byCategory' => $this->salesBy('sheet', fn (string $sheet) => $categories[$sheet] ?? $sheet),
+            'exhibitors' => $this->topExhibitors(),
             // Typed into the sheet by hand: "Kelantan" and "KELANTAN " are one state.
             'byState' => $this->salesBy('state', fn (?string $state) => mb_strtoupper(trim((string) $state)) ?: 'NO STATE'),
         ];
+    }
+
+    /**
+     * The ten exhibitors who sold most, across every event. One linked to a
+     * company by its lot counts as that company, however its name was typed;
+     * one from outside the draw counts by the name on the sheet.
+     */
+    private function topExhibitors()
+    {
+        return DB::table('sales_book_entries')
+            ->leftJoin('companies', 'companies.id', '=', 'sales_book_entries.company_id')
+            ->whereNotNull('sales_book_entries.company_name')->orWhereNotNull('sales_book_entries.company_id')
+            ->selectRaw('sales_book_entries.company_id, companies.name as linked, sales_book_entries.company_name, sales_book_entries.event_id, sum(amount) as total')
+            ->groupBy('sales_book_entries.company_id', 'companies.name', 'sales_book_entries.company_name', 'sales_book_entries.event_id')
+            ->get()
+            ->groupBy(fn ($r) => $r->company_id ? "id:{$r->company_id}" : mb_strtoupper(trim($r->company_name)))
+            ->map(fn ($rows) => (object) [
+                'company_id' => $rows[0]->company_id,
+                'name' => $rows[0]->linked ?? trim($rows[0]->company_name),
+                'events' => $rows->pluck('event_id')->unique()->count(),
+                'total' => $rows->sum('total'),
+            ])
+            ->sortByDesc('total')->take(10)->values();
     }
 
     /** Sales summed by a column, its values folded by $label, biggest first. */

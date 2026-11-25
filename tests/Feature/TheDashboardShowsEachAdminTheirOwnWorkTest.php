@@ -426,3 +426,27 @@ it('splits sales by category, a programme tab on its own, and by state however i
         ->assertSeeInOrder(['By category', 'KARYANEKA', 'RM 400.00', 'TEKSTIL', 'RM 160.00'])
         ->assertSeeInOrder(['By state', 'JOHOR', 'RM 400.00', 'KELANTAN', 'RM 150.00', 'NO STATE', 'RM 10.00']);
 });
+
+it('lists the exhibitors who sold most: a linked company as one, an outside one by its typed name', function () {
+    $batras = Company::factory()->create(['name' => 'Batras Couture']);
+    $a = Event::factory()->create();
+    $b = Event::factory()->create();
+    $sale = function (Event $event, ?int $company, ?string $name, float $amount) {
+        $upload = App\Models\SalesBookUpload::firstOrCreate(['event_id' => $event->id], ['admin_id' => null, 'filename' => 'x.xlsx', 'entries' => 1]);
+        Illuminate\Support\Facades\DB::table('sales_book_entries')->insert([
+            'upload_id' => $upload->id, 'event_id' => $event->id, 'sheet' => 'TBPS', 'sheet_index' => 0, 'block' => 1,
+            'company_id' => $company, 'company_name' => $name, 'payment_type' => 'TUNAI', 'sale_date' => now()->toDateString(), 'amount' => $amount,
+        ]);
+    };
+    $sale($a, $batras->id, 'BATRAS COUTURE', 300);
+    $sale($b, $batras->id, 'Batras Couture Sdn Bhd', 300);
+    $sale($a, null, 'Jiewa Tiffin', 250);
+    $sale($b, null, 'JIEWA TIFFIN ', 200);
+    $sale($a, null, 'Kedai Kecil', 100);
+    $sale($a, null, null, 999); // an empty block: nobody's
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Top exhibitors', 'Batras Couture', 'RM 600.00', 'RM 450.00', 'Kedai Kecil', 'RM 100.00', 'By category'])
+        ->assertSee(route('admin.companies.edit', $batras), false)
+        ->assertDontSee('RM 999.00');
+});
