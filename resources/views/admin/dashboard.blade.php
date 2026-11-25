@@ -150,6 +150,18 @@
                 <p class="mac-muted mac-text-sm mb-0">No company has a craft category yet.</p>
             @endforelse
 
+            @if($companyStats['byBusinessType']->isNotEmpty())
+                @php $maxBiz = max(1, $companyStats['byBusinessType']->max()); @endphp
+                <h4 class="dash-sub">By business type</h4>
+                @foreach($companyStats['byBusinessType'] as $type => $n)
+                    <div class="dash-split">
+                        <span>{{ $type }}</span>
+                        <span class="dash-split-bar"><span style="width: {{ round($n / $maxBiz * 100) }}%"></span></span>
+                        <strong>{{ $n }}</strong>
+                    </div>
+                @endforeach
+            @endif
+
             @if($global && $companyStats['byZone']->isNotEmpty())
                 @php $maxZone = max(1, $companyStats['byZone']->max()); @endphp
                 <h4 class="dash-sub">By zone</h4>
@@ -172,7 +184,7 @@
                 From a zone placing a company on a draw list to HQ verifying it, last 90 days:
                 <strong>{{ $verifyTimes['days'] }} {{ str('day')->plural($verifyTimes['days'] == 1 ? 1 : 2) }}</strong> on average, over {{ $verifyTimes['rows'] }} {{ str('row')->plural($verifyTimes['rows']) }}.
             </p>
-            @php($maxDays = max(0.1, $verifyTimes['byZone']->max()))
+            @php $maxDays = max(0.1, $verifyTimes['byZone']->max()); @endphp
             <h4 class="dash-sub">By zone</h4>
             @foreach($verifyTimes['byZone'] as $zone => $d)
                 <div class="dash-split">
@@ -213,7 +225,7 @@
             </div>
 
             @if($sales['latest'])
-                @php($money = fn ($n) => 'RM '.number_format((float) $n, 2))
+                @php $money = fn ($n) => 'RM '.number_format((float) $n, 2); @endphp
                 <div class="dash-totals">
                     <div>
                         <strong>{{ $money($sales['latest']->total) }}</strong>
@@ -226,7 +238,7 @@
                 <div class="dash-grid">
                     <div>
                         <h4 class="dash-sub">Top events</h4>
-                        @php($maxSale = max(1, (float) $sales['top']->max('total')))
+                        @php $maxSale = max(1, (float) $sales['top']->max('total')); @endphp
                         @foreach($sales['top'] as $row)
                             <a class="dash-split" href="{{ route('admin.sales.show', $row->id) }}">
                                 <span>{{ $row->title }}</span>
@@ -237,7 +249,7 @@
                     </div>
                     <div>
                         <h4 class="dash-sub">By payment type</h4>
-                        @php($maxType = max(1, (float) $sales['byType']->max()))
+                        @php $maxType = max(1, (float) $sales['byType']->max()); @endphp
                         @foreach(\App\Support\SalesBook::PAYMENT_TYPES as $type)
                             <div class="dash-split">
                                 <span>{{ $type }}</span>
@@ -248,7 +260,7 @@
                     </div>
                     <div>
                         <h4 class="dash-sub">Top exhibitors</h4>
-                        @php($maxEx = max(1, (float) $sales['exhibitors']->max('total')))
+                        @php $maxEx = max(1, (float) $sales['exhibitors']->max('total')); @endphp
                         @foreach($sales['exhibitors'] as $ex)
                             <{{ $ex->company_id ? 'a' : 'div' }} class="dash-split" @if($ex->company_id) href="{{ route('admin.companies.edit', $ex->company_id) }}" @endif>
                                 <span title="{{ $ex->events }} {{ str('event')->plural($ex->events) }}">{{ $ex->name }}</span>
@@ -260,7 +272,7 @@
                     @foreach(['By category' => $sales['byCategory'], 'By state' => $sales['byState']] as $heading => $split)
                         <div>
                             <h4 class="dash-sub">{{ $heading }}</h4>
-                            @php($maxSplit = max(1, (float) $split->max()))
+                            @php $maxSplit = max(1, (float) $split->max()); @endphp
                             @foreach($split as $name => $total)
                                 <div class="dash-split">
                                     <span>{{ $name }}</span>

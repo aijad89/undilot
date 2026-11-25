@@ -465,6 +465,11 @@ class DashboardController extends Controller
                 ->orderByDesc('n')
                 ->pluck('n', 'name'),
 
+            // The office's field, not the participant's: "Not set" is work for the office.
+            'byBusinessType' => $companies()->active()
+                ->selectRaw("coalesce(nullif(business_type, ''), 'Not set') as type, count(*) as n")
+                ->groupBy('type')->orderByDesc('n')->toBase()->pluck('n', 'type'),
+
             'byZone' => $global
                 ? Company::query()->whereNotNull('state')
                     ->selectRaw('state, count(*) as n')->groupBy('state')->orderByDesc('n')->pluck('n', 'state')

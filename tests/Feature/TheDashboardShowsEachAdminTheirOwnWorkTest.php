@@ -464,3 +464,14 @@ it('counts the companies that used the portal in the last 30 days, in the admin\
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
         ->assertSeeInOrder(['<strong>1</strong><span>used the portal, 30 days</span>'], false);
 });
+
+it('splits the zone\'s active companies by business type, the unset ones too', function () {
+    Company::factory()->count(2)->create(['state' => 'Perak', 'business_type' => 'Pengeluar atau Pedagang']);
+    Company::factory()->create(['state' => 'Perak', 'business_type' => 'Pemborong']);
+    Company::factory()->create(['state' => 'Perak', 'business_type' => null]);
+    Company::factory()->create(['state' => 'Perak', 'business_type' => 'Pemborong', 'is_active' => false]);
+    Company::factory()->create(['state' => 'Johor', 'business_type' => 'Pemborong']);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['By business type', 'Pengeluar atau Pedagang', '<strong>2</strong>', 'Pemborong', '<strong>1</strong>', 'Not set', '<strong>1</strong>'], false);
+});
