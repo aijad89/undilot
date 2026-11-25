@@ -60,6 +60,9 @@
                 @php
                     // The next date that matters for this event.
                     [$nextLabel, $nextAt] = match (true) {
+                        // Registration comes before the draw: the list is filled while it is open.
+                        (bool) $event->registration_open_at?->isFuture() => ['Registration opens', $event->registration_open_at],
+                        (bool) $event->registration_close_at?->isFuture() => ['Registration closes', $event->registration_close_at],
                         $event->polling_status === 'draft' && $event->polling_start_date?->isFuture() => ['Draw opens', $event->polling_start_date],
                         $event->polling_status === 'polling' && $event->polling_deadline?->isFuture() => ['Draw closes', $event->polling_deadline],
                         (bool) $event->start_date?->isFuture() => ['Starts', $event->start_date],

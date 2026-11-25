@@ -353,3 +353,16 @@ it('shows how many places of the event are filled, event-wide, even to a zone', 
     registered($event, 'Kedah');
     $this->get(route('admin.dashboard'))->assertSee('<span class="dash-full">3/3 places filled</span>', false);
 });
+
+it('says when registration opens or closes, before the draw dates', function () {
+    Event::factory()->create(['title' => 'Belum Buka', 'registration_open_at' => now()->addDays(5)->addHour(), 'registration_close_at' => now()->addDays(20)]);
+    Event::factory()->create(['title' => 'Sedang Buka', 'registration_open_at' => now()->subDay(), 'registration_close_at' => now()->addDays(3)->addHour(),
+        'polling_start_date' => now()->addDays(10)]);
+    Event::factory()->create(['title' => 'Sudah Tutup', 'registration_open_at' => now()->subDays(9), 'registration_close_at' => now()->subDay(),
+        'polling_start_date' => now()->addDays(2)->addHour()]);
+
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Belum Buka', 'Registration opens 5 days from now'], false)
+        ->assertSeeInOrder(['Sedang Buka', 'Registration closes 3 days from now'], false)
+        ->assertSeeInOrder(['Sudah Tutup', 'Draw opens 2 days from now'], false);
+});
