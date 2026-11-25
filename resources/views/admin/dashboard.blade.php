@@ -196,6 +196,22 @@
         </section>
     @endif
 
+    {{-- ── Recent activity (super) ────────────────────────────────── --}}
+    @if($activity?->isNotEmpty())
+        <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-activity">
+            <div class="d-flex justify-content-between align-items-baseline">
+                <h3 class="mac-card-title" id="dash-activity">Recent activity</h3>
+                <a href="{{ route('admin.audit-trails.index') }}" class="mac-text-sm">Audit trail</a>
+            </div>
+            @foreach($activity as $audit)
+                <a class="dash-split dash-activity" href="{{ route('admin.audit-trails.show', $audit) }}">
+                    <span>{{ $audit->performer?->name ?? 'System' }} · {{ $audit->action_badge[1] }} {{ $audit->model_label }} #{{ $audit->auditable_id ?? '—' }}</span>
+                    <span class="mac-muted">{{ $audit->created_at->diffForHumans() }}</span>
+                </a>
+            @endforeach
+        </section>
+    @endif
+
     {{-- ── Finished events ─────────────────────────────────────────── --}}
     @if($completed->isNotEmpty())
         <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-completed">
@@ -307,6 +323,7 @@
     .dash-event-title { font-weight: 650; color: var(--ui-text); text-decoration: none; }
     .dash-event-title:hover { text-decoration: underline; }
     .dash-figures { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; color: var(--ui-text-2); }
+    .dash-activity { grid-template-columns: minmax(0, 1fr) auto; }
     .dash-full { color: var(--ui-bad-text); font-weight: 650; }
     .dash-bar { height: 8px; margin-top: 8px; border-radius: 99px; background: var(--ui-neutral-tint); overflow: hidden; }
     .dash-bar > span { display: block; height: 100%; background: var(--ui-ok-text); }

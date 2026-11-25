@@ -23,8 +23,9 @@ use Illuminate\Support\Facades\DB;
  * admin here, so this route existing is what keeps an already-signed-in admin
  * from being bounced to the PARTICIPANT login form when they open /admin/login.
  *
- * Six sections — what needs fixing, the events, the companies, recently
- * finished events, sales (HQ and super), and shortcuts.
+ * What needs fixing, the events, the companies, HQ verification time (HQ and
+ * super), recent activity (super), recently finished events, sales (HQ and
+ * super), and shortcuts.
  * Every count is scoped the way the screen it links to is scoped: a state admin
  * counts their own zone (through `companies.state`) and never sees a draft
  * event; HQ and super count everything. Counts only, aggregated in SQL.
@@ -60,6 +61,10 @@ class DashboardController extends Controller
             'companyStats' => $this->companyStats($global, $companies),
             'sales' => $admin->can('manage-sales-book') ? $this->sales() : null,
             'verifyTimes' => $global ? $this->verifyTimes() : null,
+            // The audit trail is super's alone (read-audit-trail).
+            'activity' => $admin->can('read-audit-trail')
+                ? \App\Models\AuditTrail::with('performer')->latest('created_at')->latest('id')->take(10)->get()
+                : null,
         ]);
     }
 

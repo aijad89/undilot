@@ -475,3 +475,19 @@ it('splits the zone\'s active companies by business type, the unset ones too', f
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
         ->assertSeeInOrder(['By business type', 'Pengeluar atau Pedagang', '<strong>2</strong>', 'Pemborong', '<strong>1</strong>', 'Not set', '<strong>1</strong>'], false);
 });
+
+it('shows super the last ten audit rows, and never HQ', function () {
+    $super = superAdmin(['name' => 'Puan Super']);
+    $this->actingAs($super, 'admin');
+    foreach (range(1, 11) as $i) {
+        App\Models\AuditTrail::record('plan_rewrite');
+    }
+    $company = Company::factory()->create();
+
+    $page = $this->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Recent activity', 'Puan Super · Created Company #'.$company->id, 'Plan rewritten']);
+    expect(substr_count(str($page->getContent())->after('Recent activity')->before('</section>'), 'class="dash-split dash-activity"'))->toBe(10);
+
+    auth()->forgetGuards();
+    $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))->assertDontSee('Recent activity');
+});
