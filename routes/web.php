@@ -183,6 +183,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('{event}', [PollingController::class, 'show'])->name('show');
             Route::get('{event}/sizes/{plotSize}', [PollingController::class, 'viewPlotsBySize'])->name('plots.by-size');
+            Route::get('{event}/sales-book', [PollingController::class, 'salesBook'])->middleware('can:export-sales-book')->name('sales-book');
         });
 
         /*

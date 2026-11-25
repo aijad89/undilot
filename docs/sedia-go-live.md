@@ -70,6 +70,8 @@ Senarai semak penuh: [`serahan-pembangun.md` seksyen 13](serahan-pembangun.md#13
       di pelayan. Boleh dijalankan semula: tambah sahaja, tiada yang dipadam.
       Kemas kini hierarki kemudian: sunting fail itu, deploy, jalankan
       `php artisan kraf:import-hierarchy database/data/hierarki-kraf.csv`
+- [ ] Sambungan PHP `gd`, `zip`, `xmlwriter` (PhpSpreadsheet, buku jualan
+      `.xlsx`) — `php -m` pada pelayan
 - [ ] `php artisan storage:link` (tanpanya sepanduk acara hilang tanpa ralat)
 - [ ] Penjadual dari `/etc/cron.d/undilot` (bukan crontab `www-data`)
 - [ ] Pekerja baris gilir (systemd `queue:work database`) — tanpanya **tiada

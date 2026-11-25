@@ -318,6 +318,12 @@ diterima (`rule($keep)`), atau simpanan memadamnya senyap.
 
 ### IC pada slip: suis `SLIP_SHOWS_IC`, lalai on (pemilik 2026-11-16)
 
+### Buku jualan: undilot menjana `.xlsx`, HQ mengisinya (pemilik 2026-11-25)
+`App\Support\SalesBook`: satu helaian per kod, empat baris bayaran per lot, satu
+lajur per hari acara. Jualan tidak disimpan dalam undilot; peserta luar cabutan
+ditambah HQ sendiri dalam Excel. Gate `export-sales-book` = HQ/super.
+Ringkasan (SALEBYDAY, RINGKASAN) belum diputuskan. `TheSalesBookListsEveryLotByCodeTest`.
+
 ### `$unreadNotificationCount` disediakan oleh senarai view
 View baharu yang membacanya **mesti** ditambah pada composer dalam
 `AppServiceProvider`, atau ia 500.

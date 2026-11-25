@@ -228,6 +228,9 @@ class AppServiceProvider extends ServiceProvider
             return $admin->hasGlobalAccess();
         });
 
+        /* The sales book (.xlsx) is HQ's to keep (owner, 2026-11-25). */
+        Gate::define('export-sales-book', fn (Admin $admin) => $admin->hasGlobalAccess());
+
         /* The audit trail: super only (owner, 2026-11-24). */
         Gate::define('read-audit-trail', fn (Admin $admin) => $admin->isSuperAdmin());
 

@@ -14,6 +14,7 @@ use App\Models\Poll;
 use App\Services\PlotAllocationAlgorithm;
 use App\Support\EventVisibility;
 use App\Support\PollingGuard;
+use App\Support\SalesBook;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -641,6 +642,24 @@ class PollingController extends Controller
         return back()->with('success', $wasDrawn
             ? "Plot {$plot->plot_code} was drawn, not reserved — the result has been cleared, and that company can draw again."
             : "Reservation on plot {$plot->plot_code} removed.");
+    }
+
+    /** The sales book for HQ to type the paper books into. See SalesBook. */
+    public function salesBook(Event $event)
+    {
+        EventVisibility::authorize($event);
+
+        if ($event->plots()->doesntExist()) {
+            return back()->with('error', 'This event has no plots yet, so there is no sales book to make.');
+        }
+
+        $book = SalesBook::for($event);
+
+        return response()->streamDownload(
+            fn () => (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book))->save('php://output'),
+            'buku-jualan-'.(\Illuminate\Support\Str::slug($event->title) ?: $event->id).'.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        );
     }
 
     public function viewPlotsBySize(Request $request, Event $event, PlotSize $plotSize)
