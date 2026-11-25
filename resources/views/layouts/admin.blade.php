@@ -243,6 +243,8 @@
                         // The draw list lives under an event, so it lights Events up too.
                         ['label' => 'Events', 'route' => 'admin.events.index', 'match' => ['admin.events.*']],
                         ['label' => 'Lot Draw', 'route' => 'admin.polling.index', 'match' => ['admin.polling.*']],
+                        ['label' => 'Sales', 'route' => 'admin.sales.index', 'match' => ['admin.sales.*'],
+                         'when' => fn ($admin) => $admin->can('manage-sales-book')],
                     ],
                 ],
                 [

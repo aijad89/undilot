@@ -321,7 +321,9 @@ diterima (`rule($keep)`), atau simpanan memadamnya senyap.
 ### Buku jualan: undilot menjana `.xlsx`, HQ mengisinya (pemilik 2026-11-25)
 Halaman per acara (`SalesBookController`): helaian kod dari cabutan, ditambah tab
 program luar cabutan (`sales_book_tabs`: nama + bilangan blok kosong). Empat baris
-bayaran per lot, satu lajur per hari. Jualan **tidak** disimpan dalam undilot.
+bayaran per lot, satu lajur per hari. Buku yang diisi dimuat naik semula
+(`SalesBookImport`, `sales_book_entries`): **semua atau tiada**, dan setiap muat naik
+**menggantikan** yang lepas. Jadual jualan dibaca di menu *Sales* (`SalesController`).
 Ringkasan di depan: RINGKASAN (nilai tetap; 3x6 = 2 lot), RINGKASAN KESELURUHAN, RING1,
 SALEBYDAY (formula). Gate `manage-sales-book` = HQ/super. `TheSalesBookListsEveryLotByCodeTest`.
 

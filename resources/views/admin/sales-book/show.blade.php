@@ -18,7 +18,7 @@
             <p class="mac-muted mb-0">
                 One sheet per craft code from the draw, then one per programme tab below.
                 Each day of the event, {{ $event->start_date->format('d M') }} – {{ $event->end_date->format('d M Y') }}, is a column.
-                Sales are typed into the downloaded file, not here.
+                Type the sales into the downloaded file, then upload it back to keep them here.
             </p>
         </div>
         @if($codeSheets->isNotEmpty() || $tabs->isNotEmpty())
@@ -27,6 +27,48 @@
             </a>
         @endif
     </div>
+
+    <div class="mac-card mac-card-padded mb-3">
+        <h3 class="mac-card-title">Upload the filled workbook</h3>
+        <p class="mac-muted small mb-2">
+            @if($upload)
+                Last upload: <strong>{{ $upload->filename }}</strong>, {{ $upload->entries }} sales,
+                by {{ $upload->admin?->name ?? 'an admin since removed' }} on {{ $upload->created_at->format('d M Y, H:i') }}.
+                A new upload replaces it.
+            @else
+                Nothing uploaded yet. Each upload replaces the one before: the workbook is the whole book.
+            @endif
+        </p>
+        <form method="POST" action="{{ route('admin.polling.sales-book.upload', $event) }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+            @csrf
+            <input type="file" name="workbook" accept=".xlsx" class="mac-form-control" style="width:auto" required>
+            <button type="submit" class="mac-btn-primary"
+                    @if($upload) data-confirm="Replace the {{ $upload->entries }} sales from {{ $upload->filename }}?" @endif>
+                <i class="bi bi-upload me-1" aria-hidden="true"></i>Upload
+            </button>
+        </form>
+        @error('workbook')
+            <div class="text-danger small mt-2">
+                Nothing was saved.
+                <ul class="mb-0">
+                    @foreach($errors->get('workbook') as $message)
+                        @foreach((array) $message as $line)
+                            <li>{{ $line }}</li>
+                        @endforeach
+                    @endforeach
+                </ul>
+            </div>
+        @enderror
+    </div>
+
+    @if($upload)
+        <div class="mac-card mac-card-padded mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>The uploaded sales are kept and shown on the Sales page.</span>
+            <a href="{{ route('admin.sales.show', $event) }}" class="mac-btn-secondary">
+                <i class="bi bi-table me-1" aria-hidden="true"></i>View sales
+            </a>
+        </div>
+    @endif
 
     <div class="mac-card mac-card-padded mb-3">
         <h3 class="mac-card-title">Add a tab</h3>

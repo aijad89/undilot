@@ -28,7 +28,7 @@ it('gives a super admin every item, admins in two lists', function () {
     expect(sidebarLabels(sidebarOf(superAdmin())))->toBe([
         'Dashboard',
         'User', 'Companies', 'HQ Admins', 'State Admins',
-        'The Event', 'Events', 'Lot Draw',
+        'The Event', 'Events', 'Lot Draw', 'Sales',
         'Setting', 'Dropdown Lists', 'Craft Category Code', 'Craft Hierarchy', 'Lot Draw', 'Audit Trail',
         'Sign Out',
     ]);
@@ -37,7 +37,7 @@ it('gives a super admin every item, admins in two lists', function () {
 it('gives an hq admin the state admins but not the hq list', function () {
     $labels = sidebarLabels(sidebarOf(Admin::factory()->hq()->create()));
 
-    expect($labels)->toContain('State Admins', 'Setting', 'Craft Hierarchy')
+    expect($labels)->toContain('State Admins', 'Setting', 'Craft Hierarchy', 'Sales')
         ->not->toContain('HQ Admins');
     // The audit trail is super only (2026-11-24).
     expect(in_array('Audit Trail', $labels, true))->toBeFalse();

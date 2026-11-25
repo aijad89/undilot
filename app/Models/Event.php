@@ -185,6 +185,17 @@ class Event extends Model
         return $this->hasMany(SalesBookTab::class);
     }
 
+    /** The filled sales book uploaded back — one per event, the latest kept. */
+    public function salesBookUpload()
+    {
+        return $this->hasOne(SalesBookUpload::class)->latestOfMany();
+    }
+
+    public function salesBookEntries()
+    {
+        return $this->hasMany(SalesBookEntry::class);
+    }
+
     public function presetAllocations()
     {
         return $this->hasMany(PresetAllocation::class);

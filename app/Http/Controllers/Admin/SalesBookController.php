@@ -5,17 +5,22 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\KrafBidang;
+use App\Models\SalesBookEntry;
+use App\Models\SalesBookUpload;
 use App\Models\SalesBookTab;
 use App\Support\EventVisibility;
 use App\Support\SalesBook;
+use App\Support\SalesBookImport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * An event's sales book: the code sheets undilot builds from the draw, the
- * extra tabs HQ adds for programmes outside it, and the .xlsx download.
+ * extra tabs HQ adds for programmes outside it, the .xlsx download, and the
+ * filled book uploaded back, whose sales are kept and shown here.
  * HQ/super only, by the `manage-sales-book` gate on the routes.
  */
 class SalesBookController extends Controller
@@ -28,7 +33,59 @@ class SalesBookController extends Controller
             'event' => $event,
             'codeSheets' => SalesBook::lotsByCode($event)->map->count(),
             'tabs' => $event->salesBookTabs()->orderBy('id')->get(),
+            'upload' => $event->salesBookUpload()->with('admin')->first(),
         ]);
+    }
+
+    /**
+     * The filled book back. Replaces the event's sales wholesale: the workbook
+     * is the whole book, so a figure HQ cleared in Excel is cleared here too.
+     */
+    public function upload(Request $request, Event $event)
+    {
+        EventVisibility::authorize($event);
+
+        $request->validate(['workbook' => ['required', 'file', 'mimes:xlsx', 'max:20480']]);
+        $file = $request->file('workbook');
+
+        try {
+            $import = SalesBookImport::read($file->getRealPath(), $event);
+        } catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
+            return back()->withErrors(['workbook' => 'The file could not be read as an Excel workbook.']);
+        }
+
+        if ($import->errors) {
+            return back()->withErrors(['workbook' => $import->errors]);
+        }
+        if (! $import->entries) {
+            return back()->withErrors(['workbook' => 'No sales were found in the file. Nothing was changed.']);
+        }
+
+        DB::transaction(function () use ($event, $file, $import, $request) {
+            // Each delete is audited, entries go with it by cascade.
+            SalesBookUpload::where('event_id', $event->id)->get()->each->delete();
+
+            $upload = SalesBookUpload::create([
+                'event_id' => $event->id,
+                'admin_id' => $request->user('admin')->id,
+                'filename' => mb_substr($file->getClientOriginalName(), 0, 255),
+                'entries' => count($import->entries),
+            ]);
+
+            $now = now();
+            foreach (array_chunk($import->entries, 500) as $chunk) {
+                SalesBookEntry::insert(array_map(fn ($entry) => $entry + [
+                    'upload_id' => $upload->id, 'event_id' => $event->id, 'created_at' => $now, 'updated_at' => $now,
+                ], $chunk));
+            }
+        });
+
+        $message = count($import->entries).' sales read.';
+        if ($import->skipped) {
+            $message .= ' Left out, not in the sales-sheet shape: '.implode(', ', $import->skipped).'.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function storeTab(Request $request, Event $event)

@@ -580,6 +580,44 @@ return new class extends Migration
             $table->unique(['event_id', 'name']);
         });
 
+        // A filled sales book HQ uploaded back. One per event: a new upload
+        // replaces the last, entries and all — the workbook is the whole book.
+        Schema::create('sales_book_uploads', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('admin_id')->nullable()->constrained('admins')->nullOnDelete();
+            $table->string('filename');
+            $table->unsignedInteger('entries');
+            $table->timestamps();
+        });
+
+        // One sale: an exhibitor block on one sheet, one day, one payment type.
+        // The exhibitor's details are copied as the sheet had them — a tab's
+        // exhibitors exist nowhere else. plot_id / company_id link a drawn lot
+        // when its number matches; SET NULL, the sale outlives the plan.
+        Schema::create('sales_book_entries', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('upload_id')->constrained('sales_book_uploads')->cascadeOnDelete();
+            $table->foreignId('event_id')->constrained()->cascadeOnDelete();
+            $table->string('sheet', 31);
+            $table->unsignedSmallInteger('sheet_index');
+            $table->unsignedSmallInteger('block');
+            $table->string('lot')->nullable();
+            $table->string('company_name')->nullable();
+            $table->string('entrepreneur')->nullable();
+            $table->string('state')->nullable();
+            $table->string('community_id', 50)->nullable();
+            $table->foreignId('plot_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('company_id')->nullable()->constrained()->nullOnDelete();
+            // SalesBook::PAYMENT_TYPES. A string, not an enum.
+            $table->string('payment_type', 20);
+            $table->date('sale_date');
+            $table->decimal('amount', 12, 2);
+            $table->timestamps();
+
+            $table->index(['event_id', 'sheet_index', 'block']);
+        });
+
         Schema::create('polls', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -888,6 +926,8 @@ return new class extends Migration
             'notifications',
             'preset_allocations',
             'polls',
+            'sales_book_entries',
+            'sales_book_uploads',
             'sales_book_tabs',
             'event_join_requests',
             'event_registrations',
