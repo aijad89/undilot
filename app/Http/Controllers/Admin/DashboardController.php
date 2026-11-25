@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\DB;
  * admin here, so this route existing is what keeps an already-signed-in admin
  * from being bounced to the PARTICIPANT login form when they open /admin/login.
  *
- * Four sections — what needs fixing, the events, the companies, and shortcuts.
+ * Five sections — what needs fixing, the events, the companies, sales (HQ and
+ * super), and shortcuts.
  * Every count is scoped the way the screen it links to is scoped: a state admin
  * counts their own zone (through `companies.state`) and never sees a draft
  * event; HQ and super count everything. Counts only, aggregated in SQL.
@@ -52,6 +53,7 @@ class DashboardController extends Controller
             // Every current event is checked for attention; the card lists the soonest few.
             'events' => $events->take(self::EVENTS_SHOWN),
             'companyStats' => $this->companyStats($global, $companies),
+            'sales' => $admin->can('manage-sales-book') ? $this->sales() : null,
         ]);
     }
 
@@ -121,6 +123,7 @@ class DashboardController extends Controller
                         ->whereColumn('event_registrations.company_id', 'event_join_requests.company_id')),
                 'registrations as hq_waiting' => fn ($q) => $inZone($q)->whereNull('verified_at')->whereNull('hq_note'),
                 'registrations as hq_returned' => fn ($q) => $inZone($q)->whereNotNull('hq_note'),
+                'registrations as unpaid' => fn ($q) => $inZone($q)->where('payment_status', 'unpaid'),
                 'joinRequests as zone_rejected' => fn ($q) => $q->rejectedByZone()->where('reviewed_at', '>=', now()->subDays(7)),
                 'plots as plots_total',
                 // A set-aside lot is a surprise to the zone until it is confirmed.
@@ -208,6 +211,35 @@ class DashboardController extends Controller
             }
         }
 
+        // A10 — draw-list rows marked unpaid. It does not hold the draw; it is a reminder.
+        foreach ($events as $event) {
+            if ($event->unpaid > 0) {
+                $rows[] = ['info', "{$event->title}: {$event->unpaid} draw-list ".str('row')->plural($event->unpaid).' marked unpaid',
+                    route('admin.events.registrations.index', [$event, 'payment' => 'unpaid'])];
+            }
+        }
+
+        // A11 — a current certificate expired or expiring within 30 days. Never a
+        // block (owner 2026-11-24): a warning so the office can ask for the new one.
+        $expiring = $companies()->active()->expiringCertificate()->count();
+        if ($expiring > 0) {
+            $rows[] = ['warn', "{$expiring} ".str('company')->plural($expiring).' with a certificate expired or expiring within 30 days',
+                route('admin.companies.index', ['missing' => 'certificate'])];
+        }
+
+        // A12 — accounts that cannot sign in: no email (the office sets it), or
+        // an email but the first sign-in has not happened yet.
+        $noEmail = $companies()->active()->missingAccount('email')->count();
+        if ($noEmail > 0) {
+            $rows[] = ['warn', "{$noEmail} ".str('company')->plural($noEmail).' with no email — they cannot sign in to the portal',
+                route('admin.companies.index', ['missing' => 'email'])];
+        }
+        $neverIn = $companies()->active()->missingAccount('login')->count();
+        if ($neverIn > 0) {
+            $rows[] = ['info', "{$neverIn} ".str('company')->plural($neverIn).' with an email but never signed in',
+                route('admin.companies.index', ['missing' => 'login'])];
+        }
+
         // A5/A6 — companies missing what describes them.
         $noCategory = $companies()->active()->whereDoesntHave('krafSelections')->count();
         if ($noCategory > 0) {
@@ -222,6 +254,28 @@ class DashboardController extends Controller
         }
 
         return $rows;
+    }
+
+    /**
+     * Sales from the uploaded sales books: the latest event with sales, the top
+     * five events, and all sales by payment type. HQ and super only.
+     */
+    private function sales(): array
+    {
+        $byEvent = DB::table('sales_book_entries')
+            ->join('events', 'events.id', '=', 'sales_book_entries.event_id')
+            ->selectRaw('events.id, events.title, events.start_date, sum(amount) as total')
+            ->groupBy('events.id', 'events.title', 'events.start_date')
+            ->get();
+
+        return [
+            'latest' => $byEvent->sortByDesc('start_date')->first(),
+            'events' => $byEvent->count(),
+            'top' => $byEvent->sortByDesc('total')->take(5)->values(),
+            'byType' => DB::table('sales_book_entries')
+                ->selectRaw('payment_type, sum(amount) as total')->groupBy('payment_type')
+                ->pluck('total', 'payment_type'),
+        ];
     }
 
     /** Totals, by craft category, and — for super and HQ — by zone. */

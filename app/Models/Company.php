@@ -155,7 +155,24 @@ class Company extends Model
             ))
             ->when($request->input('state'), fn ($q, $zone) => $q->where('state', $zone))
             ->when($request->input('missing') === 'category', fn ($q) => $q->whereDoesntHave('krafSelections'))
-            ->when($request->input('missing') === 'code', fn ($q) => $q->whereNull('kraf_code'));
+            ->when($request->input('missing') === 'code', fn ($q) => $q->whereNull('kraf_code'))
+            ->when($request->input('missing') === 'certificate', fn ($q) => $q->expiringCertificate())
+            ->when(in_array($request->input('missing'), ['email', 'login'], true), fn ($q) => $q->missingAccount($request->input('missing')));
+    }
+
+    /** A current certificate (not replaced) that has ended, or ends within 30 days. */
+    public function scopeExpiringCertificate($query)
+    {
+        return $query->whereHas('certificates', fn ($c) => $c->whereNull('replaced_at')
+            ->whereNotNull('ends_on')->where('ends_on', '<=', now()->addDays(30)->toDateString()));
+    }
+
+    /** 'email': the account has no email, so no sign-in. 'login': an email, never signed in. */
+    public function scopeMissingAccount($query, string $what)
+    {
+        return $query->whereHas('user', fn ($u) => $what === 'email'
+            ? $u->whereNull('email')
+            : $u->whereNotNull('email')->whereNull('password_changed_at'));
     }
 
     /**

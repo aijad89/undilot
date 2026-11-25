@@ -71,6 +71,7 @@ class EntRegistrationController extends Controller
                 'verified' => $q->whereNotNull('verified_at'),
                 default => $q,
             })
+            ->when(in_array($request->input('payment'), ['paid', 'unpaid'], true), fn ($q) => $q->where('payment_status', $request->input('payment')))
             ->when($request->input('missing'), fn ($q, $missing) => array_key_exists($missing, EventRegistration::missingFilters())
                 ? $q->missing($missing === 'any' ? null : $missing)
                 : $q)

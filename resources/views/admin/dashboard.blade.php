@@ -140,6 +140,55 @@
             @endif
         </section>
     </div>
+
+    {{-- ── Sales (HQ and super) ───────────────────────────────────── --}}
+    @if($sales)
+        <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-sales">
+            <div class="d-flex justify-content-between align-items-baseline">
+                <h3 class="mac-card-title" id="dash-sales">Sales</h3>
+                <a href="{{ route('admin.sales.index') }}" class="mac-text-sm">All sales</a>
+            </div>
+
+            @if($sales['latest'])
+                @php($money = fn ($n) => 'RM '.number_format((float) $n, 2))
+                <div class="dash-totals">
+                    <div>
+                        <strong>{{ $money($sales['latest']->total) }}</strong>
+                        <span>latest: <a href="{{ route('admin.sales.show', $sales['latest']->id) }}">{{ $sales['latest']->title }}</a></span>
+                    </div>
+                    <div><strong>{{ $money($sales['byType']->sum()) }}</strong><span>all events</span></div>
+                    <div><strong>{{ $sales['events'] }}</strong><span>{{ str('event')->plural($sales['events']) }} with sales</span></div>
+                </div>
+
+                <div class="dash-grid">
+                    <div>
+                        <h4 class="dash-sub">Top events</h4>
+                        @php($maxSale = max(1, (float) $sales['top']->max('total')))
+                        @foreach($sales['top'] as $row)
+                            <a class="dash-split" href="{{ route('admin.sales.show', $row->id) }}">
+                                <span>{{ $row->title }}</span>
+                                <span class="dash-split-bar"><span style="width: {{ round($row->total / $maxSale * 100) }}%"></span></span>
+                                <strong>{{ $money($row->total) }}</strong>
+                            </a>
+                        @endforeach
+                    </div>
+                    <div>
+                        <h4 class="dash-sub">By payment type</h4>
+                        @php($maxType = max(1, (float) $sales['byType']->max()))
+                        @foreach(\App\Support\SalesBook::PAYMENT_TYPES as $type)
+                            <div class="dash-split">
+                                <span>{{ $type }}</span>
+                                <span class="dash-split-bar"><span style="width: {{ round(($sales['byType'][$type] ?? 0) / $maxType * 100) }}%"></span></span>
+                                <strong>{{ $money($sales['byType'][$type] ?? 0) }}</strong>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <p class="mac-muted mac-text-sm mb-0">No sales book uploaded yet.</p>
+            @endif
+        </section>
+    @endif
 </div>
 
 <style>

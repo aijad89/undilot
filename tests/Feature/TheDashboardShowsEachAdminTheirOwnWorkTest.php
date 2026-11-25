@@ -190,3 +190,71 @@ it('warns super and HQ of server setup that fails without an error, never on a d
     expect(array_column(\App\Http\Controllers\Admin\DashboardController::serverProblems(), 1))
         ->toBe(file_exists(public_path('storage')) ? [] : ['Server: php artisan storage:link has not been run — event banners do not show.']);
 });
+
+it('counts unpaid draw-list rows per event, linking to the filtered list', function () {
+    $event = Event::factory()->create(['title' => 'MICF Test']);
+    registered($event, 'Perak', ['payment_status' => 'unpaid']);
+    registered($event, 'Perak', ['payment_status' => 'paid']);
+    registered($event, 'Johor', ['payment_status' => 'unpaid']);
+
+    $link = route('admin.events.registrations.index', [$event, 'payment' => 'unpaid']);
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('MICF Test: 1 draw-list row marked unpaid')
+        ->assertSee($link, false);
+
+    $this->get($link)->assertOk()->assertSee('Unpaid');
+    expect($this->get($link)->viewData('registrations')->total())->toBe(1);
+});
+
+it('warns of certificates expired or expiring within 30 days, never a replaced one', function () {
+    $soon = Company::factory()->create(['state' => 'Perak']);
+    App\Models\CompanyCertificate::factory()->create(['company_id' => $soon->id, 'ends_on' => now()->addDays(10)->toDateString()]);
+    $old = Company::factory()->create(['state' => 'Perak']);
+    App\Models\CompanyCertificate::factory()->create(['company_id' => $old->id, 'ends_on' => now()->subYear()->toDateString(), 'replaced_at' => now()]);
+    App\Models\CompanyCertificate::factory()->create(['company_id' => $old->id, 'ends_on' => now()->addYear()->toDateString()]);
+    $other = Company::factory()->create(['state' => 'Johor']);
+    App\Models\CompanyCertificate::factory()->create(['company_id' => $other->id, 'ends_on' => now()->subDay()->toDateString()]);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 company with a certificate expired or expiring within 30 days')
+        ->assertSee(route('admin.companies.index', ['missing' => 'certificate']), false);
+
+    auth()->forgetGuards();
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('2 companies with a certificate expired or expiring within 30 days');
+    $this->get(route('admin.companies.index', ['missing' => 'certificate']))->assertOk()
+        ->assertSee($soon->name)->assertSee($other->name)->assertDontSee($old->name);
+});
+
+it('counts companies that cannot sign in: no email, or never signed in', function () {
+    $noEmail = Company::factory()->create(['state' => 'Perak', 'user_id' => App\Models\User::factory()->create(['email' => null, 'password_changed_at' => null])->id]);
+    $never = Company::factory()->create(['state' => 'Perak', 'user_id' => App\Models\User::factory()->create(['password_changed_at' => null])->id]);
+    $fine = Company::factory()->create(['state' => 'Perak']);
+
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSee('1 company with no email')
+        ->assertSee('1 company with an email but never signed in');
+
+    $this->get(route('admin.companies.index', ['missing' => 'email']))->assertSee($noEmail->name)->assertDontSee($never->name)->assertDontSee($fine->name);
+    $this->get(route('admin.companies.index', ['missing' => 'login']))->assertSee($never->name)->assertDontSee($noEmail->name)->assertDontSee($fine->name);
+});
+
+it('shows HQ the sales card, and never a state admin', function () {
+    $old = Event::factory()->create(['title' => 'Pameran Lama', 'start_date' => now()->subYear(), 'end_date' => now()->subYear()->addDays(2)]);
+    $new = Event::factory()->create(['title' => 'Pameran Baru', 'start_date' => now()->subMonth(), 'end_date' => now()->subMonth()->addDays(2)]);
+    foreach ([[$old, 'TUNAI', 5000], [$new, 'TUNAI', 1000], [$new, 'KAD KREDIT', 250.5]] as [$event, $type, $amount]) {
+        $upload = App\Models\SalesBookUpload::create(['event_id' => $event->id, 'admin_id' => null, 'filename' => 'x.xlsx', 'entries' => 1]);
+        Illuminate\Support\Facades\DB::table('sales_book_entries')->insert([
+            'upload_id' => $upload->id, 'event_id' => $event->id, 'sheet' => 'TBPS', 'sheet_index' => 0, 'block' => 1,
+            'payment_type' => $type, 'sale_date' => now()->toDateString(), 'amount' => $amount,
+        ]);
+    }
+
+    $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['Sales', 'RM 1,250.50', 'Pameran Baru', 'RM 6,250.50', '2', 'events with sales'])
+        ->assertSeeInOrder(['Top events', 'Pameran Lama', 'Pameran Baru'])
+        ->assertSeeInOrder(['TUNAI', 'RM 6,000.00', 'KAD KREDIT', 'RM 250.50']);
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('events with sales');
+});

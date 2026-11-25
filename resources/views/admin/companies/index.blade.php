@@ -32,11 +32,10 @@
             </select>
         @endif
 
-        @if(in_array(request('missing'), ['category', 'code'], true))
+        @php($missingLabels = ['category' => 'No craft category', 'code' => 'No craft code', 'certificate' => 'Certificate expired or expiring', 'email' => 'No email', 'login' => 'Never signed in'])
+        @if(isset($missingLabels[request('missing')]))
             <input type="hidden" name="missing" value="{{ request('missing') }}">
-            <span class="mac-badge mac-badge-orange">
-                {{ request('missing') === 'category' ? 'No craft category' : 'No craft code' }}
-            </span>
+            <span class="mac-badge mac-badge-orange">{{ $missingLabels[request('missing')] }}</span>
         @endif
 
         <button type="submit" class="mac-filter-btn">Filter</button>

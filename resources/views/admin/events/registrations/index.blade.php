@@ -183,6 +183,12 @@
             <option value="verified" @selected(request('status') === 'verified')>Verified</option>
         </select>
 
+        <select name="payment" class="mac-select" aria-label="Filter by payment">
+            <option value="">Any payment</option>
+            <option value="unpaid" @selected(request('payment') === 'unpaid')>Unpaid</option>
+            <option value="paid" @selected(request('payment') === 'paid')>Paid</option>
+        </select>
+
         <select name="missing" class="mac-select" aria-label="Filter by missing details">
             <option value="">Any details</option>
             @foreach($missingFilters as $value => $label)
@@ -192,7 +198,7 @@
 
         <button type="submit" class="mac-filter-btn">Filter</button>
 
-        @if(request()->hasAny(['search', 'code', 'status', 'missing']))
+        @if(request()->hasAny(['search', 'code', 'status', 'payment', 'missing']))
             <a href="{{ route('admin.events.registrations.index', $event) }}" class="mac-clear-btn">Clear</a>
         @endif
 
