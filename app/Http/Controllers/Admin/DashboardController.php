@@ -58,6 +58,7 @@ class DashboardController extends Controller
             'completed' => $this->completed($admin, $global, $inZone),
             'companyStats' => $this->companyStats($global, $companies),
             'sales' => $admin->can('manage-sales-book') ? $this->sales() : null,
+            'verifyTimes' => $global ? $this->verifyTimes() : null,
         ]);
     }
 
@@ -347,6 +348,35 @@ class DashboardController extends Controller
         }
 
         return $rows;
+    }
+
+    /**
+     * How long HQ takes to verify a row a zone placed, over the last 90 days:
+     * placed (created_at) to first verified, overall and by the company's zone.
+     * A row HQ placed itself is verified as it is made, so anything verified
+     * within a minute is left out. Null when there is nothing to measure.
+     */
+    private function verifyTimes(): ?array
+    {
+        $rows = EventRegistration::query()
+            ->join('companies', 'companies.id', '=', 'event_registrations.company_id')
+            ->where('event_registrations.first_verified_at', '>=', now()->subDays(90))
+            ->select('companies.state', 'event_registrations.created_at', 'event_registrations.first_verified_at')
+            ->toBase()->get()
+            ->map(fn ($r) => (object) ['state' => $r->state ?: 'No zone',
+                'seconds' => Carbon::parse($r->created_at)->diffInSeconds(Carbon::parse($r->first_verified_at))])
+            ->where('seconds', '>', 60);
+
+        if ($rows->isEmpty()) {
+            return null;
+        }
+        $days = fn ($rows) => round($rows->avg('seconds') / 86400, 1);
+
+        return [
+            'days' => $days($rows),
+            'rows' => $rows->count(),
+            'byZone' => $rows->groupBy('state')->map($days)->sortDesc(),
+        ];
     }
 
     /**

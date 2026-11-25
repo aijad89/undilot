@@ -380,3 +380,21 @@ it('counts companies whose profile is not complete, in the admin\'s own zone', f
     $this->get(route('admin.companies.index', ['missing' => 'profile']))->assertOk()
         ->assertSee('Profile incomplete')->assertSee($bare->name)->assertDontSee($ready->name);
 });
+
+it('shows HQ how long it takes to verify a zone\'s row, leaving out rows HQ placed itself', function () {
+    $event = Event::factory()->create();
+    $placed = fn (string $state, $created, $verified) => registered($event, $state, [
+        'created_at' => $created, 'first_verified_at' => $verified, 'verified_at' => $verified,
+    ]);
+    $placed('Perak', now()->subDays(10), now()->subDays(8));              // 2 days
+    $placed('Perak', now()->subDays(10), now()->subDays(6));              // 4 days
+    $placed('Johor', now()->subDays(5), now()->subDays(4));               // 1 day
+    $placed('Johor', now()->subDays(3), now()->subDays(3)->addSeconds(5)); // HQ placed it: left out
+    $placed('Kedah', now()->subDays(200), now()->subDays(100));           // before the 90 days
+
+    $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder(['HQ verification time', '2.3 days', 'over 3 rows', 'Perak', '3 days', 'Johor', '1 day<'], false);
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('HQ verification time');
+});

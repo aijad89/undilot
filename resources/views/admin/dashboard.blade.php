@@ -163,6 +163,26 @@
         </section>
     </div>
 
+    {{-- ── HQ verification time (HQ and super) ───────────────────── --}}
+    @if($verifyTimes)
+        <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-verify">
+            <h3 class="mac-card-title" id="dash-verify">HQ verification time</h3>
+            <p class="mac-muted mac-text-sm mb-0">
+                From a zone placing a company on a draw list to HQ verifying it, last 90 days:
+                <strong>{{ $verifyTimes['days'] }} {{ str('day')->plural($verifyTimes['days'] == 1 ? 1 : 2) }}</strong> on average, over {{ $verifyTimes['rows'] }} {{ str('row')->plural($verifyTimes['rows']) }}.
+            </p>
+            @php($maxDays = max(0.1, $verifyTimes['byZone']->max()))
+            <h4 class="dash-sub">By zone</h4>
+            @foreach($verifyTimes['byZone'] as $zone => $d)
+                <div class="dash-split">
+                    <span>{{ $zone }}</span>
+                    <span class="dash-split-bar"><span style="width: {{ round($d / $maxDays * 100) }}%"></span></span>
+                    <strong>{{ $d }} {{ str('day')->plural($d == 1 ? 1 : 2) }}</strong>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     {{-- ── Finished events ─────────────────────────────────────────── --}}
     @if($completed->isNotEmpty())
         <section class="mac-card mac-card-padded mt-3" aria-labelledby="dash-completed">
