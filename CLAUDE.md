@@ -327,6 +327,12 @@ bayaran per lot, satu lajur per hari. Buku yang diisi dimuat naik semula
 Ringkasan di depan: RINGKASAN (nilai tetap; 3x6 = 2 lot), RINGKASAN KESELURUHAN, RING1,
 SALEBYDAY (formula). Gate `manage-sales-book` = HQ/super. `TheSalesBookListsEveryLotByCodeTest`.
 
+### Papan pemuka = kerja, analisis jualan di halaman Sales (pemilik 2026-11-25)
+Papan pemuka hanya memegang apa yang menunggu tindakan: empat kiraan kerja, *Needs
+attention*, acara sedang berjalan, rekod syarikat yang berlubang. Graf jualan, pecahan
+dan usahawan terlaris di `admin.sales.index` — bukan perbandingan % antara acara (saiz
+dan tempat berbeza). `TheDashboardShowsEachAdminTheirOwnWorkTest`.
+
 ### `$unreadNotificationCount` disediakan oleh senarai view
 View baharu yang membacanya **mesti** ditambah pada composer dalam
 `AppServiceProvider`, atau ia 500.

@@ -84,18 +84,16 @@ it('shows draw progress for an open draw, and who is still waiting', function ()
         ->assertSee('Open Draw: 1 company not confirmed yet');
 });
 
-it('gives each role only the shortcuts it may use, and zones only to HQ and super', function () {
-    Company::factory()->create(['state' => 'Kedah']);
-
+it('gives each role only the shortcuts it may use', function () {
     $newEvent = route('admin.events.create');
 
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
         ->assertSee(route('admin.companies.create'), false)
-        ->assertDontSee($newEvent, false)->assertDontSee('By zone');
+        ->assertDontSee($newEvent, false);
 
     auth()->forgetGuards();
     $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
-        ->assertSee($newEvent, false)->assertSee('By zone')->assertSee('Kedah');
+        ->assertSee($newEvent, false);
 });
 
 it('tells HQ what waits to be verified, and each zone what HQ returned to it', function () {
@@ -239,7 +237,7 @@ it('counts companies that cannot sign in: no email, or never signed in', functio
     $this->get(route('admin.companies.index', ['missing' => 'login']))->assertSee($never->name)->assertDontSee($noEmail->name)->assertDontSee($fine->name);
 });
 
-it('shows HQ the sales card, and never a state admin', function () {
+it('shows HQ the latest sales on the dashboard and the overview on the Sales page, and a state admin neither', function () {
     $old = Event::factory()->create(['title' => 'Pameran Lama', 'start_date' => now()->subYear(), 'end_date' => now()->subYear()->addDays(2)]);
     $new = Event::factory()->create(['title' => 'Pameran Baru', 'start_date' => now()->subMonth(), 'end_date' => now()->subMonth()->addDays(2)]);
     foreach ([[$old, 'TUNAI', 5000], [$new, 'TUNAI', 1000], [$new, 'KAD KREDIT', 250.5]] as [$event, $type, $amount]) {
@@ -251,12 +249,18 @@ it('shows HQ the sales card, and never a state admin', function () {
     }
 
     $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))
-        ->assertSeeInOrder(['Sales', 'RM 1,250.50', 'Pameran Baru', 'RM 6,250.50', '2', 'events with sales'])
-        ->assertSeeInOrder(['Top events', 'Pameran Lama', 'Pameran Baru'])
-        ->assertSeeInOrder(['TUNAI', 'RM 6,000.00', 'KAD KREDIT', 'RM 250.50']);
+        // The latest by date, not the biggest.
+        ->assertSeeInOrder(['Latest sales', 'RM 1,250.50', 'Pameran Baru'])
+        ->assertSee(route('admin.sales.show', $new), false);
+
+    $this->get(route('admin.sales.index'))->assertOk()
+        ->assertSeeInOrder(['Latest event', 'RM 1.3K', 'RM 1,250.50 at Pameran Baru'])
+        ->assertSeeInOrder(['TUNAI', 'RM 1K', '80%', 'KAD KREDIT', 'RM 251', '20%', 'TEMPAHAN', 'RM 0', '0%'])
+        ->assertSeeInOrder(['All events', '2 events with sales', 'RM 6.3K', 'RM 6,250.50 in all', 'Top events', 'Pameran Lama', 'Pameran Baru'])
+        ->assertSeeInOrder(['By payment type', 'TUNAI', 'RM 6K', 'KAD KREDIT', 'RM 251']);
 
     auth()->forgetGuards();
-    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('events with sales');
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))->assertDontSee('id="dash-sales"', false);
 });
 
 it('breaks each event\'s join requests down, in the admin\'s own zone', function () {
@@ -351,7 +355,7 @@ it('shows how many places of the event are filled, event-wide, even to a zone', 
         ->assertSee('2/3 places filled');
 
     registered($event, 'Kedah');
-    $this->get(route('admin.dashboard'))->assertSee('<span class="dash-full">3/3 places filled</span>', false);
+    $this->get(route('admin.dashboard'))->assertSee('dash-full">3/3 places filled</span>', false);
 });
 
 it('says when registration opens or closes, before the draw dates', function () {
@@ -422,9 +426,9 @@ it('splits sales by category, a programme tab on its own, and by state however i
         ]);
     }
 
-    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
-        ->assertSeeInOrder(['By category', 'KARYANEKA', 'RM 400.00', 'TEKSTIL', 'RM 160.00'])
-        ->assertSeeInOrder(['By state', 'JOHOR', 'RM 400.00', 'KELANTAN', 'RM 150.00', 'NO STATE', 'RM 10.00']);
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.sales.index'))
+        ->assertSeeInOrder(['By category', 'KARYANEKA', 'RM 400', 'TEKSTIL', 'RM 160'])
+        ->assertSeeInOrder(['By state', 'JOHOR', 'RM 400', 'KELANTAN', 'RM 150', 'NO STATE', 'RM 10']);
 });
 
 it('lists the exhibitors who sold most: a linked company as one, an outside one by its typed name', function () {
@@ -445,8 +449,8 @@ it('lists the exhibitors who sold most: a linked company as one, an outside one 
     $sale($a, null, 'Kedai Kecil', 100);
     $sale($a, null, null, 999); // an empty block: nobody's
 
-    $this->actingAs(superAdmin(), 'admin')->get(route('admin.dashboard'))
-        ->assertSeeInOrder(['Top exhibitors', 'Batras Couture', 'RM 600.00', 'RM 450.00', 'Kedai Kecil', 'RM 100.00', 'By category'])
+    $this->actingAs(superAdmin(), 'admin')->get(route('admin.sales.index'))
+        ->assertSeeInOrder(['Top exhibitors', 'Batras Couture', 'RM 600.00', 'RM 450.00', 'Kedai Kecil', 'RM 100.00'])
         ->assertSee(route('admin.companies.edit', $batras), false)
         ->assertDontSee('RM 999.00');
 });
@@ -462,18 +466,7 @@ it('counts the companies that used the portal in the last 30 days, in the admin\
     $seen(now()->subDay(), 'Perak', false);
 
     $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
-        ->assertSeeInOrder(['<strong>1</strong><span>used the portal, 30 days</span>'], false);
-});
-
-it('splits the zone\'s active companies by business type, the unset ones too', function () {
-    Company::factory()->count(2)->create(['state' => 'Perak', 'business_type' => 'Pengeluar atau Pedagang']);
-    Company::factory()->create(['state' => 'Perak', 'business_type' => 'Pemborong']);
-    Company::factory()->create(['state' => 'Perak', 'business_type' => null]);
-    Company::factory()->create(['state' => 'Perak', 'business_type' => 'Pemborong', 'is_active' => false]);
-    Company::factory()->create(['state' => 'Johor', 'business_type' => 'Pemborong']);
-
-    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
-        ->assertSeeInOrder(['By business type', 'Pengeluar atau Pedagang', '<strong>2</strong>', 'Pemborong', '<strong>1</strong>', 'Not set', '<strong>1</strong>'], false);
+        ->assertSee('<strong>1</strong><span>used the portal, 30 days</span>', false);
 });
 
 it('shows super the last ten audit rows, and never HQ', function () {
@@ -490,4 +483,32 @@ it('shows super the last ten audit rows, and never HQ', function () {
 
     auth()->forgetGuards();
     $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))->assertDontSee('Recent activity');
+});
+
+it('counts the work waiting at the top: HQ checks, join requests, unconfirmed companies, and this week\'s dates', function () {
+    $open = Event::factory()->create(['title' => 'Cabutan Dibuka', 'polling_status' => 'polling',
+        'registration_close_at' => now()->subDay(), 'polling_deadline' => now()->addDays(2)->addHour(), 'start_date' => now()->addMonth()]);
+    registered($open, 'Perak', ['confirmed_participation' => true, 'verified_at' => now()]);
+    registered($open, 'Perak', ['verified_at' => now()]);
+    registered($open, 'Perak', ['verified_at' => null, 'hq_note' => 'Wrong code']);
+    registered($open, 'Johor', ['verified_at' => null]);
+    App\Models\EventJoinRequest::factory()->create(['event_id' => $open->id, 'company_id' => Company::factory()->create(['state' => 'Perak'])->id]);
+    // A draft draw's unconfirmed rows are not waiting on anyone yet.
+    $far = Event::factory()->create(['title' => 'Jauh Lagi', 'registration_close_at' => now()->addMonth(), 'start_date' => now()->addMonths(2)]);
+    registered($far, 'Perak', ['verified_at' => now()]);
+    // Listed after the open draw (it starts later), but its date comes first.
+    Event::factory()->create(['title' => 'Tutup Esok', 'registration_close_at' => now()->addDay()->addHour(), 'start_date' => now()->addMonths(3)]);
+    // A closed draw's deadline is no longer a date to watch.
+    Event::factory()->create(['title' => 'Sudah Tutup', 'polling_status' => 'closed', 'registration_close_at' => now()->subDay(),
+        'polling_deadline' => now()->addDays(3), 'start_date' => now()->addMonths(4)]);
+
+    $kpi = fn (string $label, int $n) => [$label, '<strong>'.$n.'</strong>'];
+
+    $this->actingAs(superAdmin(['role' => 'hq']), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder([...$kpi('Waiting for HQ', 1), ...$kpi('Join requests', 1), ...$kpi('Not confirmed yet', 3), 'in 1 open draw',
+            ...$kpi('Next 7 days', 2), 'Next: Registration closes, Tutup Esok, 1 day from now'], false);
+
+    auth()->forgetGuards();
+    $this->actingAs(stateAdmin('Perak'), 'admin')->get(route('admin.dashboard'))
+        ->assertSeeInOrder([...$kpi('Returned by HQ', 1), ...$kpi('Join requests', 1), ...$kpi('Not confirmed yet', 2)], false);
 });

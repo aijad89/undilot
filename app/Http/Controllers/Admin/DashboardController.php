@@ -7,7 +7,6 @@ use App\Models\Admin;
 use App\Models\Company;
 use App\Models\Event;
 use App\Models\EventRegistration;
-use App\Models\KrafBidang;
 use App\Models\Plot;
 use App\Support\DevEnvironment;
 use App\Support\PollingGuard;
@@ -23,9 +22,10 @@ use Illuminate\Support\Facades\DB;
  * admin here, so this route existing is what keeps an already-signed-in admin
  * from being bounced to the PARTICIPANT login form when they open /admin/login.
  *
- * What needs fixing, the events, the companies, HQ verification time (HQ and
- * super), recent activity (super), recently finished events, sales (HQ and
- * super), and shortcuts.
+ * Work first: four counts of what is waiting, what needs fixing, the events
+ * in progress. Then the company records' gaps, the latest sales (HQ and
+ * super), recently finished events, HQ verification time (HQ and super) and
+ * recent activity (super). Sales charts live on the Sales page.
  * Every count is scoped the way the screen it links to is scoped: a state admin
  * counts their own zone (through `companies.state`) and never sees a draft
  * event; HQ and super count everything. Counts only, aggregated in SQL.
@@ -53,13 +53,15 @@ class DashboardController extends Controller
         return view('admin.dashboard', [
             'admin' => $admin,
             'global' => $global,
-            'attention' => array_merge($this->attention($global, $inZone, $companies, $events), $this->idleAdmins($admin)),
+            'attention' => array_merge($this->attention($global, $inZone, $events), $this->idleAdmins($admin)),
             // Every current event is checked for attention; the card lists the soonest few.
             'events' => $shown,
             'lots' => $this->lotsBySize($shown->pluck('id'), $global),
+            'kpis' => $this->kpis($events, $global),
             'completed' => $this->completed($admin, $global, $inZone),
-            'companyStats' => $this->companyStats($global, $companies),
-            'sales' => $admin->can('manage-sales-book') ? $this->sales() : null,
+            'health' => $this->health($companies),
+            // One line; the charts are on the Sales page.
+            'latestSales' => $admin->can('manage-sales-book') ? $this->latestSales() : null,
             'verifyTimes' => $global ? $this->verifyTimes() : null,
             // The audit trail is super's alone (read-audit-trail).
             'activity' => $admin->can('read-audit-trail')
@@ -156,7 +158,7 @@ class DashboardController extends Controller
      * What needs fixing, as a list of [tone, text, link] rows. An empty section
      * shows a single "all clear" line instead.
      */
-    private function attention(bool $global, \Closure $inZone, \Closure $companies, $events): array
+    private function attention(bool $global, \Closure $inZone, $events): array
     {
         // Server setup first: when it is broken, nothing below happens on time.
         $rows = $global ? self::serverProblems() : [];
@@ -236,47 +238,6 @@ class DashboardController extends Controller
                 $rows[] = ['info', "{$event->title}: {$event->unpaid} draw-list ".str('row')->plural($event->unpaid).' marked unpaid',
                     route('admin.events.registrations.index', [$event, 'payment' => 'unpaid'])];
             }
-        }
-
-        // A11 — a current certificate expired or expiring within 30 days. Never a
-        // block (owner 2026-11-24): a warning so the office can ask for the new one.
-        $expiring = $companies()->active()->expiringCertificate()->count();
-        if ($expiring > 0) {
-            $rows[] = ['warn', "{$expiring} ".str('company')->plural($expiring).' with a certificate expired or expiring within 30 days',
-                route('admin.companies.index', ['missing' => 'certificate'])];
-        }
-
-        // A13 — profiles not complete: these companies cannot send a request to join.
-        $incomplete = $companies()->whereIntegerInRaw('id', \App\Support\CompanyCredentials::incompleteIds())->count();
-        if ($incomplete > 0) {
-            $rows[] = ['info', "{$incomplete} ".str('company')->plural($incomplete).' with an incomplete profile — they cannot ask to join an event',
-                route('admin.companies.index', ['missing' => 'profile'])];
-        }
-
-        // A12 — accounts that cannot sign in: no email (the office sets it), or
-        // an email but the first sign-in has not happened yet.
-        $noEmail = $companies()->active()->missingAccount('email')->count();
-        if ($noEmail > 0) {
-            $rows[] = ['warn', "{$noEmail} ".str('company')->plural($noEmail).' with no email — they cannot sign in to the portal',
-                route('admin.companies.index', ['missing' => 'email'])];
-        }
-        $neverIn = $companies()->active()->missingAccount('login')->count();
-        if ($neverIn > 0) {
-            $rows[] = ['info', "{$neverIn} ".str('company')->plural($neverIn).' with an email but never signed in',
-                route('admin.companies.index', ['missing' => 'login'])];
-        }
-
-        // A5/A6 — companies missing what describes them.
-        $noCategory = $companies()->active()->whereDoesntHave('krafSelections')->count();
-        if ($noCategory > 0) {
-            $rows[] = ['warn', "{$noCategory} ".str('company')->plural($noCategory).' with no craft category',
-                route('admin.companies.index', ['missing' => 'category'])];
-        }
-
-        $noCode = $companies()->active()->whereNull('kraf_code')->count();
-        if ($noCode > 0) {
-            $rows[] = ['info', "{$noCode} ".str('company')->plural($noCode).' with no craft code — the draw list cannot fill one in',
-                route('admin.companies.index', ['missing' => 'code'])];
         }
 
         return $rows;
@@ -389,71 +350,11 @@ class DashboardController extends Controller
     }
 
     /**
-     * Sales from the uploaded sales books: the latest event with sales, the top
-     * five events, and all sales by payment type. HQ and super only.
+     * The zone's company records at a glance, and what is missing from them:
+     * each gap a count, and a link to the Companies list filtered to it.
      */
-    private function sales(): array
+    private function health(\Closure $companies): array
     {
-        $byEvent = DB::table('sales_book_entries')
-            ->join('events', 'events.id', '=', 'sales_book_entries.event_id')
-            ->selectRaw('events.id, events.title, events.start_date, sum(amount) as total')
-            ->groupBy('events.id', 'events.title', 'events.start_date')
-            ->get();
-        $categories = KrafBidang::codes()->pluck('name', 'code');
-
-        return [
-            'latest' => $byEvent->sortByDesc('start_date')->first(),
-            'events' => $byEvent->count(),
-            'top' => $byEvent->sortByDesc('total')->take(5)->values(),
-            'byType' => DB::table('sales_book_entries')
-                ->selectRaw('payment_type, sum(amount) as total')->groupBy('payment_type')
-                ->pluck('total', 'payment_type'),
-            // A code sheet falls under its category, as on SALEBYDAY; a programme tab stands alone.
-            'byCategory' => $this->salesBy('sheet', fn (string $sheet) => $categories[$sheet] ?? $sheet),
-            'exhibitors' => $this->topExhibitors(),
-            // Typed into the sheet by hand: "Kelantan" and "KELANTAN " are one state.
-            'byState' => $this->salesBy('state', fn (?string $state) => mb_strtoupper(trim((string) $state)) ?: 'NO STATE'),
-        ];
-    }
-
-    /**
-     * The ten exhibitors who sold most, across every event. One linked to a
-     * company by its lot counts as that company, however its name was typed;
-     * one from outside the draw counts by the name on the sheet.
-     */
-    private function topExhibitors()
-    {
-        return DB::table('sales_book_entries')
-            ->leftJoin('companies', 'companies.id', '=', 'sales_book_entries.company_id')
-            ->whereNotNull('sales_book_entries.company_name')->orWhereNotNull('sales_book_entries.company_id')
-            ->selectRaw('sales_book_entries.company_id, companies.name as linked, sales_book_entries.company_name, sales_book_entries.event_id, sum(amount) as total')
-            ->groupBy('sales_book_entries.company_id', 'companies.name', 'sales_book_entries.company_name', 'sales_book_entries.event_id')
-            ->get()
-            ->groupBy(fn ($r) => $r->company_id ? "id:{$r->company_id}" : mb_strtoupper(trim($r->company_name)))
-            ->map(fn ($rows) => (object) [
-                'company_id' => $rows[0]->company_id,
-                'name' => $rows[0]->linked ?? trim($rows[0]->company_name),
-                'events' => $rows->pluck('event_id')->unique()->count(),
-                'total' => $rows->sum('total'),
-            ])
-            ->sortByDesc('total')->take(10)->values();
-    }
-
-    /** Sales summed by a column, its values folded by $label, biggest first. */
-    private function salesBy(string $column, \Closure $label)
-    {
-        return DB::table('sales_book_entries')
-            ->selectRaw("{$column} as k, sum(amount) as total")->groupBy($column)->get()
-            ->groupBy(fn ($r) => $label($r->k))
-            ->map(fn ($rows) => $rows->sum('total'))
-            ->sortDesc();
-    }
-
-    /** Totals, by craft category, and — for super and HQ — by zone. */
-    private function companyStats(bool $global, \Closure $companies): array
-    {
-        $ids = $companies()->select('id');
-
         return [
             'active' => $companies()->where('is_active', true)->count(),
             'inactive' => $companies()->where('is_active', false)->count(),
@@ -461,24 +362,56 @@ class DashboardController extends Controller
             // Signed in to the portal themselves; an admin's "login as" is not stamped.
             'portal' => $companies()->active()->whereHas('user', fn ($u) => $u->where('last_seen_at', '>=', now()->subDays(30)))->count(),
 
-            // A company with two selections in one category counts once there.
-            'byCategory' => DB::table('company_krafs')
-                ->join('kraf_bidangs', 'kraf_bidangs.id', '=', 'company_krafs.bidang_id')
-                ->whereIn('company_krafs.company_id', $ids)
-                ->selectRaw('kraf_bidangs.name, count(distinct company_krafs.company_id) as n')
-                ->groupBy('kraf_bidangs.name')
-                ->orderByDesc('n')
-                ->pluck('n', 'name'),
-
-            // The office's field, not the participant's: "Not set" is work for the office.
-            'byBusinessType' => $companies()->active()
-                ->selectRaw("coalesce(nullif(business_type, ''), 'Not set') as type, count(*) as n")
-                ->groupBy('type')->orderByDesc('n')->toBase()->pluck('n', 'type'),
-
-            'byZone' => $global
-                ? Company::query()->whereNotNull('state')
-                    ->selectRaw('state, count(*) as n')->groupBy('state')->orderByDesc('n')->pluck('n', 'state')
-                : collect(),
+            // [count, what is wrong, Companies filter, tone], in the order the office fixes them.
+            'gaps' => collect([
+                // Not complete: they cannot send a request to join.
+                [$companies()->whereIntegerInRaw('id', \App\Support\CompanyCredentials::incompleteIds())->count(),
+                    'with an incomplete profile — they cannot ask to join an event', 'profile', 'info'],
+                // The office sets the email; without it there is no sign-in.
+                [$companies()->active()->missingAccount('email')->count(), 'with no email — they cannot sign in to the portal', 'email', 'warn'],
+                [$companies()->active()->missingAccount('login')->count(), 'with an email but never signed in', 'login', 'info'],
+                // Never a block (owner 2026-11-24): a warning so the office can ask for the new one.
+                [$companies()->active()->expiringCertificate()->count(), 'with a certificate expired or expiring within 30 days', 'certificate', 'warn'],
+                [$companies()->active()->whereDoesntHave('krafSelections')->count(), 'with no craft category', 'category', 'warn'],
+                [$companies()->active()->whereNull('kraf_code')->count(), 'with no craft code — the draw list cannot fill one in', 'code', 'info'],
+            ])->filter(fn ($gap) => $gap[0] > 0)->values(),
         ];
+    }
+
+    /**
+     * The four figures at the top, each a kind of work waiting: rows for HQ to
+     * verify (or, for a zone, rows HQ sent back), join requests to review,
+     * companies yet to confirm in an open draw, and the dates in the next 7 days.
+     */
+    private function kpis($events, bool $global): array
+    {
+        $week = now()->addDays(7);
+        $open = $events->where('polling_status', 'polling');
+
+        return [
+            'hq' => $global ? $events->sum('hq_waiting') : $events->sum('hq_returned'),
+            'join' => $events->sum('join_pending'),
+            'unconfirmed' => $open->sum(fn ($e) => $e->on_list - $e->confirmed),
+            'openDraws' => $open->count(),
+            // [what, when, event], soonest first.
+            'week' => $events->flatMap(fn ($e) => collect([
+                ['Registration closes', $e->registration_close_at],
+                ['Draw opens', $e->polling_status === 'draft' ? $e->polling_start_date : null],
+                ['Draw closes', $e->polling_status === 'polling' ? $e->polling_deadline : null],
+                ['Starts', $e->start_date],
+            ])->filter(fn ($d) => $d[1]?->isFuture() && $d[1]->lte($week))->map(fn ($d) => [$d[0], $d[1], $e]))
+                ->sortBy(fn ($d) => $d[1]->timestamp)->values(),
+        ];
+    }
+
+    /** The latest event with sales uploaded, and its total. HQ and super only. */
+    private function latestSales(): ?object
+    {
+        return DB::table('sales_book_entries')
+            ->join('events', 'events.id', '=', 'sales_book_entries.event_id')
+            ->selectRaw('events.id, events.title, events.start_date, events.end_date, sum(amount) as total')
+            ->groupBy('events.id', 'events.title', 'events.start_date', 'events.end_date')
+            ->orderByDesc('events.start_date')
+            ->first();
     }
 }
